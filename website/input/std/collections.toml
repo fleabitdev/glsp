@@ -1,0 +1,586 @@
+filename = "collections"
+name = "Collections"
+text = """
+	The basic collection types are [arrays](arr), [strings](str), and [tables](tab).
+
+	An identical double-ended queue (deque) API is supported by both arrays and 
+	strings. A&nbsp;string can be thought of as an array which only contains characters.
+"""
+
+[[apis]]
+	filename = "len"
+	starts-subcategory = "Collections"
+	kinds = ["fn"]
+	args = ["coll deque|tab|iter"]
+	returns = "int|sym"
+	text = """
+		Returns the number of items in a collection.
+
+		When the argument is a table, string or array, it returns the number of elements or
+		entries stored by that collection.
+
+		The argument may also be an iterator. In that case, the result is:
+
+		- An integer, if the iterator knows its exact length
+		- The symbol `infinite`, if the iterator knows itself to be infinite
+		- The symbol `unknown`, if the iterator does not know its exact length
+
+		Iterators are quite conservative when reporting their length. For example, array iterators
+		report their length as `unknown`, because it's possible that additional elements may be
+		pushed to the array during iteration.
+	"""
+
+[[apis]]
+	filename = "empty-p"
+	kinds = ["fn", "mac"]
+	args = ["coll deque|tab|iter"]
+	returns = "bool"
+	text = """
+		Returns `#t` if a collection contains no items.
+
+		Equivalent to `(== (len coll) 0)`.
+	"""
+
+[[apis]]
+	filename = "access"
+	kinds = ["fn", "mac"]
+	args = ["coll val", "key val"]
+	returns = "val"
+	text = """
+		Retrieves an item from a collection.
+
+		- When `coll` is an array or string, `key` must be an integer. Positive integers count
+		  forwards from the deque's first element, starting from `0`, while negative integers
+		  count backwards from the deque's last element, starting from `-1`.
+		- When `coll` is a table, `key` can be any value. See [`keys-eqv?`](keys-eqv-p) for a
+		  discussion of how table keys are tested for equivalence.
+		- When `coll` is an object or class, `key` must be a symbol. Fields, constants and 
+		  properties are bound both to a fully-qualified name, like `State:x`, and an unqualified 
+		  name, like `x`.
+
+		The `?` special syntax can be used to perform fallible indexing: `[coll (? key)]`. In
+		that case, if the index `key` is not present, the function succeeds and returns `#n`.
+
+		When `coll` is a deque, slicing syntax is supported: `[deq i : j]`, where either `i` or
+		`j` may be absent. This returns a newly-allocated, mutable deque which contains all
+		of the elements from `i` inclusive to `j` exclusive. Negative indexes are supported.
+
+		When `key` is an iterator, this function returns a new iterator which produces
+		`[coll item]` for each item produced by `key`.
+
+		`(access coll key)` is usually [abbreviated][0] as [`[coll key]`](access-abbrv).
+
+		[0]: ../reference/syntax-and-types.html#abbreviations
+	"""
+
+[[apis]]
+	filename = "set-access"
+	name = "access="
+	kinds = ["fn", "mac"]
+	args = ["coll val", "key val", "new-val val"]
+	returns = "nil"
+	text = """
+		Mutates an item in a collection.
+
+		`(access= c k nv)` is usually written as `(= [c k] nv)`, using the [`=`](set) macro.
+
+		Possible values for `coll` and `key`, and support for the `?` syntax and slicing syntax,
+		are all identical to the [`access`](access) function.
+
+		When assigning to a slice, `new-val` must be a deque. It does not need to have the
+		same length as the slice which is being replaced.
+
+			(= [dst 1 : 3] src)
+
+			; ...is roughly equivalent to...
+
+			(del! dst 1 : 3)
+			(insert! dst 1 ..src)
+
+		It's an error to mutate a collection which has previously been [frozen](freeze-mut).
+	"""
+
+[[apis]]
+	filename = "has-p"
+	kinds = ["fn"]
+	args = ["coll val", "key val"]
+	returns = "bool"
+	text = """
+		Returns `#t` if a collection contains a particular item.
+
+		`coll` may belong to any type, but if it's something other than an array, string, table,
+		object or class, this function always returns `#f`.
+
+			(prn (has? '(a b c) -1)) ; prints #t
+			(prn (has? '(a b c) 4)) ; prints #f
+			(prn (has? '(a b c) 'key)) ; prints #f
+			(prn (has? 'symbol 2)) ; prints #f
+	"""
+
+[[apis]]
+	filename = "remove-mut"
+	kinds = ["fn", "mac"]
+	args = ["coll deque|tab", "key val"]
+	returns = "val"
+	text = """
+		Removes an item from a collection, and returns it.
+
+		The simplest way to call this function is `(remove! coll key)`. If the index `key` is not 
+		present, it's an error.
+
+		The `?` special syntax can be used to permit missing items: `(remove! coll (? key))`.
+		In that case, if the index `key` is not present, the function will succeed and return `#n`.
+
+		When `coll` is a deque, [slicing syntax](access) is supported: `(remove! coll 2 :)`.
+		This will remove all elements with an index of 2 or more, returning them as
+		a freshly-allocated, mutable deque.
+	"""
+
+[[apis]]
+	filename = "del-mut"
+	kinds = ["fn", "mac"]
+	args = ["coll deque|tab", "key val"]
+	returns = "nil"
+	text = """
+		Deletes an item from a collection, without returning it.
+
+		The simplest way to call this function is `(del! coll key)`. If the index `key` is not 
+		present, it's an error.
+
+		The `?` special syntax can be used to permit missing items: `(del! coll (? key))`.
+		In that case, the function will succeed even if the index `key` is not present.
+
+		When `coll` is a deque, [slicing syntax](access) is supported: `(del! coll 2 :)`.
+		This will delete all elements with an index of 2 or more. `del!` is usually more
+		efficient than `remove!` when deleting a slice, because it doesn't need to perform
+		any allocation.
+	"""
+
+[[apis]]
+	filename = "clear-mut"
+	kinds = ["fn"]
+	args = ["coll deque|tab"]
+	returns = "nil"
+	text = """
+		Deletes all items from a collection.
+
+		The collection's backing storage is not deallocated.
+	"""
+
+[[apis]]
+	filename = "map-syntax"
+	kinds = ["fn"]
+	args = ["f callable", "v val"]
+	returns = "val"
+	text = """
+		Maps a function over a collection, preserving syntax information.
+
+		Arrays parsed from a file have hidden syntax information which describes the filename and
+		line number from which they were parsed. The usual [map](map) function discards this 
+		information.
+
+		When `v` is an array or table, `map-syntax` returns a cloned array or table, with the
+		same syntax information as `v`, where each element, key or value has been mapped using 
+		`f`. Otherwise, `v` is returned unchanged.
+	"""
+
+[[apis]]
+	filename = "arr"
+	starts-subcategory = "Arrays"
+	kinds = ["fn"]
+	args = ["args val *"]
+	returns = "arr"
+	text = """
+		Constructs a new, mutable array.
+
+		The resulting array contains all of the arguments passed to this function.
+
+			(ensure (eq? '(1 2 3) (arr 1 2 3)))
+	"""
+
+[[apis]]
+	filename = "arr-from-elem"
+	kinds = ["fn"]
+	args = ["elem val", "reps int"]
+	returns = "arr"
+	text = """
+		Constructs a new, mutable array by repeating a value.
+
+		`reps` must be non-negative. Returns an array which contains `elem`, repeated
+		`reps` times.
+
+			(ensure (eq? '(#t #t #t) (arr-from-elem #t 3)))
+	"""
+
+[[apis]]
+	filename = "push-mut"
+	starts-subcategory = "Deques"
+	kinds = ["fn"]
+	args = ["deq deque", "args val *"]
+	returns = "nil"
+	text = """
+		Appends one or more elements to the end of a deque.
+
+			(let ar (arr 1 2 3))
+			(push! ar 4 5)
+			(ensure (eq? ar '(1 2 3 4 5)))
+	"""
+
+[[apis]]
+	filename = "push-start-mut"
+	kinds = ["fn"]
+	args = ["deq deque", "args val *"]
+	returns = "nil"
+	text = """
+		Prepends one or more elements to the beginning of a deque.
+
+			(let st (clone "cde"))
+			(push-start! st \\a \\b)
+			(ensure (eq? st "abcde"))
+	"""
+
+[[apis]]
+	filename = "pop-mut"
+	kinds = ["fn"]
+	args = ["deq deque"]
+	returns = "val"
+	text = """
+		Removes the deque's last element, and returns it.
+
+		It's an error if the deque is empty.
+	"""
+
+[[apis]]
+	filename = "pop-start-mut"
+	kinds = ["fn"]
+	args = ["deq deque"]
+	returns = "val"
+	text = """
+		Removes the deque's first element, and returns it.
+
+		It's an error if the deque is empty.
+	"""
+
+[[apis]]
+	filename = "insert-mut"
+	kinds = ["fn"]
+	args = ["deq deque", "idx int", "args val *"]
+	returns = "val"
+	text = """
+		Inserts one or more elements into a deque.
+
+		The index can be negative, or just past the end of the deque. The left-most inserted 
+		element will have the index `idx`.
+
+			(let ar (arr 'a 'b 'c))
+			(insert! ar 1 'x 'y)
+			(prn ar) ; prints (a x y b c)
+			(insert! ar 5 'd)
+			(prn ar) ; prints (a x y b c d)
+	"""
+
+[[apis]]
+	filename = "grow-mut"
+	kinds = ["fn"]
+	args = ["deq deque", "start-n int", "end-n int", "elem val ?"]
+	returns = "nil"
+	text = """
+		Increases a deque's size.
+
+		`start-n` copies of `elem` are pushed to the start of the deque, and
+		`end-n` copies of `elem` are push to the end of the deque.
+
+		When `elem` is absent, it defaults to `#n` for an array, or `\\0` for a string.
+	"""
+
+[[apis]]
+	filename = "shrink-mut"
+	kinds = ["fn"]
+	args = ["deq deque", "start-n int", "end-n int"]
+	returns = "nil"
+	text = """
+		Reduces a deque's size.
+
+		`start-n` elements are popped from the start of the deque, and `end-n` elements
+		are popped from its end.
+
+		If the length of the deque is less than `(+ start-n end-n)`, it's an error.
+	"""
+
+[[apis]]
+	filename = "swap-remove-mut"
+	kinds = ["fn"]
+	args = ["deq deque", "idx int"]
+	returns = "val"
+	text = """
+		Swaps an element with the deque's last element, then removes it and returns it.
+
+		Unlike [`remove!`](remove-mut), this is `O(1)`. However, the deque's ordering
+		is not necessarily preserved.
+
+			(let st (clone "abcde"))
+			(prn (swap-remove! st 1)) ; prints b
+			(prn st) ; prints aecd
+	"""
+
+[[apis]]
+	filename = "swap-remove-start-mut"
+	kinds = ["fn"]
+	args = ["deq deque", "idx int"]
+	returns = "val"
+	text = """
+		Swaps an element with the deque's first element, then removes it and returns it.
+
+		Unlike [`remove!`](remove-mut), this is `O(1)`. However, the deque's ordering
+		is not necessarily preserved.
+
+			(let st (clone "abcde"))
+			(prn (swap-remove! st 3)) ; prints d
+			(prn st) ; prints bcae
+	"""
+
+[[apis]]
+	filename = "sort"
+	kinds = ["fn"]
+	args = ["deq deque", "ordf callable"]
+	returns = "deque"
+	text = """
+		Returns a sorted copy of a deque.
+
+		`ordf` must be a function which can accept any two elements from `deq` as arguments.
+		It must return one of the symbols `==`, `<` or `>` to represent the relative ordering of
+		those two elements.
+
+		If all of the deque's elements are numbers or characters, a good choice for `ordf`
+		would be the built-in function [`ord`](ord).
+
+			(let sorted (sort "Hello, world!" ord))
+			(prn sorted) ; prints  !,Hdellloorw
+	"""
+
+[[apis]]
+	filename = "sort-mut"
+	kinds = ["fn"]
+	args = ["deq deque", "ordf callable"]
+	returns = "nil"
+	see-also = ["sort"]
+	text = """
+		Sorts a deque in-place.
+
+		Equivalent to `(= [deq :] (sort deq ordf))`.
+	"""
+
+[[apis]]
+	filename = "starts-with-p"
+	kinds = ["fn"]
+	args = ["deq deque", "prefix deque"]
+	returns = "bool"
+	text = """
+		Tests whether one deque is the prefix of another.
+
+		The deques must have the same type: two arrays, or two strings, but not an array and
+		a string.
+
+			(prn (starts-with? "Zeus" "Ze")) ; prints #t
+			(prn (starts-with? "Zeus" ""))   ; prints #t
+			(prn (starts-with? "Zeus" "Zu")) ; prints #f
+	"""
+
+[[apis]]
+	filename = "ends-with-p"
+	kinds = ["fn"]
+	args = ["deq deque", "suffix deque"]
+	returns = "bool"
+	text = """
+		Tests whether one deque is the suffix of another.
+
+		The deques must have the same type: two arrays, or two strings, but not an array and
+		a string.
+
+			(prn (ends-with? "Hera" "ra")) ; prints #t
+			(prn (ends-with? "Hera" ""))   ; prints #t
+			(prn (ends-with? "Hera" "Ra")) ; prints #f
+	"""
+
+[[apis]]
+	filename = "position"
+	kinds = ["fn"]
+	args = ["haystack deque", "needle val", "from int ?"]
+	returns = "int|nil"
+	text = """
+		Searches within a deque.
+
+		`position` behaves differently for arrays and strings:
+
+		- If `haystack` is an array, `needle` must be a [callable](callable-p) value. We return 
+		  the index of the first element in the array for which `(needle elem)` returns a value 
+		  other than `#n` or `#f`. If there is no such element, we return `#n`.
+
+		- If `haystack` is a string, `needle` can be either a character (in which case the index
+		  of the first matching character is returned) or a non-empty string (in which case the
+		  starting index of the first matching substring is returned).
+
+		When `from` is specified, it must be an integer index, which acts as the starting point
+		for the search.
+	"""
+
+[[apis]]
+	filename = "rposition"
+	kinds = ["fn"]
+	args = ["haystack deque", "needle val", "from int ?"]
+	returns = "int|nil"
+	text = """
+		Searches backwards within a deque.
+
+		`rposition` is identical to [`position`](position), except the search proceeds backwards
+		from the end of the deque.
+
+		The index returned is always a non-negative integer, so that it can more easily be 
+		compared to the indexes returned by `position`.
+
+			(let st "It bears the mark of Polaris.")
+
+			(prn (position st "ar")) ; prints 5
+			(prn (position st "ar" 10)) ; prints 14
+			(prn (rposition st "ar")) ; prints 24
+			(prn (rposition st "ar" 10)) ; prints 5
+	"""
+
+[[apis]]
+	filename = "rev-mut"
+	kinds = ["fn"]
+	args = ["deq deque"]
+	returns = "nil"
+	see-also = ["rev"]
+	text = """
+		Reverses a deque in-place.
+
+			(let st (clone "What became of that kingdom...?"))
+			(rev! st)
+			(prn st) ; prints ?...modgnik taht fo emaceb tahW
+	"""
+
+[[apis]]
+	filename = "map-mut"
+	kinds = ["fn"]
+	args = ["f callable", "deq deque"]
+	returns = "nil"
+	see-also = ["map"]
+	text = """
+		Maps a function over a deque in-place.
+
+			(let words (arr "load" "game"))
+			(map! uppercase words)
+			(prn words) ; prints ("LOAD" "GAME")
+	"""
+
+[[apis]]
+	filename = "retain-mut"
+	kinds = ["fn"]
+	args = ["f callable", "deq deque"]
+	returns = "nil"
+	see-also = ["filter"]
+	text = """
+		Filters a deque in-place.
+
+		Calls `(f elem)` for each element in the deque, removing those elements for which
+		the call returns `#f` or `#n`.
+
+			(let digits (arr 0 9 1 8 2 7 3 6 4 5))
+			(retain! (fn1 (< _ 5)) digits)
+			(prn digits) ; prints (0 1 2 3 4)
+	"""
+
+[[apis]]
+	filename = "join"
+	kinds = ["fn"]
+	args = ["deqs arr", "glue deque ?"]
+	returns = "deque"
+	text = """
+		Combines an array of deques into one deque.
+
+		When `glue` is present, all of its elements are inserted between each adjacent pair
+		of deques.
+
+		`glue`, and all of the deques in `deqs`, must share the same type. For example, if `glue`
+		is `"-"`, then `deqs` must be an array of strings.
+
+			(let words '("Strike" "the" "Earth!"))
+			(let sentence (join words " "))
+			(prn sentence) ; prints Strike the Earth!
+
+		If `deqs` is empty, returns an empty array (or an empty string if `glue` is a string).
+	"""
+
+[[apis]]
+	filename = "tab"
+	starts-subcategory = "Tables"
+	kinds = ["fn", "mac"]
+	args = ["entries arr *"]
+	returns = "tab"
+	text = """
+		Constructs a table.
+
+		The global `tab` is bound both to a function and to a macro.
+
+		Each argument to the `tab` function must be an array of length two, `(key value)`. The 
+		function constructs a new table, and assigns each key/value pair to it in turn, as though 
+		calling `(= [the-tab key] value)`.
+
+		The `tab` macro is similar, but it receives its key/value pairs as special syntax,
+		rather than requiring them to be allocated as individual arrays. When it encounters a
+		splayed argument, `..base`, then `base` must evaluate to an iterator which produces 
+		key/value pairs; they are all inserted into the table as it's being constructed, as though
+		calling `(extend! the-tab ..base)`.
+
+		Duplicate keys are permitted.
+
+			(let orig #((a 0) (b 1)))
+
+			(print (tab ('c 2))) ; prints #((c 2))
+			(print (tab ('c 2) ('c 3))) ; prints #((c 3))
+			(print (tab ..orig ('a 10))) ; prints #((b 1) (a 10) (c 2))
+
+			; bind the local `ftab` to the global `tab` function
+			(let ftab tab)
+
+			(print (ftab ..orig)) ; prints #((b 1) (a 0))
+			(print (ftab (arr 'a 0))) ; prints #((a 0))
+	"""
+
+[[apis]]
+	filename = "extend-mut"
+	kinds = ["fn"]
+	args = ["t tab", "entries arr *"]
+	returns = "nil"
+	see-also = ["set"]
+	text = """
+		Inserts any number of key/value pairs into a table.
+
+		Equivalent to:
+
+			(for (key value) in entries
+			  (= [t key] value))
+	"""
+
+[[apis]]
+	filename = "keys-eqv-p"
+	kinds = ["fn"]
+	args = ["args val 2+"]
+	returns = "bool"
+	text = """
+		Returns `#t` if all of its arguments would occupy the same table entry when used as keys.
+
+		This function tests its arguments for "key-equivalence". Key-equivalence is similar
+		to [equality](eq-p), but with a few small differences:
+
+		- Numbers and characters are not key-equivalent when their primitive types differ, even
+		  if they would be [numerically equal](num-eq).
+
+		- All `nan.0` floating-point values are key-equivalent to one another.
+
+		- When a table is used as a table key, its contents can't be deeply inspected.
+		  Two table values are key-equivalent if they share the same [identity](same-p).
+
+		- When testing objects and RData for key-equivalence, their `op-eq?` methods are ignored.
+	"""

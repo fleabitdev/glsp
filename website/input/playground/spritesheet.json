@@ -1,0 +1,55 @@
+{ "frames": {
+   "spritesheet.ase": {
+    "frame": { "x": 0, "y": 0, "w": 144, "h": 201 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 144, "h": 201 },
+    "sourceSize": { "w": 144, "h": 201 },
+    "duration": 100
+   }
+ },
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.2.16.2-x64",
+  "image": "spritesheet.png",
+  "format": "RGBA8888",
+  "size": { "w": 144, "h": 201 },
+  "scale": "1",
+  "slices": [
+   { "name": "face-smile", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 0, "y": 0, "w": 17, "h": 17 } }] },
+   { "name": "face-peek", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 18, "y": 0, "w": 17, "h": 17 } }] },
+   { "name": "face-shades", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 36, "y": 0, "w": 17, "h": 17 } }] },
+   { "name": "face-x", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 54, "y": 0, "w": 17, "h": 17 } }] },
+   { "name": "face-button.2", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 72, "y": 0, "w": 52, "h": 26 } }] },
+   { "name": "mine-hidden", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 0, "y": 27, "w": 16, "h": 16 } }] },
+   { "name": "mine-flag", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 17, "y": 27, "w": 16, "h": 16 } }] },
+   { "name": "mine-question", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 34, "y": 27, "w": 16, "h": 16 } }] },
+   { "name": "mine-tile.9", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 0, "y": 44, "w": 144, "h": 16 } }] },
+   { "name": "7seg.10", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 0, "y": 61, "w": 130, "h": 23 } }] },
+   { "name": "7seg-minus", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 131, "y": 61, "w": 13, "h": 23 } }] },
+   { "name": "mine", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 51, "y": 27, "w": 16, "h": 16 } }] },
+   { "name": "mine-x", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 68, "y": 27, "w": 16, "h": 16 } }] },
+   { "name": "mine-red", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 85, "y": 27, "w": 16, "h": 16 } }] },
+   { "name": "i-piece.6", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 0, "y": 85, "w": 96, "h": 16 } }] },
+   { "name": "z-piece", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 50, "y": 102, "w": 16, "h": 16 } }] },
+   { "name": "o-piece", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 67, "y": 119, "w": 16, "h": 16 } }] },
+   { "name": "s-piece", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 84, "y": 102, "w": 16, "h": 16 } }] },
+   { "name": "l-piece", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 84, "y": 119, "w": 16, "h": 16 } }] },
+   { "name": "t-piece", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 67, "y": 102, "w": 16, "h": 16 } }] },
+   { "name": "j-piece", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 50, "y": 119, "w": 16, "h": 16 } }] },
+   { "name": "stage", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 33, "y": 102, "w": 16, "h": 16 } }] },
+   { "name": "stage-edge", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 0, "y": 102, "w": 32, "h": 48 } }] },
+   { "name": "score-text", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 33, "y": 136, "w": 38, "h": 6 } }] },
+   { "name": "digits.10", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 33, "y": 143, "w": 100, "h": 10 } }] },
+   { "name": "game-over-frame", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 104, "y": 85, "w": 40, "h": 57 } }] },
+   { "name": "game-over-text", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 81, "y": 154, "w": 32, "h": 24 } }] },
+   { "name": "level-text", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 81, "y": 179, "w": 38, "h": 6 } }] },
+   { "name": "lines-text", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 81, "y": 186, "w": 38, "h": 6 } }] },
+   { "name": "number-frame", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 41, "y": 154, "w": 39, "h": 41 } }] },
+   { "name": "piece-frame", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 0, "y": 154, "w": 40, "h": 40 } }] },
+   { "name": "paused-text", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 81, "y": 193, "w": 48, "h": 8 } }] },
+   { "name": "?-piece", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 33, "y": 119, "w": 16, "h": 16 } }] },
+   { "name": "x-piece", "color": "#ffff6cff", "keys": [{ "frame": 0, "bounds": {"x": 114, "y": 154, "w": 16, "h": 16 } }] }
+  ]
+ }
+}

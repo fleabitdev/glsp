@@ -1,0 +1,173 @@
+#|
+the `primitive` benchmarks test a fundamental operation, like array indexing or addition,
+in an unrolled loop.
+|#
+
+(defmacro unroll (times : int?, ..body)
+	`(do ~..(take (* times (len body)) (repeat ..body))))
+
+(defn primitive-inc ()
+	(let x 0)
+	(forn (i 1_000_000)
+		(unroll 100 (inc! x 1))))
+
+(defn primitive-arith ()
+	(let x 0.0)
+	(forn (i 1_000_000)
+		(unroll 10
+			(inc! x 500)
+			(dec! x 250)
+			(mul! x 1.5)
+			(div! x 42.0)
+			(rem! x 18.0)
+			(neg! x))))
+
+(defn primitive-call0 ()
+	(let-fn a () #n)
+
+	(forn (i 100_000)
+		(unroll 100 (a))))
+
+(defn primitive-call3 ()
+	(let-fn a (b c d) #n)
+
+	(forn (i 100_000)
+		(unroll 100 (a 1 2 3))))
+
+(defn primitive-array ()
+	(let a (arr 1 2 3 4 5 6 7 8 9 10))
+
+	(let x #n)
+	(forn (i 100_000)
+		(unroll 10
+			(= x [a 0]) (= x [a 1]) (= x [a 2]) (= x [a 3]) (= x [a 4])
+			(= x [a 5]) (= x [a 6]) (= x [a 7]) (= x [a 8]) (= x [a 9]))))
+
+(defn primitive-table ()
+	(let t (tab ('a 0) ('b 1) ('c 2) ('d 3) ('e 4)
+	            ('f 5) ('g 6) ('h 7) ('i 8) ('j 9)))
+
+	(let x #n)
+	(forn (i 100_000)
+		(unroll 10
+			(= x [t 'a]) (= x [t 'b]) (= x [t 'c]) (= x [t 'd]) (= x [t 'e]) 
+			(= x [t 'f]) (= x [t 'g]) (= x [t 'h]) (= x [t 'i]) (= x [t 'j]))))
+
+(defn primitive-field ()
+	(let-class C
+		(field (a b c d e f g h i j)))
+
+	(let o (C))
+
+	(let x #n)
+	(forn (i 100_000)
+		(unroll 10
+			(= x [o 'a]) (= x [o 'b]) (= x [o 'c]) (= x [o 'd]) (= x [o 'e]) 
+			(= x [o 'f]) (= x [o 'g]) (= x [o 'h]) (= x [o 'i]) (= x [o 'j]))))
+
+(defn primitive-method ()
+	(let-class C
+		(meth a ()))
+
+	(let o (C))
+
+	(forn (i 100_000)
+		(unroll 100 (.a o))))
+
+#|
+the remaining benchmarks attempt to tax the language in a way which is vaguely similar
+to real game source code.
+|#
+
+(defn rects ()
+	; randomly generate a number of rectangles, then count the number of distinct pairs
+	; of rectangles which overlap with one another. lots of numeric comparisons and field
+	; accesses. also stresses numeric iteration.
+	(defstruct Rect
+		x y w h
+
+		(meth intersects? (other)
+			(and
+				(> (+ @x @w) [other 'x])
+				(< @x (+ [other 'x] [other 'w]))
+				(> (+ @y @h) [other 'y])
+				(< @y (+ [other 'y] [other 'h])))))
+
+	(let rng 75)
+	(let-fn rng-gen ()
+		(= rng (% (* rng 75) 65537))
+		rng)
+
+	(let rects (arr))
+	(forn (_ 2000)
+		(push! rects (Rect (rng-gen) (rng-gen) (rng-gen) (rng-gen))))
+
+	(let count 0)
+	(forn (i (len rects))
+		(forn (j (+ i 1) (len rects))
+			(when (.intersects? [rects i] [rects j])
+				(inc! count)))))
+
+(defn flood-fill ()
+	; flood-fill a one-dimensional, 1-bit raster image. (we reduce this to one dimension so that
+	; we're testing collections, rather than testing the allocator.)
+	(let width 1_000_000)
+	(let pixels (arr-from-elem 0 width))
+	(let to-check (arr (/ (len pixels) 2)))
+
+	(let painted 0)
+	(while (> (len to-check) 0)
+		(let x (pop! to-check))
+
+		(= [pixels x] 1)
+		(inc! painted)
+
+		(when (and (< x (- width 1)) (== [pixels (+ x 1)] 0))
+			(push! to-check (+ x 1)))
+
+		(when (and (> x 0) (== [pixels (- x 1)] 0))
+			(push! to-check (- x 1))))
+
+	(ensure (== painted width)))
+
+(defn rotation ()
+	; take an array of 2d points, and rotate them 360 degrees around the origin by accumulating
+	; many smaller rotations. stresses basic maths, method calls, and self-field accesses.
+	(let rng 75)
+	(let-fn rng-gen ()
+		(= rng (% (* rng 75) 65537))
+		rng)
+
+	(defstruct Point
+		x y
+
+		(meth rotate! (diff)
+			(let distance (sqrt (+ (* @x @x) (* @y @y))))
+			(let angle (atan @y @x))
+			(let new-angle (+ angle diff))
+			(= @x (* distance (cos new-angle)))
+			(= @y (* distance (sin new-angle)))))
+
+	(let points (arr))
+	(forn (_ 300)
+		(push! points (Point (flo (rng-gen)) (flo (rng-gen)))))
+
+	(let step (/ (* 0.1 3.14159) 180.0))
+	(forn (_ 3600)
+		(for point in points
+			(.rotate! point step))))
+
+#|
+run the benchmarks
+|#
+
+(defn bench (..names)
+	(for name in names
+		(let start (time))
+		((global name))
+		(let elapsed (- (time) start))
+		(prn "Glsp {name}: {(flo->str (* elapsed 1000.0) 1)}ms")))
+
+(bench 'primitive-inc 'primitive-arith 'primitive-call0 'primitive-call3
+       'primitive-array 'primitive-table 'primitive-field 'primitive-method
+       'rects 'flood-fill 'rotation)

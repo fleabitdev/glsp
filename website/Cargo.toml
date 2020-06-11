@@ -1,0 +1,18 @@
+[package]
+name = "glsp-website"
+version = "0.1.0"
+authors = []
+publish = false
+edition = "2018"
+
+[features]
+suffix-paths = []
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+toml = "0.5"
+maud = "*"
+pulldown-cmark = "0.7"
+walkdir = "2"
+mdbook = { version = "0.3", default-features = false, features = ["output"] }
+image = { version = "0.23", default-features = false, features = ["png"] }

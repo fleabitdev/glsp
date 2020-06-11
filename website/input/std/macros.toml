@@ -1,0 +1,681 @@
+filename = "macros"
+name = "Macros"
+text = ""
+
+[[apis]]
+	filename = "when"
+	starts-subcategory = "Branching"
+	kinds = ["mac"]
+	args = ["condition form", "body form *"]
+	see-also = ["unless", "if"]
+	text = """
+		Evaluates its body when a condition is true.
+
+		`(when condition body0 body1)` is equivalent to:
+
+			(if condition
+			  (do
+			    body0
+			    body1)
+			  #n)
+	"""
+
+[[apis]]
+	filename = "unless"
+	kinds = ["mac"]
+	args = ["condition form", "body form *"]
+	see-also = ["when", "if"]
+	text = """
+		Evaluates its body when a condition is false.
+
+		`(unless condition body0 body1)` is equivalent to:
+
+			(if condition
+			  #n
+			  (do
+			    body0
+			    body1))
+	"""
+
+[[apis]]
+	filename = "and"
+	kinds = ["mac"]
+	args = ["args form *"]
+	text = """
+		Performs a lazy Boolean AND.
+
+		Successively evaluates each form in `args`. When one of the forms evaluates to `#f` or 
+		`#n`, that value is returned, and any subsequent forms are not evaluated. Otherwise, 
+		returns the value of the last argument.
+
+		With no arguments, `(and)` evaluates to `#t`.
+	"""
+
+[[apis]]
+	filename = "or"
+	kinds = ["mac"]
+	args = ["args form *"]
+	text = """
+		Performs a lazy Boolean OR.
+
+		Successively evaluates each form in `args`. When one of the forms evaluates to something 
+		other than `#f` or `#n`, that value is returned, and any subsequent forms are not 
+		evaluated. Otherwise, returns the value of the last argument.
+
+		With no arguments, `(or)` evaluates to `#f`.
+	"""
+
+[[apis]]
+	filename = "cond"
+	kinds = ["mac"]
+	args = ["clauses arr *"]
+	text = """
+		Tests several conditions in turn.
+
+		Each clause must be an array, `(condition ..forms)`.
+
+		Evaluates each `condition` in turn. When a `condition` evaluates to something other
+		than `#f` or `#n`, the remaining forms in that clause are evaluated, and the value of the
+		last form in the clause is returned. Any remaining clauses are not evaluated.
+
+		If all of the conditions evaluate to `#f` or `#n`, the `cond` form as a whole evaluates 
+		to `#n`.
+
+		The final clause may use the symbol `else` in place of its condition. When all other 
+		conditions have evaluated to `#f` or `#n`, the `else` clause will be evaluated and
+		returned.
+
+			(cond
+			  ((>= 5 10)
+			    (bail "something is wrong"))
+			  (else
+			    (prn "five is less than ten")))
+	"""
+
+[[apis]]
+	filename = "cond-eq-p"
+	kinds = ["mac"]
+	args = ["arg form", "clauses arr *"]
+	text = """
+		Successively tests a value for equality using `eq?`.
+
+		`cond-eq?` evaluates `arg` and repeatedly tests it for equality against the first
+		form in each clause, using [`eq?`](eq-p). The first matching clause is evaluated and
+		returned.
+
+		As for [`cond`](cond), the final clause may start with the symbol `else`.
+
+		Any clause may start with the symbol `any-of`, followed by an array of forms. In that 
+		case, `arg` is compared against each form in turn.
+
+			(cond-eq? x
+			  ((+ 2 3)
+			    (prn "x is 5"))
+			  (any-of (3 4)
+			    (prn "x is 3 or 4"))
+			  (else
+			    (bail)))
+
+			; ...is equivalent to...
+
+			(let arg x)
+			(cond
+			  ((eq? x (+ 2 3))
+			    (prn "x is 5"))
+			  ((eq-any? x 3 4)
+			    (prn "x is 3 or 4"))
+			  (else
+			    (bail)))
+	"""
+
+[[apis]]
+	filename = "cond-same-p"
+	kinds = ["mac"]
+	args = ["arg form", "clauses arr *"]
+	text = """
+		Successively tests a value for equality using `same?`.
+
+		`cond-same?` is equivalent to [`cond-eq?`](cond-eq-p), except that `arg` is compared
+		against each candidate using the [`same?`](same-p) function.
+	"""
+
+[[apis]]
+	filename = "cond-num-eq"
+	name = "cond=="
+	kinds = ["mac"]
+	args = ["arg form", "clauses arr *"]
+	text = """
+		Successively tests a value for equality using `==`.
+
+		`cond==` is equivalent to [`cond-eq?`](cond-eq-p), except that `arg` is compared
+		against each candidate using the [`==`](num-eq) function.
+	"""
+
+[[apis]]
+	filename = "loop"
+	starts-subcategory = "Looping"
+	kinds = ["mac"]
+	args = ["body form *"]
+	see-also = ["while", "break", "continue"]
+	text = """
+		An endless loop.
+	"""
+
+[[apis]]
+	filename = "break"
+	kinds = ["mac"]
+	args = ["result val ?#n"]
+	see-also = ["continue"]
+	text = """
+		Breaks out of a loop.
+
+		Breaks out of the innermost enclosing [`loop`](loop), [`while`](while),
+		[`until`](until) or [`for`](for).
+
+		The `result` argument becomes the result of the loop as a whole.
+	"""
+
+[[apis]]
+	filename = "continue"
+	kinds = ["mac"]
+	args = []
+	see-also = ["break"]
+	text = """
+		Skips the rest of a loop's current iteration.
+
+		Jumps to the end of the body of the innermost enclosing [`loop`](loop), [`while`](while),
+		[`until`](until) or [`for`](for). If the loop isn't finished, this will cause 
+		execution to continue from the beginning of its next iteration.
+	"""
+
+[[apis]]
+	filename = "while"
+	kinds = ["mac"]
+	args = ["condition form", "body form *"]
+	see-also = ["until", "break", "continue"]
+	text = """
+		Loops as long as a condition is true.
+	"""
+
+[[apis]]
+	filename = "until"
+	kinds = ["mac"]
+	args = ["condition form", "body form *"]
+	see-also = ["while", "break", "continue"]
+	text = """
+		Loops as long as a condition is false.
+	"""
+
+[[apis]]
+	filename = "for"
+	kinds = ["mac"]
+	args = ["pat pat", "in sym", "iterable iterable", "body form *"]
+	see-also = ["forn", "break", "continue", "iter", "iter-next-mut", "iter-finished-p"]
+	text = """
+		Loops over each value produced by an iterator.
+
+		`(for x in y form0 form1)` is equivalent to:
+
+			(let it (iter y))
+			(loop
+			  (let produced (iter-next! it))
+
+			  (when (iter-finished? it)
+			    (break))
+
+			  (let x produced)
+			  form0
+			  form1)
+	"""
+
+[[apis]]
+	filename = "forn"
+	kinds = ["mac"]
+	args = ["clause arr", "body form *"]
+	see-also = ["for", "forni", "rn"]
+	text = """
+		Loops over a numeric range.
+
+		`clause` must contain a symbol, followed by one to three argument forms.
+
+		`(forn (i x y) form0 form1)` is equivalent to:
+
+			(for i in (rn x y)
+			  form0
+			  form1)
+	"""
+
+[[apis]]
+	filename = "forni"
+	kinds = ["mac"]
+	args = ["clause arr", "body form *"]
+	see-also = ["for", "forn", "rni"]
+	text = """
+		Loops over an inclusive numeric range.
+
+		`clause` must contain a symbol, followed by one to three argument forms.
+
+		`(forni (i x y) form0 form1)` is equivalent to:
+
+			(for i in (rni x y)
+			  form0
+			  form1)
+	"""
+
+[[apis]]
+	filename = "yield-from"
+	kinds = ["mac"]
+	args = ["iterable iterable"]
+	see-also = ["for", "yield", "coro-run"]
+	text = """
+		Yields each value produced by an iterator.
+
+		`(yield-from it)` is *almost* equivalent to:
+
+			(for x in it
+			  (yield x))
+
+		However, when `it` is a coroutine, `yield-from` will execute slightly different code to
+		ensure that the argument passed to `coro-run` finds its way into the inner coroutine.
+	"""
+
+[[apis]]
+	filename = "bind-place-mut"
+	starts-subcategory = "Places"
+	kinds = ["fn"]
+	args = ["accessor sym", "setter sym"]
+	text = """
+		Defines a new type of place.
+
+		The [`=` macro](set) searches a small database of "setter functions" when deciding how
+		to deal with its `place` argument.
+
+		The default setters include:
+
+		- [`access=`](set-access) for [`access`](access)
+		- [`global=`](set-global) for [`global`](global)
+		- [`macro=`](set-macro) for [`macro`](macro)
+		- [`gc-value=`](set-gc-value) for [`gc-value`](gc-value)
+
+		Custom places can be used in several different macros: [`=`](set), [`inc!`](inc-mut), 
+		[`swap!`](swap-mut), and so on.
+	"""
+
+[[apis]]
+	filename = "defplace"
+	kinds = ["mac"]
+	args = ["accessor sym", "setter sym"]
+	text = """
+		A shorthand for `bind-place!`.
+
+		`(defplace acc set)` is equivalent to [`(bind-place! 'acc 'set)`](bind-place-mut).
+	"""
+
+[[apis]]
+	filename = "inc-mut"
+	kinds = ["mac"]
+	args = ["place place", "args form *"]
+	see-also = ["add"]
+	text = """
+		Performs in-place addition or increment.
+
+		`(inc! x 3 4)` is equivalent to `(= x (+ x 3 4))`, except that `x` is only evaluated
+		once.
+
+		With only one argument, `(inc! x)` is equivalent to `(inc! x 1)`.
+	"""
+
+[[apis]]
+	filename = "dec-mut"
+	kinds = ["mac"]
+	args = ["place place", "args form *"]
+	see-also = ["sub"]
+	text = """
+		Performs in-place subtraction or decrement.
+
+		`(dec! x 5 6)` is equivalent to `(= x (- x 5 6))`, except that `x` is only evaluated
+		once.
+
+		With only one argument, `(dec! x)` is equivalent to `(dec! x 1)`.
+	"""
+
+[[apis]]
+	filename = "mul-mut"
+	kinds = ["mac"]
+	args = ["place place", "args form +"]
+	see-also = ["mul"]
+	text = """
+		Performs in-place multiplication.
+
+		`(mul! x 7 8)` is equivalent to `(= x (* x 7 8))`, except that `x` is only evaluated
+		once.
+	"""
+
+[[apis]]
+	filename = "div-mut"
+	kinds = ["mac"]
+	args = ["place place", "args form *"]
+	see-also = ["div"]
+	text = """
+		Performs in-place division or reciprocation.
+
+		`(div! x 9 10)` is equivalent to `(= x (/ x 9 10))`, except that `x` is only evaluated
+		once.
+
+		This means that with only one argument, `(div! x)` replaces `x` with its reciprocal,
+		`(/ 1.0 x)`.
+	"""
+
+[[apis]]
+	filename = "div-euclid-mut"
+	kinds = ["mac"]
+	args = ["place place", "args form *"]
+	see-also = ["div-euclid"]
+	text = """
+		Performs in-place Euclidean division or reciprocation.
+
+		`(div-euclid! x 11 12)` is equivalent to `(= x (div-euclid x 11 12))`, except that `x` 
+		is only evaluated once.
+
+		This means that with only one argument, `(div-euclid! x)` replaces `x` with 
+		its reciprocal, `(div-euclid 1.0 x)`.
+	"""
+
+[[apis]]
+	filename = "rem-mut"
+	kinds = ["mac"]
+	args = ["place place", "denominator form"]
+	see-also = ["rem"]
+	text = """
+		Performs in-place remainder.
+
+		`(rem! x 13)` is equivalent to `(= x (% x 13))`, except that `x` is only evaluated
+		once.
+	"""
+
+[[apis]]
+	filename = "rem-euclid-mut"
+	kinds = ["mac"]
+	args = ["place place", "denominator form"]
+	see-also = ["rem-euclid"]
+	text = """
+		Performs in-place Euclidean remainder.
+
+		`(rem-euclid! x 14)` is equivalent to `(= x (rem-euclid x 14))`, except that `x` is 
+		only evaluated once.
+	"""
+
+[[apis]]
+	filename = "abs-mut"
+	kinds = ["mac"]
+	args = ["place place"]
+	see-also = ["abs"]
+	text = """
+		Replaces a number with its absolute value, in place.
+
+		`(abs! x)` is equivalent to `(= x (abs x))`, except that `x` is only evaluated once.
+	"""
+
+[[apis]]
+	filename = "neg-mut"
+	kinds = ["mac"]
+	args = ["place place"]
+	see-also = ["sub"]
+	text = """
+		Negates a number, in place.
+
+		`(neg! x)` is equivalent to `(= x (- x))`, except that `x` is only evaluated once.
+	"""
+
+[[apis]]
+	filename = "seek-mut"
+	kinds = ["mac"]
+	args = ["place place", "target form", "step-by form ?1"]
+	see-also = ["seek"]
+	text = """
+		Moves a number closer to a target number, in place.
+
+		`(seek! x 15)` is equivalent to `(= x (seek x 15))`, except that `x` is only evaluated 
+		once.
+	"""
+
+[[apis]]
+	filename = "antiseek-mut"
+	kinds = ["mac"]
+	args = ["place place", "target form", "step-by form ?1"]
+	see-also = ["antiseek"]
+	text = """
+		Moves a number away from another number, in place.
+
+		`(antiseek! x 16)` is equivalent to `(= x (antiseek x 16))`, except that `x` is only 
+		evaluated once.
+	"""
+
+[[apis]]
+	filename = "clamp-mut"
+	kinds = ["mac"]
+	args = ["place place", "min form", "max form"]
+	see-also = ["clamp"]
+	text = """
+		Clamps a number to lie within a numeric range, in place.
+
+		`(clamp! x 17 18)` is equivalent to `(= x (clamp x 17 18))`, except that `x` is only 
+		evaluated once.
+	"""
+
+[[apis]]
+	filename = "swap-mut"
+	kinds = ["mac"]
+	args = ["place0 place", "place1 place"]
+	text = """
+		Exchange values stored in two different places.
+
+		`(swap! (x) (y))` is equivalent to...
+
+			(let tmp (x))
+			(= (x) (y))
+			(= (y) tmp)
+
+		...except that `(x)` and `(y)` are only evaluated once each.
+	"""
+
+[[apis]]
+	filename = "match"
+	starts-subcategory = "Patterns"
+	kinds = ["mac"]
+	args = ["val form", "clauses arr *"]
+	text = """
+		Attempt to match a value against several patterns.
+
+		Each clause must be a [pattern](../reference/patterns.html), followed by zero or more
+		forms. The `match` macro evaluates `val`, then attempts to match it against each pattern
+		in turn, evaluating and returning the body of the first clause which matches.
+
+		If none of the patterns match, the `match` form returns `#n`.
+
+			(match arg
+			  (i : int?
+			    "the integer {i}")
+			  ((a : int?, b : int?)
+			    "a pair of integers, ({a} {b})")
+			  (_ : obj?
+			    "an object")
+			  (arg
+			    (bail "unexpected argument {arg}")))
+	"""
+
+[[apis]]
+	filename = "matches-p"
+	kinds = ["mac"]
+	args = ["val form", "pat pat"]
+	text = """
+		Returns `#t` if a value matches a pattern.
+
+		Evaluates `val` and attempts to [match it against `pat`](../reference/patterns.html), 
+		returning `#t` if it matches or `#f` otherwise.
+	"""
+
+[[apis]]
+	filename = "when-let"
+	kinds = ["mac"]
+	args = ["pat pat", "val form", "body form *"]
+	text = """
+		Evaluates some forms when a value matches a pattern.
+
+		Evaluates `val` and attempts to [match it against `pat`](../reference/patterns.html). 
+		If it matches, evaluates `body` (with all of the variable bindings implied by `pat`)
+		and returns its result. Otherwise, returns `#n`.
+	"""
+
+[[apis]]
+	filename = "do-0"
+	starts-subcategory = "Miscellaneous"
+	kinds = ["mac"]
+	args = ["first form", "rest form *"]
+	text = """
+		Evaluates multiple forms, returning the first form's result.
+
+		`do-0` is similar to the [`do` special form](do), but it returns the result of evaluating
+		its first form, rather than its last.
+
+		`(do-0 (a) (b) (c))` is equivalent to:
+
+			(do
+			  (let tmp (a))
+			  (b)
+			  (c)
+			  tmp)
+	"""
+
+[[apis]]
+	filename = "include"
+	kinds = ["mac"]
+	args = ["path str"]
+	text = """
+		Replaces itself with the contents of a file.
+
+		`path` must refer to a text file which contains valid GameLisp source code, relative
+		to the current working directory. (For a Rust program, the working directory is usually
+		the directory which contains your `Cargo.toml` file.)
+
+		During macro expansion, the `include` macro opens that text file, [parses](parse-all) 
+		its contents, and expands into a [`splice` form](splice) which contains all of the values
+		parsed from the file.
+
+		In a [sandboxed `Runtime`](../reference/the-glsp-crate.html#sandboxing), this macro is 
+		not defined.
+	"""
+
+[[apis]]
+	filename = "arrow-first"
+	name = "->"
+	kinds = ["mac"]
+	args = ["args form +"]
+	see-also = ["arrow-last"]
+	text = """
+		Alternative syntax for nested function calls.
+
+		The `->` macro performs a simple syntactic transformation on its arguments.
+		`(-> a (b 1) (c 2))` is equivalent to:
+
+			(do
+			  (let first a)
+			  (let second (b first 1))
+			  (c second 2))
+
+		In other words, the first argument can be any form, and subsequent arguments must all
+		represent function calls. The result of evaluating each form is inserted as the first
+		argument to its succeeding function call. Then, the result of the final function call
+		is returned.
+
+		It's not always convenient to write out each function call in full. As such, `->` 
+		performs the following syntax transformations on its second and subsequent arguments:
+
+		- The symbol `name` becomes `(name)`
+		- [`.name`](meth-name) becomes `(.name)`
+		- [`@name`](atsign) becomes `(@name)`
+		- [`(? .name)`](meth-name) becomes `((? .name))`
+		- [`(? @name)`](atsign) becomes `((? @name))`
+
+		Finally, if a function call is prefixed with [`..`](splay), the result of the previous 
+		call is splayed when it's passed in as the function's first argument: `..(a c)` implies 
+		`(a ..x c)` rather than `(a x c)`.
+	"""
+
+[[apis]]
+	filename = "arrow-last"
+	name = "->>"
+	kinds = ["mac"]
+	args = ["args form +"]
+	text = """
+		Alternative syntax for nested function calls.
+
+		`->>` is equivalent to the [`->` macro](arrow-first), but the result of each form is
+		inserted as the *last* argument to its succeeding function call, rather than the
+		first argument.
+	"""
+
+[[apis]]
+	filename = "backquote"
+	kinds = ["mac"]
+	args = ["arg form"]
+	text = """
+		Quasi-quotation.
+
+		The `backquote` macro expands into code which constructs a copy of its argument. This
+		usually means that it expands into a tree of nested calls to the [`arr`](arr) function.
+
+			(backquote (a (b c) 10))
+
+			; ...expands to...
+
+			(arr 'a (arr 'b 'c) 10)
+
+		By default, evaluation is completely suppressed: `backquote` considers all of its input to 
+		be literal data instead. However, the [`unquote`](unquote) form can be used to copy part
+		of the input into the output verbatim. This means that when the `backquote` form is 
+		evaluated (not when it's expanded!), the unquoted form will be evaluated, and its result 
+		will be interleaved into the output.
+
+			(backquote (w x (y z) 3.14))
+			(backquote (w ~x ~(y z) 3.14))
+
+			; ...expands to...
+
+			(arr 'w 'x (arr 'y 'z) 3.14)
+			(arr 'w x (y z) 3.14)
+
+		When `backquote` encounters symbols which end in `#`, such as `example#`, it will
+		replace each distinct symbol with a fresh [`gensym`](gensym), each time the `backquote`
+		form is evaluated. (This does not recurse through [`unquote`](unquote) forms, or nested 
+		`backquote` forms.)
+
+			(backquote (a# b# (a# ~b#)))
+
+			; ...expands to...
+
+			(do
+			  (let gs-a (gensym 'a))
+			  (let gs-b (gensym 'b))
+
+			  ; note that gs-a appears twice
+			  (arr gs-a gs-b (arr gs-a b#))) 
+
+		`(backquote x)` is usually [abbreviated](../reference/syntax-and-types.html#abbreviations) 
+		as [`` `x``](backquote-abbrv).
+	"""
+
+[[apis]]
+	filename = "unquote"
+	kinds = ["mac"]
+	args = ["arg form"]
+	text = """
+		Evaluate a quasi-quoted form.
+
+		`unquote` is only meaningful within the [`backquote` macro](backquote). It prevents
+		its argument from being quoted - instead, the form is evaluated, and its evaluation
+		result is interleaved into the output.
+
+		`(unquote x)` is usually [abbreviated](../reference/syntax-and-types.html#abbreviations) 
+		as [`~x`](backquote-abbrv).
+	"""

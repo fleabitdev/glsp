@@ -1,0 +1,21 @@
+[package]
+name = "glsp-engine"
+version = "0.1.0"
+authors = []
+publish = false
+edition = "2018"
+
+[features]
+unsafe-internals = []
+compiler = ["serde", "serde/derive", "bincode", "flate2"]
+#regex-perf = ["regex/perf"]
+#regex-unicode = ["regex/unicode"]
+
+[dependencies]
+fnv = "1"
+owning_ref = "0.4"
+smallvec = { version = "1", features = ["union", "write"] }
+bincode = { version = "1", optional = true }
+flate2 = { version = "1", optional = true }
+serde = { version = "1", optional = true }
+#regex = { version = "1",  optional = true, default-features = false, features = ["std"] }

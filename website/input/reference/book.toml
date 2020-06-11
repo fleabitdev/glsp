@@ -1,0 +1,9 @@
+[book]
+title = "GameLisp Reference Manual"
+
+[build]
+build-dir = "../../output/reference"
+
+[output.html]
+preferred-dark-theme = "coal"
+additional-js = ["glsp-highlight.js"]

@@ -1,0 +1,21 @@
+[package]
+name = "glsp-benchmarks"
+version = "0.1.0"
+authors = []
+publish = false
+edition = "2018"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+debug = true
+
+[features]
+unsafe-internals = ["glsp/unsafe-internals"]
+
+[dependencies]
+glsp = { version = "*", path = "../glsp" }
+lazy_static = "1.4.0"
+pyo3 = { version = "0.10", default-features = false }
+rlua = "0.17"

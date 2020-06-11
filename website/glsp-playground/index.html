@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>wasm-bindgen/glsp test</title>
+</head>
+<body>
+	<script src="output/glsp_playground.js"></script>
+	<script>
+		wasm_bindgen("output/glsp_playground_bg.wasm").then(() => {
+			wasm_bindgen.initEngine(`
+				(def play:width 256)
+				(def play:height 240)
+				(prn 100 200)
+				(pr 80)
+				(pr 90)
+				(prn \\a)
+			`, "test");
+			console.log(wasm_bindgen.width());
+		});
+	</script>
+</body>
+</html>

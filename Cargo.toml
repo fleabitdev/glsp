@@ -1,0 +1,12 @@
+[workspace]
+members = [
+	"glsp",
+	"glsp-proc-macros2",
+	"glsp-stdlib",
+	"glsp-proc-macros",
+	"glsp-engine"
+]
+exclude = [
+	"benchmarks",
+	"website"
+]

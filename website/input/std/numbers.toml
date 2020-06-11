@@ -1,0 +1,813 @@
+filename = "numbers"
+name = "Numbers"
+text = """
+	The built-in numeric types are integers and floats, which are equivalent to 
+	[`Wrapping<i32>`][0] and `f32` respectively.
+
+	[0]: https://doc.rust-lang.org/std/num/struct.Wrapping.html
+
+	Floats are "contagious". When an arithmetic function receives at least one float argument, the 
+	return value is usually a float, even when its other arguments are integers.
+"""
+
+[[apis]]
+	filename = "add"
+	name = "+"
+	starts-subcategory = "Arithmetic"
+	kinds = ["fn", "mac"]
+	args = ["args num *"]
+	returns = "num"
+	text = """
+		Addition.
+
+		`(+)` returns `0`.
+
+		`(+ x)` returns its argument.
+
+		With two or more arguments, addition is performed sequentially from left to right. 
+		Adding an integer to a float, or vice-versa, produces a float.
+	"""
+
+[[apis]]
+	filename = "sub"
+	name = "-"
+	kinds = ["fn", "mac"]
+	args = ["args num *"]
+	returns = "num"
+	text = """
+		Subtraction or negation.
+
+		`(-)` returns 0. 
+
+		`(- x)` negates its argument: `(- 3)` returns `-3`, `(- -0.0)` returns `0.0`.
+
+		With two or more arguments, subtraction is performed sequentially from left to right. 
+		Subtracting an integer from a float, or vice-versa, produces a float.
+	"""
+
+[[apis]]
+	filename = "mul"
+	name = "*"
+	kinds = ["fn", "mac"]
+	args = ["args num *"]
+	returns = "num"
+	text = """
+		Multiplication.
+
+		`(*)` returns `1`.
+
+		`(* x)` returns its argument.
+
+		With two or more arguments, multiplication is performed sequentially from left to right. 
+		Multiplying an integer with a float produces a float.
+	"""
+
+[[apis]]
+	filename = "div"
+	name = "/"
+	kinds = ["fn", "mac"]
+	args = ["args num +"]
+	returns = "num"
+	text = """
+		Division or reciprocation.
+
+		`(/ x)` returns the reciprocal of `x`. It's equivalent to `(/ 1.0 x)`.
+
+		With two or more arguments, division is performed sequentially from left to right. 
+		Dividing an integer by a float, or vice-versa, produces a float.
+
+		The rounding behaviour for negative numbers is equivalent to Rust's `/` operator - 
+		if you need Euclidean division, use [`div-euclid`](div-euclid) instead.
+
+		When dividing by zero, if the result would be an integer, it's an error. (It's not an
+		error to divide by zero when working with floating-point numbers. The result will
+		be an infinity value: `-inf.0` or `+inf.0`.)
+	"""
+
+[[apis]]
+	filename = "rem"
+	name = "%"
+	kinds = ["fn"]
+	args = ["numerator num", "denominator num"]
+	returns = "num"
+	text = """
+		Remainder.
+
+		Returns the remainder of `(/ numerator denominator)`. If either `numerator` or 
+		`denominator` is a float, the result will be a float.
+
+		The rounding behaviour for negative numbers is equivalent to Rust's `%` operator - 
+		if you need the Euclidean remainder, use [`rem-euclid`](rem-euclid) instead.
+
+		When `denominator` is equal to `0`, if the result would be an integer, it's an error. 
+		(It's not an error to divide-by-zero when working with floating-point numbers, but the 
+		remainder will be a `NaN`.)
+	"""
+
+[[apis]]
+	filename = "div-euclid"
+	kinds = ["fn"]
+	args = ["args num +"]
+	returns = "num"
+	text = """
+		Euclidean division.
+
+		Equivalent to [`/`](div), except that negative arguments are rounded differently:
+
+			(let rem (rem-euclid numer denom))
+			(let div (div-euclid numer denom))
+			(ensure (== numer (+ (* denom div) rem)))
+	"""
+
+[[apis]]
+	filename = "rem-euclid"
+	kinds = ["fn"]
+	args = ["numerator num", "denominator num"]
+	returns = "num"
+	text = """
+		Euclidean remainder.
+
+		Equivalent to [`%`](rem), except that negative arguments are rounded differently:
+
+			(let rem (rem-euclid numer denom))
+			(let div (div-euclid numer denom))
+			(ensure (== numer (+ (* denom div) rem)))
+	"""
+
+[[apis]]
+	filename = "abs"
+	kinds = ["fn"]
+	args = ["n num"]
+	returns = "num"
+	text = """
+		Absolute value.
+
+		Because integer arithmetic is unchecked, `(abs -2147483648)` returns `-2147483648`. All
+		other integers will perform as expected.
+	"""
+
+[[apis]]
+	filename = "sign"
+	kinds = ["fn"]
+	args = ["n num"]
+	returns = "int"
+	text = """
+		Sign.
+
+		When `(== n 0)`, returns 0. Otherwise, returns `1` if `n` is positive, or `-1` if `n` is
+		negative.
+
+		This means that the result is always an integer, and the argument `-0.0` returns `0` 
+		rather than `-1`. This is usually the more intuitive result. To extract the sign bit 
+		from a float, use [`flo-sign`](flo-sign) instead.
+
+		`(sign nan.0)` returns `0`.
+	"""
+
+[[apis]]
+	filename = "even-p"
+	starts-subcategory = "Predicates"
+	kinds = ["fn"]
+	args = ["n int"]
+	returns = "bool"
+	text = """
+		Returns `#t` if its argument is even.
+	"""
+
+[[apis]]
+	filename = "odd-p"
+	kinds = ["fn"]
+	args = ["n int"]
+	returns = "bool"
+	text = """
+		Returns `#t` if its argument is odd.
+	"""
+
+[[apis]]
+	filename = "nat-int-p"
+	kinds = ["fn"]
+	args = ["arg val"]
+	returns = "bool"
+	text = """
+		Returns `#t` if its argument is a natural integer (>= 0).
+	"""
+
+[[apis]]
+	filename = "pos-int-p"
+	kinds = ["fn"]
+	args = ["arg val"]
+	returns = "bool"
+	text = """
+		Returns `#t` if its argument is a positive integer (> 0).
+	"""
+
+[[apis]]
+	filename = "neg-int-p"
+	kinds = ["fn"]
+	args = ["arg val"]
+	returns = "bool"
+	text = """
+		Returns `#t` if its argument is a negative integer (< 0).
+	"""
+
+[[apis]]
+	filename = "nan-p"
+	kinds = ["fn"]
+	args = ["arg flo"]
+	returns = "bool"
+	text = """
+		Returns `#t` if its argument is a NaN.
+	"""
+
+[[apis]]
+	filename = "inf-p"
+	kinds = ["fn"]
+	args = ["arg flo"]
+	returns = "bool"
+	text = """
+		Returns `#t` if its argument is infinite.
+	"""
+
+[[apis]]
+	filename = "num-eq"
+	name = "=="
+	starts-subcategory = "Comparisons"
+	kinds = ["fn"]
+	args = ["args num|char 2+"]
+	returns = "bool"
+	text = """
+		Numeric equality test.
+
+		Returns `#t` if each successive pair of arguments tests [numerically equal](ord).
+		These two forms are equivalent:
+
+			(== a b c d)
+			(and (== a b) (== b c) (== c d))
+	"""
+
+[[apis]]
+	filename = "lt"
+	name = "<"
+	kinds = ["fn"]
+	args = ["args num|char 2+"]
+	returns = "bool"
+	text = """
+		Numeric less-than test.
+
+		Returns `#t` if each successive pair of arguments tests [numerically less-than](ord).
+		These two forms are equivalent:
+
+			(< a b c d)
+			(and (< a b) (< b c) (< c d))
+	"""
+
+[[apis]]
+	filename = "lte"
+	name = "<="
+	kinds = ["fn"]
+	args = ["args num|char 2+"]
+	returns = "bool"
+	text = """
+		Numeric less-than-or-equal test.
+
+		Returns `#t` if each successive pair of arguments tests [either numerically less-than or
+		numerically equal](ord). These two forms are equivalent:
+
+			(<= a b c d)
+			(and (<= a b) (<= b c) (<= c d))
+	"""
+
+[[apis]]
+	filename = "gt"
+	name = ">"
+	kinds = ["fn"]
+	args = ["args num|char 2+"]
+	returns = "bool"
+	text = """
+		Numeric greater-than test.
+
+		Returns `#t` if each successive pair of arguments tests [numerically greater-than](ord).
+		These two forms are equivalent:
+
+			(> a b c d)
+			(and (> a b) (> b c) (> c d))
+	"""
+
+[[apis]]
+	filename = "gte"
+	name = ">="
+	kinds = ["fn"]
+	args = ["args num|char 2+"]
+	returns = "bool"
+	text = """
+		Numeric greater-than-or-equal test.
+
+		Returns `#t` if each successive pair of arguments tests [either numerically greater-than or
+		numerically equal](ord). These two forms are equivalent:
+
+			(>= a b c d)
+			(and (>= a b) (>= b c) (>= c d))
+	"""
+
+[[apis]]
+	filename = "ord"
+	kinds = ["fn"]
+	args = ["left num|char", "right num|char"]
+	returns = "sym"
+	text = """
+		Numeric ordering.
+
+		Returns a `sym` describing the ordering between its arguments: 
+		- `<` when `left` is less than `right`.
+		- `==` when `left` is equal to `right`.
+		- `>` when `left` is greater than `right`.
+
+		Characters, integers and floats can all be compared with one another:
+		- When both arguments have the same type, no conversion is performed.
+		- When comparing a character to an integer, the character is converted as though 
+		  calling [`(int c)`](int).
+		- When comparing a character to a float, the character is converted as though 
+		  calling [`(flo c)`](flo).
+		- When comparing an integer to a float, the integer is converted as though 
+		  calling [`(flo i)`](flo).
+	"""
+
+[[apis]]
+	filename = "min"
+	kinds = ["fn", "mac"]
+	args = ["args num|char +"]
+	returns = "num|char"
+	text = """
+		Minimum.
+
+		Returns its smallest argument. Arguments are compared using [`ord`](ord). When multiple
+		arguments tie for smallest, the leftmost of those arguments is returned.
+	"""
+
+[[apis]]
+	filename = "max"
+	kinds = ["fn", "mac"]
+	args = ["args num|char +"]
+	returns = "num|char"
+	text = """
+		Maximum.
+
+		Returns its largest argument. Arguments are compared using [`ord`](ord). When multiple
+		arguments tie for largest, the leftmost of those arguments is returned.
+	"""
+
+[[apis]]
+	filename = "clamp"
+	kinds = ["fn"]
+	args = ["n num|char", "min num|char", "max num|char"]
+	returns = "num|char"
+	text = """
+		Clamps a value to a numeric range.
+
+		- When `(<= n min)`, returns `min`.
+		- When `(>= n max)`, returns `max`. 
+		- Otherwise, returns `n`.
+
+		When `(> min max)`, it's an error.
+	"""
+
+[[apis]]
+	filename = "round"
+	starts-subcategory = "Mathematics"
+	kinds = ["fn"]
+	args = ["n num"]
+	returns = "num"
+	text = """
+		Round-to-nearest.
+
+		When `n` is a float, equivalent to 
+		[`f32::round`](https://doc.rust-lang.org/std/primitive.f32.html#method.round). 
+		Returns a float.
+
+		When `n` is an integer, returns its argument unchanged.
+	"""
+
+[[apis]]
+	filename = "floor"
+	kinds = ["fn"]
+	args = ["n num"]
+	returns = "num"
+	text = """
+		Round down.
+
+		When `n` is a float, equivalent to 
+		[`f32::floor`](https://doc.rust-lang.org/std/primitive.f32.html#method.floor). 
+		Returns a float.
+
+		When `n` is an integer, returns its argument unchanged.
+	"""
+
+[[apis]]
+	filename = "ceil"
+	kinds = ["fn"]
+	args = ["n num"]
+	returns = "num"
+	text = """
+		Round up.
+
+		When `n` is a float, equivalent to 
+		[`f32::ceil`](https://doc.rust-lang.org/std/primitive.f32.html#method.ceil). 
+		Returns a float.
+
+		When `n` is an integer, returns its argument unchanged.
+	"""
+
+[[apis]]
+	filename = "sqrt"
+	kinds = ["fn"]
+	args = ["n num"]
+	returns = "flo"
+	text = """
+		Square root.
+
+		Converts `n` to a float and then calls
+		[`f32::sqrt`](https://doc.rust-lang.org/std/primitive.f32.html#method.sqrt).
+	"""
+
+[[apis]]
+	filename = "cbrt"
+	kinds = ["fn"]
+	args = ["n num"]
+	returns = "flo"
+	text = """
+		Cube root.
+
+		Converts `n` to a float and then calls
+		[`f32::cbrt`](https://doc.rust-lang.org/std/primitive.f32.html#method.cbrt).
+	"""
+
+[[apis]]
+	filename = "pow"
+	kinds = ["fn"]
+	args = ["n num", "exp num"]
+	returns = "num"
+	text = """
+		Exponentiation.
+
+		When both `n` and `exp` are integers, and `exp` is greater than or equal to `0`, calls
+		[`i32::wrapping_pow`](https://doc.rust-lang.org/std/primitive.i32.html#method.wrapping_pow).
+		Like any other integer arithmetic, it may silently overflow or underflow.
+
+		When either argument is a float, or when `exp` is negative, calls
+		[`f32::powf`](https://doc.rust-lang.org/std/primitive.f32.html#method.powf).
+	"""
+
+[[apis]]
+	filename = "log"
+	kinds = ["fn"]
+	args = ["n num", "base num ?"]
+	returns = "flo"
+	text = """
+		Logarithm.
+
+		`(log n)` converts `n` to a float and calls 
+		[`f32::ln`](https://doc.rust-lang.org/std/primitive.f32.html#method.ln).
+
+		`(log n base)` converts both arguments into floats and calls
+		[`f32::log2`](https://doc.rust-lang.org/std/primitive.f32.html#method.log2),
+		[`f32::log10`](https://doc.rust-lang.org/std/primitive.f32.html#method.log10) or
+		[`f32::log`](https://doc.rust-lang.org/std/primitive.f32.html#method.log) as appropriate.
+	"""
+
+[[apis]]
+	filename = "flo-sign"
+	kinds = ["fn"]
+	args = ["f flo"]
+	returns = "flo"
+	text = """
+		Floating-point sign bit.
+		
+		Equivalent to [`f32::signum`](https://doc.rust-lang.org/std/primitive.f32.html#method.signum).
+	"""
+
+[[apis]]
+	filename = "trunc"
+	kinds = ["fn"]
+	args = ["f flo"]
+	returns = "flo"
+	text = """
+		Returns the integer part of a float, as a float.
+		
+		Equivalent to [`f32::trunc`](https://doc.rust-lang.org/std/primitive.f32.html#method.trunc).
+	"""
+
+[[apis]]
+	filename = "fract"
+	kinds = ["fn"]
+	args = ["f flo"]
+	returns = "flo"
+	text = """
+		Returns the fractional part of a float.
+		
+		Equivalent to [`f32::fract`](https://doc.rust-lang.org/std/primitive.f32.html#method.fract).
+	"""
+
+[[apis]]
+	filename = "sin"
+	kinds = ["fn"]
+	args = ["f flo"]
+	returns = "flo"
+	text = """
+		Sine, in radians.
+		
+		Equivalent to [`f32::sin`](https://doc.rust-lang.org/std/primitive.f32.html#method.sin).
+	"""
+
+[[apis]]
+	filename = "cos"
+	kinds = ["fn"]
+	args = ["f flo"]
+	returns = "flo"
+	text = """
+		Cosine, in radians.
+		
+		Equivalent to [`f32::cos`](https://doc.rust-lang.org/std/primitive.f32.html#method.cos).
+	"""
+
+[[apis]]
+	filename = "tan"
+	kinds = ["fn"]
+	args = ["f flo"]
+	returns = "flo"
+	text = """
+		Tangent, in radians.
+		
+		Equivalent to [`f32::tan`](https://doc.rust-lang.org/std/primitive.f32.html#method.tan).
+	"""
+
+[[apis]]
+	filename = "asin"
+	kinds = ["fn"]
+	args = ["f flo"]
+	returns = "flo"
+	text = """
+		Arcsine, in radians.
+		
+		Equivalent to [`f32::asin`](https://doc.rust-lang.org/std/primitive.f32.html#method.asin).
+	"""
+
+[[apis]]
+	filename = "acos"
+	kinds = ["fn"]
+	args = ["f flo"]
+	returns = "flo"
+	text = """
+		Arccosine, in radians.
+		
+		Equivalent to [`f32::acos`](https://doc.rust-lang.org/std/primitive.f32.html#method.acos).
+	"""
+
+[[apis]]
+	filename = "atan"
+	kinds = ["fn"]
+	args = ["y flo", "x flo ?"]
+	returns = "flo"
+	text = """
+		Arctangent, in radians.
+		
+		`(atan f)` is equivalent to 
+		[`f32::atan`](https://doc.rust-lang.org/std/primitive.f32.html#method.atan).
+		
+		`(atan y x)` is equivalent to 
+		[`f32::atan2`](https://doc.rust-lang.org/std/primitive.f32.html#method.atan2).
+	"""
+
+[[apis]]
+	filename = "bitand"
+	starts-subcategory = "Bit Manipulation"
+	kinds = ["fn"]
+	args = ["args int *"]
+	returns = "int"
+	text = """
+		Bitwise AND.
+
+		`(bitand)` returns `-1`.
+
+		`(bitand x)` returns its argument.
+
+		Otherwise, returns the bitwise AND of its arguments.
+	"""
+
+[[apis]]
+	filename = "bitor"
+	kinds = ["fn"]
+	args = ["args int *"]
+	returns = "int"
+	text = """
+		Bitwise inclusive OR.
+
+		`(bitor)` returns `0`.
+
+		`(bitor x)` returns its argument.
+
+		Otherwise, returns the bitwise inclusive OR of its arguments.
+	"""
+
+[[apis]]
+	filename = "bitxor"
+	kinds = ["fn"]
+	args = ["args int *"]
+	returns = "int"
+	text = """
+		Bitwise exclusive OR.
+
+		`(bitxor)` returns `0`.
+
+		`(bitxor x)` returns its argument.
+
+		Otherwise, returns the bitwise exclusive OR of its arguments.
+	"""
+
+[[apis]]
+	filename = "bitnot"
+	kinds = ["fn"]
+	args = ["x int"]
+	returns = "int"
+	text = """
+		Bitwise NOT.
+	"""
+
+[[apis]]
+	filename = "bitshl"
+	kinds = ["fn"]
+	args = ["n int", "b int"]
+	returns = "int"
+	text = """
+		Left shift.
+
+		Returns `n`, shifted left by `b` bits.
+
+		When `b` is outside the range 0 to 31 inclusive, it's masked by `0x1f` before performing
+		the shift. This is consistent with Rust's behaviour when overflow checks are disabled.
+	"""
+
+[[apis]]
+	filename = "bitshr"
+	kinds = ["fn"]
+	args = ["n int", "b int"]
+	returns = "int"
+	text = """
+		Logical right shift.
+
+		Returns `n`, shifted right by `b` bits. The higher bits are filled with 0.
+
+		When `b` is outside the range 0 to 31 inclusive, it's masked by `0x1f` before performing
+		the shift. This is consistent with Rust's behaviour when overflow checks are disabled.
+	"""
+
+[[apis]]
+	filename = "bitsar"
+	kinds = ["fn"]
+	args = ["n int", "b int"]
+	returns = "int"
+	text = """
+		Arithmetic right shift.
+
+		Returns `n`, shifted right by `b` bits. The higher bits are filled in with the sign bit.
+
+		When `b` is outside the range 0 to 31 inclusive, it's masked by `0x1f` before performing
+		the shift. This is consistent with Rust's behaviour when overflow checks are disabled.
+	"""
+
+[[apis]]
+	filename = "rand"
+	starts-subcategory = "Randomness"
+	kinds = ["fn"]
+	args = ["arg0 num", "arg1 num ?"]
+	returns = "num"
+	text = """
+		Generates a random number.
+
+		`(rand a)` is equivalent to `(rand 0 a)`.
+
+		`(rand a b)` generates a random number between `a` and `b`: 
+
+		- If both arguments are integers, then `a` is an inclusive bound and `b` is an exclusive 
+		  bound, and the result will be an integer.
+
+		- If either argument is a float, then both bounds are inclusive and the result will
+		  be a float.
+
+		There is no requirement for `b` to be greater than `a`. For example, `(rand -3)` may 
+		return `0`, `-1` or `-2`; and `(rand 5 3)` may return `5` or `4`.
+
+		The built-in random number generator uses a simple linear-congruential algorithm.
+		It may not be appropriate when high-quality randomness is required.
+	"""
+
+[[apis]]
+	filename = "coin-flip"
+	kinds = ["fn"]
+	args = []
+	returns = "bool"
+	text = """
+		Equal chance of returning either `#t` or `#f`.
+	"""
+
+[[apis]]
+	filename = "chance"
+	kinds = ["fn"]
+	args = ["ratio flo"]
+	returns = "bool"
+	text = """
+		Returns `#t` or `#f` in the given ratio.
+
+		For example, `(chance 0.3)` will return `#t` three times out of ten, and return `#f` 
+		seven times out of ten.
+
+		When `(<= ratio 0.0)`, the result will always be `#f`, and when `(>= ratio 1.0)`, the
+		result will always be `#t`.
+	"""
+
+[[apis]]
+	filename = "rand-select"
+	kinds = ["fn"]
+	args = ["args val +"]
+	returns = "val"
+	text = """
+		Randomly selects one of its arguments.
+
+		For example, `(rand-select 'a 10 #t)` has a one-in-three chance of returning `'a`, a
+		one-in-three chance of returning `10`, and a one-in-three chance of returning `#t`.
+	"""
+
+[[apis]]
+	filename = "rand-weighted"
+	kinds = ["fn"]
+	args = ["args val 2+"]
+	returns = "val"
+	text = """
+		Randomly selects one item from a group, with unequal probability.
+
+		Expects an even number of arguments, where the even-numbered arguments are all
+		non-negative numbers (weights). The sum of all weights must be greater than 0.
+
+		Each argument's likelihood of being chosen is equal to `(/ weight sum)`. For example,
+		`(rand-weighted 'x 2 'y 3 'z 0)` has a two-in-five chance of returning `'x` and a
+		three-in-five chance of returning `'y`. It will never return `'z`.
+	"""
+
+[[apis]]
+	filename = "rand-reseed"
+	kinds = ["fn"]
+	args = ["seed int"]
+	returns = "nil"
+	text = """
+		Restarts the random number generator from a fixed seed.
+
+		When a program calls `(rand-reseed)` with a particular value, and then generates random 
+		numbers using a particular sequence of standard-library calls, it will produce the same
+		results every time.
+
+		When a `Runtime` is created, its initial random seed is based on the system clock.
+	"""
+
+[[apis]]
+	filename = "smoothstep"
+	starts-subcategory = "Miscellaneous"
+	kinds = ["fn"]
+	args = ["f flo"]
+	returns = "flo"
+	text = """
+		Smoothly interpolates between `0.0` and `1.0`.
+
+		When `(<= f 0.0)`, returns `0.0`.
+
+		When `(>= f 1.0)`, returns `1.0`.
+
+		Otherwise, returns `(- (* 3.0 f f) (* 2.0 f f f))`. This is the
+		[smoothstep](https://en.wikipedia.org/wiki/Smoothstep) function.
+	"""
+
+[[apis]]
+	filename = "seek"
+	kinds = ["fn"]
+	args = ["origin num", "target num", "step-by num ?1"]
+	returns = "num"
+	text = """
+		Moves closer to a target value.
+
+		When `(== origin target)`, returns `target`.
+
+		When `(< origin target)`, returns `(min target (+ origin step-by))`.
+
+		When `(> origin target)`, returns `(max target (- origin step-by))`.
+	"""
+
+[[apis]]
+	filename = "antiseek"
+	kinds = ["fn"]
+	args = ["origin num", "target num", "step-by num ?1"]
+	returns = "num"
+	text = """
+		Moves away from a target value.
+
+		When `(>= origin target)`, returns `(+ origin step-by)`.
+
+		When `(< origin target)`, returns `(- origin step-by)`.
+	"""

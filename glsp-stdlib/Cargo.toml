@@ -1,0 +1,11 @@
+[package]
+name = "glsp-stdlib"
+version = "0.1.0"
+authors = []
+publish = false
+edition = "2018"
+
+[dependencies]
+glsp = { package = "glsp-engine", path = "../glsp-engine", version = "0.*" }
+glsp-proc-macros = { path = "../glsp-proc-macros", version = "0.*" }
+smallvec = { version = "1", features = ["union", "write"] }

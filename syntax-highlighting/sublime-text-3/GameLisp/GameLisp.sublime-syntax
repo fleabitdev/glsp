@@ -1,0 +1,139 @@
+%YAML 1.2
+---
+name: GameLisp
+file_extensions: [glsp]
+scope: source.glsp
+
+# it would be possible to reimplement this syntax definition to be more lexically correct (e.g.
+# see Clojure.sublime-syntax), but the main advantage would be more-accurate syntax highlighting 
+# for #; comments. unfortunately, most of st3's themes syntax-highlight the `comment.*` scopes
+# differently if another scope, like `constant.*`, is also present.
+
+variables:
+  declarations: def|defn|defmacro|defclass|defmixin|defstruct|state\*|state|fsm|load|require
+  local_decls: let|let-tab|let-fn|let-macro|let-class|let-mixin|fn0|fn1|fn|field|const|\
+               |prop|wrap-prop
+  controls: if|when|unless|while|until|cond==|cond-eq\?|cond-same\?|cond|return|yield|\
+            |else|any-of|forni|forn|for|block|restart-block|finish-block|in|\
+            |do|break|continue|\@base|\@enab!|\@enab\?|\@disab!|enab!|enab\?|disab!|\
+            |match|matches\?|when-let
+  class_decls: meth|wrap|init-state|init-mixin|init|fini-state|fini-mixin|fini|mixin
+
+contexts:
+  main:
+    - include: comments
+
+    # character constants
+    - match: \\(space|tab|newline|return|nul)\b
+      scope: constant.numeric.integer.other.glsp
+    - match: \\x[0-7]\h
+      scope: constant.numeric.integer.other.glsp
+    - match: \\u{\h\h?\h?\h?\h?\h?}
+      scope: constant.numeric.integer.other.glsp
+    - match: \\.
+      scope: constant.numeric.integer.other.glsp
+
+    # numbers
+    - match: '[\d_]*\d[\d_]*\b'
+      scope: constant.numeric.integer.decimal.glsp
+    - match: 0b[01_]*[01][01_]*\b
+      scope: constant.numeric.integer.binary.glsp
+    - match: 0o[0-7_]*[0-7][0-7_]*\b
+      scope: constant.numeric.integer.octal.glsp
+    - match: 0x[\h_]*\h[\h_]*\b
+      scope: constant.numeric.integer.hexadecimal.glsp
+
+    # true, false, nil
+    - match: '\#(t|f|n)\b'
+      scope: constant.language.glsp
+
+    # keywords
+    - match: (\()({{declarations}})\s
+      captures: 
+        1: punctuation.section.parens.begin.glsp
+        2: storage.type.glsp
+    - match: \s({{declarations}})\s
+      captures: 
+        1: storage.type.glsp
+    - match: (\()({{local_decls}})\s
+      captures: 
+        1: punctuation.section.parens.begin.glsp
+        2: storage.type.glsp keyword.declaration.other.glsp
+    - match: \s({{local_decls}})\s
+      captures: 
+        1: storage.type.glsp keyword.declaration.other.glsp
+    - match: (\()({{controls}})(\s|\))
+      captures: 
+        1: punctuation.section.parens.begin.glsp
+        2: keyword.control.glsp
+    - match: \s({{controls}})(\s|\))
+      captures: 
+        1: keyword.control.glsp
+    - match: (\()({{class_decls}})\s
+      captures: 
+        1: punctuation.section.parens.begin.glsp
+        2: keyword.other.glsp
+    - match: \s({{class_decls}})\s
+      captures: 
+        1: keyword.other.glsp
+
+    # other syms in function-call position. (we comment this out because there's no realistic
+    # way to differentiate function-calls from, say, the first name in a param list)
+    #- match: '(\()\s*([a-zA-Z0-9!$%&*+\-./:<=>?^_~\[\]]+)'
+    #  captures: 
+    #    1: punctuation.section.parens.begin.glsp
+    #    2: support.function.glsp
+
+    # brackets
+    - match: \(
+      scope: punctuation.section.parens.begin.glsp
+    - match: \)
+      scope: punctuation.section.parens.end.glsp
+
+    # strings
+    - match: '"'
+      scope: punctuation.definition.string.begin.glsp
+      push: string
+    - match: '}'
+      scope: punctuation.definition.string.begin.glsp
+      push: string
+    
+    # raw strings
+    - match: r(#*)"
+      push:
+        - meta_scope: string.quoted.double.raw.glsp
+        - match: \1
+          pop: true
+
+  comments:
+    - match: ;.*$
+      scope: comment.line.glsp
+    - match: '\#\|'
+      push: block-comment
+    - match: '\#\;'
+      scope: comment.block.glsp
+
+  block-comment:
+    - meta_scope: comment.block.glsp
+    - match: '\#\|'
+      push: block-comment
+    - match: '\|\#'
+      pop: true
+
+  string:
+    - meta_scope: string.quoted.double.glsp
+    - match: '"'
+      scope: punctuation.definition.string.end.glsp
+      pop: true
+    - match: '{{'
+      scope: constant.character.escape.glsp
+    - match: '}}'
+      scope: constant.character.escape.glsp
+    - match: '{'
+      pop: true
+    - match: '(\\")|(\\n)|(\\r)|(\\t)|(\\0)'
+      scope: constant.character.escape.glsp
+    - match: \\x[0-7]\h
+      scope: constant.character.escape.glsp
+    - match: \\u{\h\h?\h?\h?\h?\h?}
+      scope: constant.character.escape.glsp

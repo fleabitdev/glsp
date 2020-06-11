@@ -1,0 +1,479 @@
+filename = "strings-and-text"
+name = "Strings and Text"
+text = ""
+
+[[apis]]
+	filename = "str"
+	starts-subcategory = "Constructors"
+	kinds = ["fn"]
+	args = ["args val *"]
+	returns = "str"
+	text = """
+		Constructs a string.
+
+		Each argument is converted into text and concatenated, with a single space character 
+		inserted between adjacent non-character, non-string arguments. Finally, that text is 
+		stored in a newly-allocated, mutable string, which is returned.
+
+			(ensure (eq? (str 5) "5"))
+			(ensure (eq? (str 1 2 3) "1 2 3"))
+			(ensure (eq? (str "Moonsong") "Moonsong"))
+			(ensure (eq? (str "Moon" "song") "Moonsong"))
+			(ensure (eq? (str 'Moon 'song) "Moon song"))
+	"""
+
+[[apis]]
+	filename = "template-str"
+	kinds = ["fn"]
+	args = ["args val *"]
+	returns = "str"
+	text = """
+		Constructs a string.
+
+		`(template-str "a " b " c")` is usually [abbreviated][0] as 
+		[`"a {b} c"`](template-str-abbrv).
+
+		[0]: ../reference/syntax-and-types.html#abbreviations
+
+		`template-str` is otherwise identical to [`str`](str).
+	"""
+
+[[apis]]
+	filename = "pretty-str"
+	kinds = ["fn"]
+	args = ["arg val"]
+	returns = "str"
+	text = """
+		Converts GameLisp syntax into a string with appropriate whitespace.
+
+		This function behaves like [`str`](str), except that additional whitespace may be
+		inserted to make the output more readable.
+
+			; without pretty-printing
+			(when (> x 10) (prn "tested x") (prn "it was > 10"))
+
+			; with pretty-printing
+			(when (> x 10)
+			  (prn "tested x")
+			  (prn "it was > 10"))
+
+		GameLisp's pretty-printer is not yet gold standard, but it should be good enough for
+		debugging.
+	"""
+
+[[apis]]
+	filename = "int-to-str"
+	name = "int->str"
+	kinds = ["fn"]
+	args = ["i int", "radix int ?10"]
+	returns = "str"
+	text = """
+		Converts an integer to a string, with the specified radix.
+
+		`radix` must be an integer from `2` to `36` inclusive.
+
+			(prn (int->str 42)) ; prints 42
+			(prn (int->str 42 2)) ; prints 101010
+			(prn (int->str 42 16)) ; prints 2A
+	"""
+
+[[apis]]
+	filename = "flo-to-str"
+	name = "flo->str"
+	kinds = ["fn"]
+	args = ["f flo", "precision int ?"]
+	returns = "str"
+	text = """
+		Converts a float to a string, with the specified number of digits after the decimal point.
+
+			(prn (flo->str 4.567)) ; prints 4.567
+			(prn (flo->str 4.567 1)) ; prints 4.6
+			(prn (flo->str 4.567 6)) ; prints 4.567000
+			(prn (flo->str 4.567 0)) ; prints 5
+	"""
+
+[[apis]]
+	filename = "sym"
+	kinds = ["fn"]
+	args = ["args val *"]
+	returns = "sym"
+	text = """
+		Constructs a symbol.
+
+		Each argument is converted into text and concatenated. If the resulting string has
+		previously been passed to `sym`, that same symbol is returned. Otherwise, a new symbol
+		is allocated and returned.
+
+			(ensure (eq? 'ice2 (sym "ice" 2)))
+			(ensure (eq? 'bolt3 (sym 'bolt (+ 1 1 1))))
+
+		A valid symbol is a sequence of one or more of the following characters, optionally 
+		followed by a single `#`:
+
+			abcdefghijklmnopqrstuvwxyz
+			ABCDEFGHIJKLMNOPQRSTUVWXYZ
+			0123456789
+			!$%&*+-./:<=>?^_~
+	"""
+
+[[apis]]
+	filename = "gensym"
+	kinds = ["fn"]
+	args = ["tag val ?"]
+	returns = "sym"
+	text = """
+		Constructs a unique symbol.
+
+		The symbol returned from this function is guaranteed to compare unequal to all other
+		symbols. This can be useful for maintaining [macro hygiene].
+
+		[macro hygiene]: https://en.wikipedia.org/wiki/Hygienic_macro
+
+		Gensyms cannot be [printed](pr) or [parsed](parse-all).
+
+		[`backquote`](backquote) has an "auto-gensym" feature which may be more convenient than
+		calling the `gensym` function directly.
+
+		When `tag` is present, it's converted into a string which is incorporated into the
+		gensym's printed representation. This can be helpful for debugging.
+
+			(prn (gensym)) ; prints #<gs:0>
+			(prn '#<gs:0>) ; error: #<gs:0> is invalid syntax
+
+			(prn (gensym 'tagged)) ; prints #<gs:tagged:1>
+	"""
+
+[[apis]]
+	filename = "valid-sym-char-p"
+	kinds = ["fn"]
+	args = ["ch char"]
+	see-also = ["sym"]
+	returns = "bool"
+	text = """
+		Returns `#t` if its argument is a valid symbol character.
+
+		`(valid-sym-char? \\#)` returns `#f`.
+	"""
+
+[[apis]]
+	filename = "valid-sym-str-p"
+	kinds = ["fn"]
+	args = ["st str"]
+	see-also = ["sym"]
+	returns = "bool"
+	text = """
+		Returns `#t` if its argument would be a valid symbol.
+	"""
+
+[[apis]]
+	filename = "parse"
+	starts-subcategory = "Parsing"
+	kinds = ["fn"]
+	args = ["st str", "filename str ?"]
+	returns = "arr"
+	text = """
+		Incrementally parses values from a string.
+
+		`st` must contain valid GameLisp source text. The function parses zero or one values from
+		the start of the string, returning a three-element array, `(tag val chars-read)`.
+
+		- `tag` is a symbol: either `ok` or `end-of-input`.
+		- `val` is the parsed value, or `#n`.
+		- `chars-read` is an integer, the number of characters consumed from the beginning of `st`.
+
+		`filename` can be used to specify a nominal filename for error-reporting. It does not 
+		need to refer to an actual file.
+
+		It's usually more convenient to call [`parse-all`](parse-all) or [`parse-1`](parse-1), 
+		rather than using this function.
+	"""
+
+[[apis]]
+	filename = "parse-all"
+	kinds = ["fn"]
+	args = ["st str", "filename str ?"]
+	returns = "arr"
+	text = """
+		Parses zero or more values from a string.
+
+		`st` must contain valid GameLisp source text. That text is completely parsed, returning
+		an array which contains zero or more values.
+
+		`filename` can be used to specify a nominal filename for error-reporting. It does not 
+		need to refer to an actual file.
+	"""
+
+[[apis]]
+	filename = "parse-1"
+	kinds = ["fn"]
+	args = ["st str", "filename str ?"]
+	returns = "val"
+	text = """
+		Parses exactly one value from a string.
+
+		Equivalent to `[(parse-all st filename) 0]`.
+	"""
+
+[[apis]]
+	filename = "unparse"
+	kinds = ["fn"]
+	args = ["args val *"]
+	returns = "str"
+	text = """
+		Losslessly converts GameLisp data into a string.
+
+		This function is similar to [`str`](str), but it will fail if it receives data which 
+		can't be losslessly represented as text. This includes...
+
+		- Values which belong  to a primitive type other than `nil`, `bool`, `int`, `flo`, `char`, 
+		  `sym`, `arr`, `str` or `tab`.
+		- Reference cycles.
+		- Symbols generated using [`gensym`](gensym).
+		- Symbols which would be read back in as a number or abbreviation, like `(sym "5")`.
+
+		The result of [`(parse-1 (unparse val))`](parse-1) is guaranteed to be [`eq?`](eq-p)
+		to `val`.
+	"""
+
+[[apis]]
+	filename = "pretty-unparse"
+	kinds = ["fn"]
+	args = ["arg val"]
+	see-also = ["unparse", "pretty-str"]
+	returns = "str"
+	text = """
+		Losslessly converts GameLisp data into a string with appropriate whitespace.
+	"""
+
+[[apis]]
+	filename = "pr"
+	starts-subcategory = "Printing"
+	kinds = ["fn"]
+	args = ["args val *"]
+	returns = "nil"
+	text = """
+		Prints to the standard output stream.
+
+		All of the arguments are converted to text, as though by calling `(str ..args)`.
+		That text is sent to the `pr_writer` for the current `Runtime`, which defaults to 
+		[`Stdout`].
+
+		[`Stdout`]: https://doc.rust-lang.org/std/io/struct.Stdout.html
+	"""
+
+[[apis]]
+	filename = "prn-fn" # windows forbids 'prn.html'
+	name = "prn"
+	kinds = ["fn"]
+	args = ["args val *"]
+	returns = "nil"
+	text = """
+		Prints to the standard output stream, followed by a newline.
+
+		Equivalent to `(pr ..args \\newline)`.
+	"""
+
+[[apis]]
+	filename = "pretty-prn"
+	kinds = ["fn"]
+	args = ["arg val"]
+	see-also = ["pretty-str", "prn-fn"]
+	returns = "nil"
+	text = """
+		Pretty-prints to the standard output stream.
+
+		Equivalent to `(prn (pretty-str arg))`.
+	"""
+
+[[apis]]
+	filename = "epr"
+	kinds = ["fn"]
+	args = ["args val *"]
+	returns = "nil"
+	text = """
+		Prints to the standard error stream.
+
+		All of the arguments are converted to text, as though by calling `(str ..args)`.
+		That text is sent to the `epr_writer` for the current `Runtime`, which defaults to 
+		[`Stderr`].
+
+		[`Stderr`]: https://doc.rust-lang.org/std/io/struct.Stderr.html
+	"""
+
+[[apis]]
+	filename = "eprn"
+	kinds = ["fn"]
+	args = ["args val *"]
+	returns = "nil"
+	text = """
+		Prints to the standard error stream, followed by a newline.
+
+		Equivalent to `(epr ..args \\newline)`.
+	"""
+
+[[apis]]
+	filename = "pretty-eprn"
+	kinds = ["fn"]
+	args = ["arg val"]
+	see-also = ["pretty-str", "eprn"]
+	returns = "nil"
+	text = """
+		Pretty-prints to the standard error stream.
+
+		Equivalent to `(eprn (pretty-str arg))`.
+	"""
+
+[[apis]]
+	filename = "uppercase"
+	starts-subcategory = "Text"
+	kinds = ["fn"]
+	args = ["st str"]
+	returns = "str"
+	text = """
+		Converts a string to uppercase.
+
+		The returned string is newly-allocated and mutable. `st` is not mutated.
+
+		This is equivalent to [`str::to_uppercase`][0].
+
+		[0]: https://doc.rust-lang.org/std/primitive.str.html#method.to_uppercase
+	"""
+
+[[apis]]
+	filename = "lowercase"
+	kinds = ["fn"]
+	args = ["st str"]
+	returns = "str"
+	text = """
+		Converts a string to lowercase.
+
+		The returned string is newly-allocated and mutable. `st` is not mutated.
+
+		This is equivalent to [`str::to_lowercase`][0].
+
+		[0]: https://doc.rust-lang.org/std/primitive.str.html#method.to_lowercase
+	"""
+
+[[apis]]
+	filename = "replace"
+	kinds = ["fn"]
+	args = ["st str", "before str", "after str"]
+	returns = "str"
+	text = """
+		Performs text substitution.
+
+		Returns a newly-allocated, mutable string. Its contents will be the same as `st`, except
+		that each occurence of the `before` substring will be been replaced with `after`.
+
+			(let st "KEKE IS MOVE")
+			(prn (replace st "MOVE" "PUSH")) ; prints KEKE IS PUSH
+	"""
+
+[[apis]]
+	filename = "trim"
+	kinds = ["fn"]
+	args = ["st str", "to-trim str ?"]
+	returns = "str"
+	text = """
+		Trims leading and trailing characters from a string.
+
+		If `to-trim` is not specified, [whitespace characters](whitespace-p) are trimmed.
+		Otherwise, characters are trimmed if they are present in `to-trim`.
+
+		The returned string is newly-allocated and mutable. `st` is not mutated.
+
+			(ensure (eq? "abcde" (trim " abcde "))
+			(ensure (eq? "bcde" (trim " abcde " "a "))
+			(ensure (eq? "abcde" (trim " abcde " "bcd "))
+	"""
+
+[[apis]]
+	filename = "trim-start"
+	kinds = ["fn"]
+	args = ["st str", "to-trim str ?"]
+	returns = "str"
+	text = """
+		Trims leading characters from a string.
+
+		Equivalent to [`trim`](trim), but characters are only trimmed from the beginning of `st`.
+	"""
+
+[[apis]]
+	filename = "trim-end"
+	kinds = ["fn"]
+	args = ["st str", "to-trim str ?"]
+	returns = "str"
+	text = """
+		Trims trailing characters from a string.
+
+		Equivalent to [`trim`](trim), but characters are only trimmed from the end of `st`.
+	"""
+
+[[apis]]
+	filename = "pad"
+	kinds = ["fn"]
+	args = ["st str", "len int", "ch char ?\\space"]
+	returns = "str"
+	text = """
+		Adds padding characters to the end of a string.
+
+		Returns a newly-allocated, mutable string which contains at least `len` characters.
+		If `st` is shorter than `len`, any missing characters are filled in with `ch`.
+
+			(ensure (eq? (pad "hello" 4) "hello"))
+			(ensure (eq? (pad "hello" 8) "hello   "))
+			(ensure (eq? (pad "hello" 8 \\o) "helloooo"))
+	"""
+
+[[apis]]
+	filename = "pad-start"
+	kinds = ["fn"]
+	args = ["st str", "len int", "ch char ?\\space"]
+	returns = "str"
+	text = """
+		Adds padding characters to the beginning of a string.
+
+		Equivalent to [`pad`](pad), but padding characters are added to the beginning of the
+		string, rather than the end.
+
+			(ensure (eq? (pad-start "hello" 4) "hello"))
+			(ensure (eq? (pad-start "hello" 8) "   hello"))
+			(ensure (eq? (pad-start "hello" 8 \\h) "hhhhello"))
+	"""
+
+[[apis]]
+	filename = "pad-end"
+	kinds = ["fn"]
+	args = ["st str", "len int", "ch char ?\\space"]
+	returns = "str"
+	text = """
+		Adds padding characters to the end of a string.
+
+		Equivalent to [`pad`](pad).
+	"""
+
+[[apis]]
+	filename = "whitespace-p"
+	starts-subcategory = "Predicates"
+	kinds = ["fn"]
+	args = ["arg char|str"]
+	returns = "bool"
+	text = """
+		Returns `#t` if the given character or string is whitespace.
+
+		This is tested using [`char::is_whitespace`][0]. The empty string returns `#t`.
+
+		[0]: https://doc.rust-lang.org/std/primitive.char.html#method.is_whitespace
+	"""
+
+[[apis]]
+	filename = "contains-p"
+	kinds = ["fn"]
+	args = ["haystack str", "needle char|str"]
+	returns = "bool"
+	text = """
+		Returns `#t` if a string contains a character or substring.
+
+		In other words, this function returns `#t` if [`(position haystack needle)`](position)
+		would return an integer.
+	"""

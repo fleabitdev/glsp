@@ -1,0 +1,542 @@
+; the "PLAY" button will run this code in a simple game engine. the api: 
+; https://github.com/fleabitdev/glsp/blob/master/website/glsp-playground/API.md
+
+; constants (try changing these!)
+;-----------------------------------------------------------
+
+; from 0 to 20. at higher levels, pieces fall faster
+(def :starting-level 0) 
+
+; for each Part of each Piece, an array: (offset-x offset-y (? frame))
+(def :pieces #(
+	(i-piece ((-1 0 5) (0 0 3) (1 0 3) (2 0 4)))
+	(o-piece ((0 0) (1 0) (0 1) (1 1)))
+	(s-piece ((-1 1) (0 1) (0 0) (1 0)))
+	(z-piece ((-1 0) (0 0) (0 1) (1 1)))
+	(l-piece ((-1 1) (-1 0) (0 0) (1 0)))
+	(j-piece ((-1 0) (0 0) (1 0) (1 1)))
+	(t-piece ((-1 0) (0 0) (1 0) (0 1)))
+	#;(x-piece ((-1 -1) (-1 1) (1 1) (1 -1)))
+	#;(?-piece ((-2 2) (-1 2) (-1 1) (-2 0) (-2 -1) (-1 -2) (0 -2) 
+	            (1 -2) (2 -1) (2 0) (1 1) (1 2) (2 2)))
+))
+
+(defn rand-piece-type ()
+	(rand-select ..(keys :pieces)))
+
+; the time between ticks for each level, measured in seconds
+(def :tick-intervals '(0.89 0.82 0.75 0.69 0.62 0.55 0.47 0.37 0.28 0.18 0.17 
+                       0.15 0.13 0.12 0.10 0.10 0.08 0.08 0.07 0.07 0.05))
+
+; the time between ticks while the down arrow is pressed
+(def :drop-interval 0.05)
+
+; the time before the left and right arrow start to auto-repeat
+(def :autorep-delay 0.39)
+
+; the time between auto-repeated left and right movements
+(def :autorep-interval 0.15)
+
+; configuring the engine
+;-----------------------------------------------------------
+
+(def play:width 320)
+(def play:height 288)
+(def play:title "Quadris")
+(def play:blurb r#"
+	<p><b>Arrow keys:</b> Move or rotate piece
+	<p><b>Enter:</b> Pause/unpause game
+"#)
+
+; the flow of gameplay is represented as a state machine
+;-----------------------------------------------------------
+
+(defclass Game
+	(field score)
+	(field level)
+	(field lines)
+
+	(field grid) ; a grid of Tiles, in row-major order
+	(field next-piece) ; a Piece. its origin-x and origin-y are ignored until it's played
+
+	(init ()
+		(@reset))
+
+	(meth reset ()
+		(= @score 0)
+		(= @level (clamp :starting-level 0 20))
+		(= @lines 0)
+
+		(= @grid (make-grid))
+		(= @next-piece (Piece (rand-piece-type))))
+
+	; draws everything except the falling piece, the "GAME OVER" or "PAUSED" popup, and
+	; the line-clearing animation. if `grid-mode` is `hide-grid`, the grid and the 
+	; "next piece" frame will both appear to be empty.
+	(meth draw-backdrop (grid-mode)
+		(ensure (eq-any? grid-mode 'show-grid 'hide-grid))
+
+		; draw the brick walls on either side of the stage
+		(forni (y 0 240 48)
+			(play:draw 'stage-edge 0 y)
+			(play:draw 'stage-edge 192 y 'hflip))
+
+		; draw the stage
+		(let grid-i 0)
+		(forn (grid-y :grid-height)
+			(forn (grid-x :grid-width)
+				(let tile [@grid (+ grid-x (* grid-y :grid-width))])
+				(let [sprite frame] tile)
+
+				(when (eq? grid-mode 'hide-grid)
+					(= sprite 'stage))
+
+				(play:draw sprite (+ 32 (* grid-x 16)) (* grid-y 16) 'frame frame)))
+
+		; fill the side panel
+		(play:fill 224 0 96 288 28 51 65)
+
+		; draw the three score indicators
+		(let-fn draw-number (label-sprite value x y)
+			(play:draw 'number-frame x y)
+			(play:draw 'number-frame (+ x 39) y 'hflip)
+			(play:draw label-sprite (+ x 20) (+ y 6))
+
+			(clamp! value 0 99999)
+
+			(let digit-x (+ x 60))
+			(loop
+				(play:draw 'digits digit-x (+ y 22) 'frame (% value 10))
+				(dec! digit-x 13)
+
+				(div! value 10)
+				(when (<= value 0)
+					(break))))
+
+		(draw-number 'score-text @score 233 10)
+		(draw-number 'level-text @level 233 66)
+		(draw-number 'lines-text @lines 233 122)
+
+		; draw the "next piece" frame
+		(play:draw 'piece-frame 232 200)
+		(play:draw 'piece-frame 272 200 'hflip)
+		(play:draw 'piece-frame 232 240 'vflip)
+		(play:draw 'piece-frame 272 240 'hflip 'vflip)
+
+		(forni (x 240 288 16)
+			(forni (y 208 256 16)
+				(play:draw 'stage x y)))
+
+		; ... and the "next piece" itself
+		(unless (eq? grid-mode 'hide-grid)
+			; a fixed origin would cause some pieces to display off-centre within
+			; the "next piece" frame, so we need to tweak their coordinates slightly
+			(let (tweak-x tweak-y) (cond-eq? [@next-piece 'piece-type]
+				('i-piece '(-8 8))
+				('o-piece '(-8 0))
+				('x-piece '(0 8))
+				(else '(0 0))))
+			(.draw @next-piece (+ tweak-x 264) (+ tweak-y 224))))
+
+	; the `update` and `draw` methods are called by play:update, once per frame. they're overridden
+	; by the Paused state. when not overridden, they delegate to the `update-gameplay` and 
+	; `draw-gameplay` methods, implemented differently by various states in a finite state machine.
+	(meth update (dt)
+		(cond 
+			((and (play:pressed? 'enter) (@enab? 'Playing))
+				(@enab! 'Paused))
+			(else
+				(@update-gameplay dt))))
+
+	(meth draw ()
+		(@draw-gameplay))
+
+	#|
+	the full state hierarchy for Game is:
+
+		(fsm
+			(state* Playing
+				(state Paused)
+				(fsm
+					(state* Falling)
+					(state Clearing)
+					(state Frozen)))
+			(state GameOver))
+	|#
+
+	(fsm
+		; normal gameplay, as opposed to the "GAME OVER" screen
+		(state* Playing
+
+			; showing the "PAUSED" message
+			(state Paused
+				; this state prevents the `update-gameplay` and `draw-gameplay` methods from being called. 
+				; the other substates of Playing are still active (their data isn't lost), but they're 
+				; frozen in time and they're not rendered.
+				(wrap Main:update (dt)
+					(when (play:pressed? 'enter)
+						(@disab! 'Paused)))
+
+				(wrap Main:draw ()
+					(@draw-backdrop 'hide-grid)
+
+					; draw the floating text box
+					(play:draw 'game-over-frame 73 116)
+					(play:draw 'game-over-frame 113 116 'hflip)
+					(play:draw 'paused-text 89 139)))
+
+			; this fsm controls the main gameplay loop: moving a piece, clearing a line, or failing
+			(fsm
+
+				; a falling piece is being manipulated by the user
+				(state* Falling
+					(field piece) ; a Piece (see below)
+
+					(field last-tick-timer 0.0) ; seconds since the piece was last moved downwards
+					(field drop-bonus 0) ; number of spaces moved since the 'down key was last released
+					(field autorep-timer #n) ; seconds remaining until the 'left or 'right key autorepeats
+					(field autorep-dx #n) ; 1 or -1. horizontal movement to be triggered by autorepeat
+					(field drop-suppressed? #t) ; set to #t for each new piece, until 'down is released
+
+					; when this state is enabled, we bring a new piece into play
+					(init-state ()
+						(= @piece @next-piece)
+						(= @next-piece (Piece (rand-piece-type))))
+
+					; draw the stage, then delegate to the current piece's `draw` method
+					(meth draw-gameplay ()
+						(@draw-backdrop 'show-grid)
+						(.draw @piece (+ 32 (* [@piece 'origin-x] 16)) (* [@piece 'origin-y] 16)))
+
+					(meth update-gameplay (dt)
+						; at the start of a frame, if the piece overlaps with existing blocks, the game has
+						; been lost. (this can only happen when a piece spawns in on top of occupied space.)
+						(when (.collides? @piece @grid)
+							(.place-onto-grid @piece @grid)
+							(@enab! 'Frozen)
+							(return))
+
+						(unless (play:down? 'down)
+							(= @drop-suppressed? #f)
+							(= @drop-bonus 0))
+
+						; detect when autorepeat for horizontal movement should be enabled/disabled
+						(cond
+							((or (and (play:down? 'left) (play:down? 'right))
+							     (and (eq? @autorep-dx -1) (not (play:down? 'left)))
+							     (and (eq? @autorep-dx 1) (not (play:down? 'right))))
+								(= @autorep-timer #n)
+								(= @autorep-dx #n))
+							((and (play:down? 'left) (nil? @autorep-timer))
+								(= @autorep-timer :autorep-delay)
+								(= @autorep-dx -1))
+							((and (play:down? 'right) (nil? @autorep-timer))
+								(= @autorep-timer :autorep-delay)
+								(= @autorep-dx 1)))
+
+						; `dx` is the horizontal movement for this frame: -1, 0 or 1. it's based on autorepeat,
+						; and whether or not any actual physical keys have been pressed this frame.
+						(let dx (cond
+							((and (play:pressed? 'left) (play:pressed? 'right))
+								0)
+							((play:pressed? 'left)
+								-1)
+							((play:pressed? 'right)
+								1)
+							((not (nil? @autorep-timer))
+								; while checking the autorepeat timer, we also update it
+								(dec! @autorep-timer dt)
+								(cond
+									((<= @autorep-timer 0.0)
+										(= @autorep-timer :autorep-interval)
+										@autorep-dx)
+									(else
+										0)))
+							(else
+								0)))
+
+						; apply the calculated horizontal movement
+						(unless (== dx 0)
+							(.move! @piece dx 0)
+
+							; collision detection
+							(when (.collides? @piece @grid)
+								(.move! @piece (- dx) 0)))
+
+						; decide whether or not to move the piece downwards
+						(let interval (cond
+							((and (play:down? 'down) (not @drop-suppressed?) (not @autorep-timer))
+								:drop-interval)
+							(else
+								[:tick-intervals @level])))
+
+						(inc! @last-tick-timer dt)
+						(when (>= @last-tick-timer interval)
+							(= @last-tick-timer 0.0)
+
+							; move the piece downwards
+							(.move! @piece 0 1)
+
+							; collision detection. when a collision occurs, the piece has finshed falling,
+							; and we need to decide what to do next.
+							(when (.collides? @piece @grid)
+								(.move! @piece 0 -1)
+								(.place-onto-grid @piece @grid)
+
+								; bonus points for landing the piece using the 'down key
+								(inc! @score @drop-bonus)
+								(= @drop-bonus 0)
+
+								; collect the set of cleared lines, if any
+								(let cleared-lines (arr))
+								(forn (y :grid-height)
+									(let line-cleared? #t)
+									(forn (x :grid-width)
+										(let tile [@grid (+ x (* y :grid-width))])
+										(when (eq? [tile 'sprite] 'stage)
+											(= line-cleared? #f)
+											(break)))
+
+									(when line-cleared?
+										(push! cleared-lines y)))
+
+								; if no lines were cleared, restart the Falling state. otherwise, transition
+								; to the Clearing state.
+								(cond
+									((empty? cleared-lines)
+										(@disab! 'Falling)
+										(@enab! 'Falling)
+										(return))
+									(else
+										(@enab! 'Clearing cleared-lines)
+										(return))))
+
+							; we only award a bonus point for movements which do not collide
+							(when (play:down? 'down)
+								(inc! @drop-bonus)))
+
+						; rotate the piece
+						(when (play:pressed? 'up)
+							(.rotate-cw! @piece)
+
+							; collision detection
+							(when (.collides? @piece @grid)
+								(.rotate-acw! @piece)))))
+
+				; the line-clearing animation
+				(state Clearing
+					(field clearing-timer 0.0)
+					(field cleared-lines) ; an array of y-coordinates within the grid
+
+					(init-state (@cleared-lines))
+
+					(meth update-gameplay (dt)
+						(inc! @clearing-timer dt)
+						(when (>= @clearing-timer 1.4)
+							; the animation is complete. remove the cleared lines from the grid
+							(for y in (rev @cleared-lines)
+								(del! @grid (* y :grid-width) : (* (+ y 1) :grid-width)))
+
+							(let to-add (* (len @cleared-lines) :grid-width))
+							(push-start! @grid ..(take to-add (repeat-with (fn0 (Tile:new 'stage 0)))))
+
+							; award points based on the current level and the number of lines cleared
+							(let multiplier (match (len @cleared-lines)
+								(0 (bail))
+								(1 40)
+								(2 100)
+								(3 300)
+								(_ 1200)))
+
+							(inc! @score (* multiplier (+ @level 1)))
+							(inc! @lines (len @cleared-lines))
+
+							; increment the level based on the total number of lines cleared
+							(= @level (min 20 (max @level (- (/ @lines 10) 1))))
+
+							; restart the Falling state
+							(@enab! 'Falling)
+							(return)))
+
+					; a simple animation - we just draw the backdrop over some lines to "disappear" them,
+					; switching on and off every 200ms
+					(meth draw-gameplay ()
+						(@draw-backdrop 'show-grid)
+
+						(when (<= (% @clearing-timer 0.4) 0.2)
+							(for y in @cleared-lines
+								(forn (x :grid-width)
+									(play:draw 'stage (+ 32 (* x 16)) (* y 16)))))))
+
+				; the momentary freeze just before game over
+				(state Frozen
+					(field frozen-timer 0.0)
+
+					; nothing exciting here - we simply wait for two seconds, then enable GameOver
+					(meth update-gameplay (dt)
+						(inc! @frozen-timer dt)
+						(when (>= @frozen-timer 2.0)
+							(@enab! 'GameOver)
+							(return)))
+
+					(meth draw-gameplay ()
+						(@draw-backdrop 'show-grid)))))
+
+		; showing the "GAME OVER" message
+		(state GameOver
+			(field game-over-timer 0.0)
+
+			(meth update-gameplay (dt)
+				(inc! @game-over-timer dt)
+
+				; we don't allow the message to be dismissed for the first second, to make it less
+				; likely that the player will dismiss it accidentally
+				(when (>= @game-over-timer 1.0)
+
+					; dismiss the dialog, and restart the game, if any one of various keys have been pressed
+					(when (any? play:pressed? '(left right up down enter))
+						(@reset)
+						(@enab! 'Playing)
+						(return))))
+
+			(meth draw-gameplay ()
+				(@draw-backdrop 'hide-grid)
+
+				; draw the floating text box
+				(play:draw 'game-over-frame 73 116)
+				(play:draw 'game-over-frame 113 116 'hflip)
+				(play:draw 'game-over-text 97 132)))))
+
+; the grid of tiles
+;-----------------------------------------------------------
+
+(def :grid-width 10)
+(def :grid-height 18)
+
+; collision and rendering information for a single grid tile
+(defstruct Tile
+	sprite ; a symbol, e.g. 'z-piece
+	frame) ; an integer, usually 0
+
+; returns an array of Tiles, in row-major order
+(defn make-grid ()
+	(arr ..(take (* :grid-width :grid-height) (repeat-with (fn0 (Tile:new 'stage 0))))))
+
+; a playing piece
+;-----------------------------------------------------------
+
+(defstruct Part
+	offset-x offset-y ; signed integer offsets from origin-x, origin-y
+	tile) ; a Tile
+
+(defclass Piece
+	(field piece-type) ; a symbol. one of 'z-piece, 's-piece, 't-piece, 
+	                   ; 'o-piece, 'l-piece, 'i-piece or 'j-piece
+	
+	(field origin-x 4) ; the piece's position within the grid
+	(field origin-y 1)
+
+	(field parts) ; an array of Parts
+
+	(field rotation 0) ; incremented for clockwise rotations, decremented for anticlockwise
+
+	(init (@piece-type)
+
+		; construct the @parts field based on the :pieces table from the beginning  of this file
+		(= @parts (arr))
+		(for (offset-x offset-y (? frame 0)) in [:pieces @piece-type]
+			(push! @parts (Part
+				offset-x
+				offset-y
+				(tile (Tile
+					(sprite @piece-type)
+					frame))))))
+
+	; returns #t if this piece is currently overlapping with an obstacle
+	(meth collides? (grid)
+
+		; test each part separately...
+		(for [offset-x offset-y] in @parts
+			(let x (+ offset-x @origin-x))
+			(let y (+ offset-y @origin-y))
+
+			; the left, right and bottom edges are obstacles, but the top edge isn't
+			(when (or (< x 0) (>= x :grid-width) (>= y :grid-height))
+				(return #t))
+
+			(when (>= y 0)
+				; grid tiles are obstacles when they have a sprite other than 'stage
+				(let grid-tile [grid (+ x (* y :grid-width))])
+				(unless (eq? [grid-tile 'sprite] 'stage)
+					(return #t))))
+
+		#f)
+
+	; copy each of this piece's Parts onto the grid, in their current position
+	(meth place-onto-grid (grid)
+		(for [offset-x offset-y tile] in @parts
+			(let x (+ offset-x @origin-x))
+			(let y (+ offset-y @origin-y))
+
+			(when (and (<= 0 x (- :grid-width 1)) (<= 0 y (- :grid-height 1)))
+				(= [grid (+ x (* y :grid-width))] (clone tile)))))
+
+	; shift this piece by the given horizontal and vertical offset
+	(meth move! (dx dy)
+		(inc! @origin-x dx)
+		(inc! @origin-y dy))
+
+	; rotate this piece around its origin
+	(meth rotate-cw! ()
+
+		; O pieces never rotate. I pieces toggle betweeen "default" and "one step anticlockwise".
+		; S and Z pieces toggle between "default" and "one step clockwise". all other pieces truly
+		; rotate around their origin.
+		(cond
+			((eq? @piece-type 'o-piece)
+				#n)
+			((and (eq? @piece-type 'i-piece) (>= @rotation 0))
+				(@rotate-acw!))
+			((and (eq-any? @piece-type 'z-piece 's-piece) (>= @rotation 1))
+				(@rotate-acw!))
+			(else 
+				(for part in @parts
+					; rotate this part 90 degrees clockwise
+					(swap! [part 'offset-x] [part 'offset-y])
+					(neg! [part 'offset-x])
+
+					; most piece sprites only have one frame. the exception is 'i-piece
+					(inc! [[part 'tile] 'frame] 3))
+				(inc! @rotation))))
+
+	(meth rotate-acw! ()
+
+		; see above
+		(cond
+			((eq? @piece-type 'o-piece)
+				#n)
+			((and (eq? @piece-type 'i-piece) (<= @rotation -1))
+				(@rotate-cw!))
+			((and (eq-any? @piece-type 'z-piece 's-piece) (<= @rotation 0))
+				(@rotate-cw!))
+			(else 
+				(for part in @parts
+					(neg! [part 'offset-x])
+					(swap! [part 'offset-x] [part 'offset-y])
+					(inc! [[part 'tile] 'frame] 3))
+				(dec! @rotation))))
+
+	; draw this piece on the grid, at its current position
+	(meth draw (x y)
+		(for [offset-x offset-y (tile [sprite frame])] in @parts
+			(play:draw sprite (+ x (* offset-x 16)) (+ y (* offset-y 16)) 'frame frame))))
+
+; the play:update callback
+;-----------------------------------------------------------
+
+(def :game (Game))
+
+; we simply delegate to Game, above
+(defn play:update (dt)
+	(.update :game dt)
+	(.draw :game))
