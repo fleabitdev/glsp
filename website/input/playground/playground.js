@@ -587,19 +587,28 @@ function resizeCanvas() {
 	let drawScale;
 
 	if (intRatio >= 1 && intRatio/floatRatio >= 0.667) {
-		drawScale = 1;
+		//image-rendering: pixelated is pretty broken on Chrome right now, so we fall back to 
+		//just using imageSmoothingEnabled and enlarging the canvas
+		let isChrome = !CSS.supports("image-rendering", "crisp-edges");
 
-		canvas.width = bufWidth;
-		canvas.height = bufHeight;
+		if (isChrome) {
+			drawScale = Math.max(1, intRatio);
+
+			canvas.width = bufWidth * drawScale;
+			canvas.height = bufHeight * drawScale;
+
+			canvas.style.imageRendering = "auto";
+		} else {
+			drawScale = 1;
+
+			canvas.width = bufWidth;
+			canvas.height = bufHeight;
+
+			canvas.style.imageRendering = "crisp-edges";
+		}
 
 		canvas.style.width = (bufWidth * intRatio / window.devicePixelRatio).toFixed(2) + "px";
 		canvas.style.height = (bufHeight * intRatio / window.devicePixelRatio).toFixed(2) + "px";
-
-		if (CSS.supports("image-rendering", "crisp-edges")) {
-			canvas.style.imageRendering = "crisp-edges";
-		} else {
-			canvas.style.imageRendering = "pixelated";
-		}
 	} else {
 		drawScale = Math.max(1, intRatio);
 
