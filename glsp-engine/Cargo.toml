@@ -1,9 +1,13 @@
 [package]
 name = "glsp-engine"
 version = "0.1.0"
-authors = []
-publish = false
 edition = "2018"
+authors = ["The GameLisp Project Developers"]
+description = "Implementation detail for the glsp crate"
+readme = "README.md"
+homepage = "https://gamelisp.rs/"
+repository = "https://github.com/fleabitdev/glsp/"
+license = "MIT OR Apache-2.0"
 
 [features]
 unsafe-internals = []

@@ -16,8 +16,8 @@ Our garbage-collector is designed to be a good fit for a "typical" video game us
 	  this frame, then the GC is allowed to run for twice as long.
 
 We currently approach this use-case by pairing a generational algorithm with a tri-colour 
-incremental algorithm. (For a good summary of the prior art, see [here]
-(http://wiki.luajit.org/New-Garbage-Collector).)
+incremental algorithm. (For a good summary of the prior art, see
+[this page](http://wiki.luajit.org/New-Garbage-Collector).)
 
 Each time the programmer yields to the GC by calling `(gc)`, that's a "step". Our algorithm is
 divided into "cycles", made up of many steps. At the end of each cycle, we will have identified a 

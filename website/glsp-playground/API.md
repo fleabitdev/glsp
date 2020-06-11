@@ -1,3 +1,5 @@
+# The GameLisp Playground
+
 The code executed by the playground controls a very small HTML5 game engine. 
 
 First, all of the toplevel forms are evaluated, and the engine reads the following global

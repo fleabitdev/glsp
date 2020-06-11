@@ -104,6 +104,9 @@
 
 (let :topleft-x 12, :topleft-y 55) ; location of the grid in the back buffer
 
+; offsets which can be used to inspect the eight tiles surrounding a central tile
+(let :neighbour-offsets '((-1 -1) (0 -1) (1 -1) (-1 0) (1 0) (-1 1) (0 1) (1 1)))
+
 ; we could potentially have used `defclass` and `state` here, but the logic
 ; is simple enough that it wasn't really necessary
 (defstruct Tile
@@ -128,8 +131,22 @@
 			(when (eq? @mine-state 'mine)
 				(for tile in :grid
 					(when (eq? [tile 'mine-state] 'no-mine)
+
+						; add a mine to the destination tile
 						(= [tile 'mine-state] 'mine)
+						(let [grid-x grid-y] tile)
+						(for (dx dy) in :neighbour-offsets
+							(let neighbour (tile-at (+ grid-x dx) (+ grid-y dy)))
+							(unless (nil? neighbour)
+								(inc! [neighbour 'neighbours])))
+
+						; remove a mine from self
 						(= @mine-state 'no-mine)
+						(for (dx dy) in :neighbour-offsets
+							(let neighbour (tile-at (+ @grid-x dx) (+ @grid-y dy)))
+							(unless (nil? neighbour)
+								(dec! [neighbour 'neighbours])))
+
 						(break)))))
 
 		; reveal this tile
@@ -150,7 +167,7 @@
 					(until (empty? to-flood)
 						(let flood-tile (pop! to-flood))
 
-						(for (dx dy) in '((-1 -1) (0 -1) (1 -1) (-1 0) (1 0) (-1 1) (0 1) (1 1))
+						(for (dx dy) in :neighbour-offsets
 							(let neighbour (tile-at (+ [flood-tile 'grid-x] dx)
 							                        (+ [flood-tile 'grid-y] dy)))
 
@@ -259,7 +276,7 @@
 		(= [(tile-at grid-x grid-y) 'mine-state] 'mine)
 
 		; update the `neighbours` count for any adjacent tiles
-		(for (dx dy) in '((-1 -1) (0 -1) (1 -1) (-1 0) (1 0) (-1 1) (0 1) (1 1))
+		(for (dx dy) in :neighbour-offsets
 			(let tile (tile-at (+ grid-x dx) (+ grid-y dy)))
 			(unless (nil? tile)
 				(inc! [tile 'neighbours])))))

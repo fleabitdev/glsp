@@ -2,8 +2,12 @@
 name = "glsp-proc-macros2"
 version = "0.1.0"
 authors = []
-publish = false
 edition = "2018"
+description = "Implementation detail for the glsp crate"
+readme = "README.md"
+homepage = "https://gamelisp.rs/"
+repository = "https://github.com/fleabitdev/glsp/"
+license = "MIT OR Apache-2.0"
 
 [lib]
 proc-macro = true

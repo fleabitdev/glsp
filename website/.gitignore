@@ -1,3 +1,5 @@
 target
 Cargo.lock
 output
+input/playground/glsp_playground.js
+input/playground/glsp_playground_bg.wasm
