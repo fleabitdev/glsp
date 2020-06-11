@@ -7,7 +7,7 @@ A `VecDeque` is a growable [ring buffer]. It's very similar to a `Vec`, but with
 to push and pop items from the start of the sequence in constant time. (Note that a `VecDeque`
 is very different from  a C++ [`std::deque`](https://en.cppreference.com/w/cpp/container/deque), 
 which has an odd memory-allocation patterns - `VecDeque` allocates all of its elements
-is a single buffer, just like a `Vec`.)
+in a single buffer, just like a `Vec`.)
 
 [`VecDeque`]: https://doc.rust-lang.org/std/collections/struct.VecDeque.html
 [ring buffer]: https://en.wikipedia.org/wiki/Circular_buffer
