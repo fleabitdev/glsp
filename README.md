@@ -2,7 +2,8 @@
 
 **GameLisp** is a scripting language for [Rust](https://www.rust-lang.org) game development.
 
-Take a look at the [homepage](https://gamelisp.rs) to get started.
+To get started, take a look at the [homepage](https://gamelisp.rs). Please note that GameLisp
+currently requires the latest version of **nightly** Rust.
 
 ## Contributing
 
