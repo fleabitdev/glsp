@@ -241,7 +241,7 @@ place. We provide a number of macros to make this easier.
 [`rem-euclid!`](../std/rem-euclid-mut), [`abs!`](../std/abs-mut) and [`clamp!`](../std/clamp-mut) 
 can be used to perform basic arithmetic in-place.
 
-The [`(swap! a b)` macro](../std/swap) swaps the values stored in any two places.
+The [`(swap! a b)` macro](../std/swap-mut) swaps the values stored in any two places.
 	
 	; the two places can be different from one another
 	(swap! my-local-var (global 'my-global-var))

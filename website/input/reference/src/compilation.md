@@ -71,8 +71,8 @@ so on.
 This will only matter if you rely on one of your libraries, or call one of your Rust functions, 
 in either of the following circumstances:
 	
-	- When evaluating a toplevel form (see [Evaluation](evaluation.md))
-	- When running a macro expander
+- When evaluating a toplevel form (see [Evaluation](evaluation.md))
+- When running a macro expander
 
 In the unlikely event that this is the case, your Rust program can perform its usual setup,
 then compile GameLisp code manually by calling [`glsp::load_and_compile`]. This 

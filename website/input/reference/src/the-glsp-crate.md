@@ -217,7 +217,7 @@ you should still proceed with great caution when running it.
 
 ## Output Streams
 
-By default, [`prn`](../std/prn) will print its output to [`std::io::Stdout`], and 
+By default, [`prn`](../std/prn-fn) will print its output to [`std::io::Stdout`], and 
 [`eprn`](../std/eprn) will print its output to [`std::io::Stderr`].
 
 It's possible to replace those streams with an arbitrary [`std::io::Write`] type using the 

@@ -1,5 +1,4 @@
 #![feature(proc_macro_hygiene)]
-#![feature(str_strip)]
 
 use image::{self, DynamicImage, GenericImageView, imageops, Rgba};
 use maud::{DOCTYPE, html, PreEscaped};
@@ -621,8 +620,8 @@ impl ApiType {
 			Tab => Some("tables.html"),
 			Iter => Some("iterators.html"),
 			Iterable => Some("syntax-and-types.html#abstract-types"),
-			Obj => Some("oop.html"),
-			Class => Some("oop.html"),
+			Obj => Some("object-oriented-programming.html"),
+			Class => Some("object-oriented-programming.html"),
 			RFn => Some("rust-functions.html"),
 			GFn => Some("evaluation.html#functions"),
 			Callable => Some("syntax-and-types.html#abstract-types"),

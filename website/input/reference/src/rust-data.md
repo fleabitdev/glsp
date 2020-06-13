@@ -28,7 +28,7 @@ rdata! {
 [`RData`]: https://docs.rs/glsp/*/glsp/struct.RData.html
 [`glsp::rdata(your_value)`]: https://docs.rs/glsp/*/glsp/fn.rdata.html
 [`glsp::rdata`]: https://docs.rs/glsp/*/glsp/fn.rdata.html
-[`RStore`]: https://docs.rs/glsp/*/glsp/struct.RStore.html
+[`RStore`]: https://docs.rs/glsp/*/glsp/trait.RStore.html
 [`rdata!`]: https://docs.rs/glsp/*/glsp/macro.rdata.html
 
 

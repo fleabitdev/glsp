@@ -71,7 +71,7 @@ symbols can be serialized and deserialized, even though they're not representabl
 ## "compiler"
 
 Introduces a dependency on the `"serde"` feature, as well as the crates [`bincode`], [`flate2`], 
-[`syn`], [`quote`], [`proc_macros2`] and [`serde_derive`].
+[`syn`], [`quote`], [`proc_macro2`] and [`serde_derive`].
 
 This feature flag enables GameLisp source code to be pre-compiled into an efficient binary 
 format. Provides the [`compile!`] and [`eval!`] macros, and the [`glsp::load_and_compile`] 
@@ -81,7 +81,7 @@ more information.
 [`flate2`]: https://docs.rs/flate2
 [`syn`]: https://docs.rs/syn
 [`quote`]: https://docs.rs/quote
-[`proc_macros2`]: https://docs.rs/proc_macros2
+[`proc_macro2`]: https://docs.rs/proc_macro2
 [`compile!`]: https://docs.rs/glsp/*/glsp/macro.compile.html
 [`eval!`]: https://docs.rs/glsp/*/glsp/macro.eval.html
 [`glsp::load_and_compile`]: https://docs.rs/glsp/*/glsp/fn.load_and_compile.html

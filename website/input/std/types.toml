@@ -237,8 +237,8 @@ text = ""
 		Returns `#t` if its argument is a double-ended queue.
 
 		Double-ended queues support `O(1)` random access using integer keys, and they can be 
-		manipulated using APIs like [`push-start!`](pop), [`last`](last) and 
-		[`swap-remove!`](swap-remove).
+		manipulated using APIs like [`push-start!`](push-start-mut) and
+		[`swap-remove!`](swap-remove-mut).
 
 		Currently, the double-ended queue API is only supported by the primitive types
 		`arr` and `str`.

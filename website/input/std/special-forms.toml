@@ -301,7 +301,7 @@ text = """
 		Splices a form into its parent form.
 
 		`splice` is meaningless during normal evaluation. It's only meaningful when encountered
-		during [macro expansion](../reference/macros.md).
+		during [macro expansion](../reference/macros.html).
 
 		The expander replaces the `splice` form with all of its argument forms. Note that
 		`splice` may have any number of arguments, including zero.

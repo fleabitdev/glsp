@@ -15,7 +15,7 @@ potentially go wrong when interacting with a collection (out-of-bounds errors, f
 conversions, mutating a borrowed collection), almost every collection method returns a
 [`GResult`]. You'll need to make generous use of the `?` operator.
 
-[`GResult`]: https://docs.rs/glsp/*/glsp/enum.GResult.html
+[`GResult`]: https://docs.rs/glsp/*/glsp/type.GResult.html
 
 
 ## Interior Mutability

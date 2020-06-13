@@ -209,7 +209,7 @@ will automatically be disabled first.
 
 ## Initialization and Finalization
 
-A state may include an [`init-state` clause](../std/init-state-cluse) and/or a 
+A state may include an [`init-state` clause](../std/init-state-clause) and/or a 
 [`fini-state` clause](../std/fini-state-clause). These are analogous to the `init` and `fini` 
 clauses which can appear at the toplevel of a class.
 

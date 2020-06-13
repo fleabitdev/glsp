@@ -29,7 +29,7 @@ statically-typed.
 ## Basic Patterns
 
 A pattern may appear anywhere that you might create a new variable binding: the left-hand-side
-of a [`let`](../std/let), [`def`](../std/def), [`field`](../std/field), or 
+of a [`let`](../std/let), [`def`](../std/def), [`field`](../std/field-clause), or 
 [`with-global`](../std/with-global) form, a function parameter, or the item in a 
 [`for` loop](../std/for).
 
@@ -62,7 +62,7 @@ to match. If a mismatch occurs in `let`, `def`, `field`, `with-global` or `for`,
 	(let 'a-symbol (tab ('a 'b))) ; an error
 
 You can deal with fallible bindings using the [`match`](../std/match), 
-[`when-let`](../std/when-let) and [`matches?`](matches-p) macros. 
+[`when-let`](../std/when-let) and [`matches?`](../std/matches-p) macros. 
 
 - `match` checks a value against a series of patterns and executes some code for the first pattern 
   which successfully matches the value, returning `#n` if no patterns match. 
