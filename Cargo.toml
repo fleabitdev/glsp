@@ -8,5 +8,6 @@ members = [
 ]
 exclude = [
 	"benchmarks",
-	"website"
+	"website",
+	"cli-repl"
 ]

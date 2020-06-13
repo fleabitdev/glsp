@@ -1,0 +1,22 @@
+[package]
+name = "glsp-repl"
+version = "0.1.0"
+authors = ["Alberto González Palomo <bugs@sentido-labs.com>"]
+description = "Command line REPL for GameLisp"
+readme = "README.md"
+homepage = "https://gamelisp.rs/"
+repository = "https://github.com/fleabitdev/glsp/"
+license = "MIT OR Apache-2.0"
+edition = "2018"
+
+[workspace]
+
+[[bin]]
+name = "glsp"
+path = "src/main.rs"
+
+[dependencies]
+glsp = { path = "../glsp" }
+gong       = "1.4.0" # https://github.com/jnqnfe/gong
+linefeed   = "0.6"   # https://github.com/murarth/linefeed
+webbrowser = "0.5.4" # https://github.com/amodm/webbrowser-rs
