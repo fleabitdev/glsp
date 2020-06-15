@@ -11,7 +11,7 @@
 use glsp::prelude::*;
 
 use gong::{ ItemClass, Item };
-use linefeed::{ Interface, ReadResult };
+use linefeed::{ Interface, ReadResult, terminal::DefaultTerminal };
 
 static OPTS: gong::options::OptionSet = gong::gong_option_set_fixed!(
     [
@@ -49,7 +49,6 @@ fn usage() {
 fn main() {
     debug_assert!(OPTS.is_valid());
 
-    let cwd = std::env::current_dir().unwrap();
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mut files = Vec::new();
     let mut run_repl  = true;
@@ -117,14 +116,31 @@ fn main() {
 ;;   for “name” in a web browser.
 ;;   E.g.: rust, lisp, std, special-forms, abbreviations, if, ', @, #n, #t, #f
 ;;   Without argument, shows the reference manual.
-;;; (www "url") loads “url” in a web browser, unless using --sandboxed.
-;;; CTRL+D to exit, command input history stored in "./{history}"."#,
+;;; (www "url") loads “url” in a web browser, unless using --sandboxed."#,
         name     = env!("CARGO_PKG_NAME"),
         version  = env!("CARGO_PKG_VERSION"),
         homepage = env!("CARGO_PKG_HOMEPAGE"),
+    );
+
+    match Interface::new(env!("CARGO_PKG_NAME")) {
+        Ok(cli) => {
+            repl(runtime, sandboxed, cli);
+        },
+        Err(err) => {
+            eprintln!(";;; Terminal is not fully functional: {}", err);
+            degraded_repl(runtime, sandboxed);
+        }
+    };
+}
+
+fn repl(runtime: Runtime, sandboxed: bool, cli: Interface<DefaultTerminal>) {
+    let cwd = std::env::current_dir().unwrap();
+
+    eprintln!(
+        r#";;; CTRL+D to exit, command input history stored in "./{history}"."#,
         history  = HISTORY_FILE,
     );
-    let cli = Interface::new(env!("CARGO_PKG_NAME")).unwrap();
+
     if let Err(e) = cli.load_history(HISTORY_FILE) {
         if e.kind() != std::io::ErrorKind::NotFound {
             eprintln!("ERROR: failed to load REPL history from {} at {}, {:?}",
@@ -132,9 +148,9 @@ fn main() {
         }
     }
 
-    {
-        let mut reader = cli.lock_reader();
-        reader.set_blink_matching_paren(true);
+    if std::env::var("TERM").map_or(false, |s| { s != "dumb" }) {
+        // These options need features not available in dumb terminals.
+        cli.lock_reader().set_blink_matching_paren(true);
     }
 
     loop {
@@ -143,24 +159,11 @@ fn main() {
         match cli.read_line() {
             Ok(line) => {
                 match line {
-                    ReadResult::Input(mut line) => {
-                        line = line.trim_end().to_string();
+                    ReadResult::Input(line) => {
                         runtime.run(|| {
-                            if line == "help" || line.starts_with("help ") {
-                                let url = help(Some(line[4..].trim_start()));
-                                if sandboxed {
-                                    prn!("{}", url);
-                                } else {
-                                    match www(Some(&url)) {
-                                        Ok(_url) => { prn!("{}", url); },
-                                        Err(err) => { return Err(err); }
-                                    }
-                                }
-                            } else {
-                                match eval_line(&line) {
-                                    Ok(result) => { prn!("{}", result); },
-                                    Err(err) => { eprn!("{}", err.val()); }
-                                }
+                            match eval_line(&line, sandboxed) {
+                                Ok(result) => { prn!("{}", result); },
+                                Err(err) => { eprn!("{}", err.val()); }
                             }
                             Ok(())
                         });
@@ -175,6 +178,8 @@ fn main() {
             },
             Err(err) => {
                 eprintln!("Error: failed to read command line: {:?}", err);
+                eprintln!("Switching to degraded mode.");
+                degraded_repl(runtime, sandboxed);
                 break;
             }
         }
@@ -186,16 +191,53 @@ fn main() {
     }
 }
 
-fn eval_line(line: &str) -> GResult<Val> {
-    match glsp::parse_all(&line, None) {
-        Ok(values) => {
-            match glsp::eval_multi(&values, Some(EnvMode::Copied)) {
-                Ok(result) => Ok(result),
-                Err(err)   => Err(error!("Evaluation error: {}", err.val()))
+use std::io::{BufRead};
+fn degraded_repl(runtime: Runtime, sandboxed: bool) {
+    eprint!("> ");
+    for line in std::io::stdin().lock().lines() {
+        match line {
+            Ok(line) => {
+                runtime.run(|| {
+                    match eval_line(&line, sandboxed) {
+                        Ok(result) => { prn!("{}", result); },
+                        Err(err) => { eprn!("{}", err.val()); }
+                    }
+                    Ok(())
+                });
+            },
+            Err(err) => {
+                eprintln!("Error: failed to read command line: {:?}", err);
+                break;
             }
-        },
-        Err(err) => {
-            Err(error!("Syntax error: {}", err.val()))
+        }
+        eprint!("> ");
+    }
+}
+
+fn eval_line(mut line: &str, sandboxed: bool) -> GResult<Val> {
+    line = line.trim_start().trim_end();
+    if line == "help" || line.starts_with("help ") {
+        let url = help(Some(line[4..].trim_start()));
+        if sandboxed {
+            prn!("{}", url);
+            url.to_val()
+        } else {
+            match www(Some(&url)) {
+                Ok(url) => url.to_val(),
+                Err(err) => Err(err)
+            }
+        }
+    } else {
+        match glsp::parse_all(line, None) {
+            Ok(values) => {
+                match glsp::eval_multi(&values, Some(EnvMode::Copied)) {
+                    Ok(result) => Ok(result),
+                    Err(err)   => Err(error!("Evaluation error: {}", err.val()))
+                }
+            },
+            Err(err) => {
+                Err(error!("Syntax error: {}", err.val()))
+            }
         }
     }
 }

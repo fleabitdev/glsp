@@ -1,6 +1,10 @@
 # GameLisp command line REPL
 A command line [Read-Eval-Print-Loop](https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop)
 for [GameLisp](https://gamelisp.rs).
+Runs on Linux, MacOS X, and Windows both in PowerShell and CMD.EXE
+but [Mintty](https://mintty.github.io/) ([Cygwin](https://www.cygwin.com/), [MSYS2](https://www.msys2.org/))
+is [not supported](https://github.com/murarth/linefeed/issues/68) and works
+only in [dumb terminal](https://books.google.com/books?id=jT2fQqJplN8C&lpg=PT3&pg=PT3) mode.
 
 It can be used for running GameLisp programs from shell scripts by
 passing their file names as arguments.
