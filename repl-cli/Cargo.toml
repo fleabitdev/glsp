@@ -1,5 +1,5 @@
 [package]
-name = "glsp-repl"
+name = "glsp-repl-cli"
 version = "0.1.0"
 authors = ["Alberto González Palomo <bugs@sentido-labs.com>"]
 description = "Command line REPL for GameLisp"
