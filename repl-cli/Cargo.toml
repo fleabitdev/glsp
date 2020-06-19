@@ -9,8 +9,6 @@ repository = "https://github.com/fleabitdev/glsp/"
 license = "MIT OR Apache-2.0"
 edition = "2018"
 
-[workspace]
-
 [[bin]]
 name = "glsp"
 path = "src/main.rs"
