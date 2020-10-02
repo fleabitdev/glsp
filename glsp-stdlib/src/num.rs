@@ -1,4 +1,4 @@
-use glsp::{bail, ensure, GResult, Num, rfn, Val};
+use glsp::{bail, ensure, GResult, GFn, Root, Num, rfn, Val};
 use smallvec::SmallVec;
 use std::cmp::Ordering;
 use std::f32;
@@ -29,7 +29,11 @@ pub fn init(_sandboxed: bool) -> GResult<()> {
 	glsp::bind_rfn(">=", rfn!(gte))?;
 	glsp::bind_rfn("ord", rfn!(ord))?;
 	glsp::bind_rfn("min", rfn!(min))?;
+	glsp::bind_rfn("min-by", rfn!(min_by))?;
+	glsp::bind_rfn("min-by-key", rfn!(min_by_key))?;
 	glsp::bind_rfn("max", rfn!(max))?;
+	glsp::bind_rfn("max-by", rfn!(max_by))?;
+	glsp::bind_rfn("max-by-key", rfn!(max_by_key))?;
 	glsp::bind_rfn("clamp", rfn!(clamp))?;
 
 	glsp::bind_rfn("round", rfn!(round))?;
@@ -140,6 +144,18 @@ fn sign(num: Num) -> i32 {
 	}
 }
 
+// Used to implement min_by and min_by_key
+fn min_of<T, R, F: FnOnce(T, T) -> GResult<Ordering>>(
+    (t0, b0): (R, T),
+    (t1, b1): (R, T),
+    compare: F,
+) -> GResult<R> {
+    Ok(match compare(b0, b1)? {
+        Ordering::Less | Ordering::Equal => t0,
+        Ordering::Greater => t1,
+    })
+}
+
 fn min(first: Val, rest: &[Val]) -> GResult<Val> {
 	ensure!(rest.iter().all(|val| val.is_int() || val.is_flo() || val.is_char()),
 	        "non-number passed to min");
@@ -148,12 +164,56 @@ fn min(first: Val, rest: &[Val]) -> GResult<Val> {
 	}))
 }
 
+fn min_by(ord_f: Root<GFn>, first: Val, rest: &[Val]) -> GResult<Val> {
+    rest.iter().try_fold(&first, |accum, arg| {
+        min_of((accum, accum), (arg, arg), |v1, v2| glsp::call(&ord_f, &(v1, v2)))
+    }).map(|x| x.clone())
+}
+
+fn min_by_key(map_f: Root<GFn>, first: Val, rest: &[Val]) -> GResult<Val> {
+    rest.iter().try_fold(&first, |accum, arg| {
+        min_of(
+            (accum, glsp::call(&map_f, &[accum])?),
+            (arg, glsp::call(&map_f, &[arg])?),
+            ord,
+        )
+    }).map(|x| x.clone())
+}
+
+// Used to implement max_by and max_by_key
+fn max_of<T, R, F: FnOnce(T, T) -> GResult<Ordering>>(
+    (t0, b0): (R, T),
+    (t1, b1): (R, T),
+    compare: F,
+) -> GResult<R> {
+    Ok(match compare(b0, b1)? {
+        Ordering::Greater | Ordering::Equal => t0,
+        Ordering::Less => t1,
+    })
+}
+
 fn max(first: Val, rest: &[Val]) -> GResult<Val> {
 	ensure!(rest.iter().all(|val| val.is_int() || val.is_flo() || val.is_char()),
 	        "non-number passed to max");
 	Ok(rest.iter().fold(first, |accum, arg| {
 		if arg.num_gt(&accum).unwrap() { arg.clone() } else { accum }
 	}))
+}
+
+fn max_by(ord_f: Root<GFn>, first: Val, rest: &[Val]) -> GResult<Val> {
+    rest.iter().try_fold(&first, |accum, arg| {
+        max_of((accum, accum), (arg, arg), |v1, v2| glsp::call(&ord_f, &(v1, v2)))
+    }).map(|x| x.clone())
+}
+
+fn max_by_key(map_f: Root<GFn>, first: Val, rest: &[Val]) -> GResult<Val> {
+    rest.iter().try_fold(&first, |accum, arg| {
+        max_of(
+            (accum, glsp::call(&map_f, &[accum])?),
+            (arg, glsp::call(&map_f, &[arg])?),
+            ord,
+        )
+    }).map(|x| x.clone())
 }
 
 fn clamp(n: Val, min: Val, max: Val) -> GResult<Val> {
