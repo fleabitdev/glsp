@@ -2258,11 +2258,15 @@ pub mod glsp {
 				None => bail!("attempted to take nonexistent lib {}", type_name::<T>())
 			};
 
-			match Rc::try_unwrap(rc) {
-				Ok(ref_cell) => Ok(ref_cell.into_inner()),
+			let lib = match Rc::try_unwrap(rc) {
+				Ok(ref_cell) => ref_cell.into_inner(),
 				Err(_) => bail!("called take_lib for {}, which is currently borrowed", 
 				                type_name::<T>())
-			}
+			};
+
+			engine.libs_ordering.borrow_mut().retain(|&type_id| type_id != TypeId::of::<T>());
+
+			Ok(lib)
 		})
 	}
 
@@ -2270,7 +2274,7 @@ pub mod glsp {
 	pub fn lib<T: Lib>() -> LibRef<T> {
 		match glsp::try_lib::<T>() {
 			Ok(lib_ref) => lib_ref,
-			Err(_) => panic!("attempted to access nonexistent lib {}", type_name::<T>())
+			Err(err) => panic!("{}", err.val())
 		}
 	}
 
@@ -2278,7 +2282,7 @@ pub mod glsp {
 	pub fn lib_mut<T: Lib>() -> LibRefMut<T> {
 		match glsp::try_lib_mut::<T>() {
 			Ok(lib_ref_mut) => lib_ref_mut,
-			Err(_) => panic!("attempted to access nonexistent lib {}", type_name::<T>())
+			Err(err) => panic!("{}", err.val())
 		}
 	}
 
