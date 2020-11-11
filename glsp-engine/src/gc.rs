@@ -790,7 +790,6 @@ impl Heap {
 		}
 	}
 
-	#[allow(dead_code)]
 	pub(crate) fn clear(&self) {
 		for erased in self.young_objects.borrow_mut().drain(..) {
 			with_erased_gc!(erased, gc, gc.free())
@@ -817,6 +816,32 @@ impl Heap {
 		//we don't clear self.roots(), because we need it to check for extant Roots when the
 		//Heap is dropped. in any case, Roots can't be stored on the Heap, so RootEntries can't 
 		//cause a reference loop, so there's no need to clear them when Runtime is dropped.
+	}
+
+	pub(crate) fn all_unfreed_rdata(&self) -> Vec<Root<RData>> {
+		let object_borrows = [
+			self.young_objects.borrow(),
+			self.old_objects[0].borrow(),
+			self.old_objects[1].borrow(),
+			self.old_objects[2].borrow(),
+			self.old_objects[3].borrow()
+		];
+
+		let mut rdata = Vec::new();
+
+		for erased_gc_vec in &object_borrows {
+			for erased_gc in &**erased_gc_vec {
+				if let ErasedGc::RData(gc) = erased_gc {
+					let root = Root::new(Gc::clone(gc));
+
+					if !root.is_freed() {
+						rdata.push(root);
+					}
+				}
+			}
+		}
+
+		rdata
 	}
 
 	pub(crate) fn ratio(&self) -> f32 {

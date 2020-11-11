@@ -348,25 +348,55 @@ pub struct Engine(Rc<EngineStorage>);
 
 impl Drop for Engine {
 	fn drop(&mut self) {
-		//we drop all of the Libs in the reverse order that they were registered, while
-		//temporarily making this engine active, before dropping any other part of the engine
-		//(trying to make Lib destructors as user-friendly as possible). we allow take_lib() and
-		//add_lib() to be called in a Lib destructor by leaving engine.libs and 
-		//engine.libs_ordering unborrowed while the destructor runs.
+		/*
+		we begin by freeing all RData which haven't already been freed, in an arbitrary order.
+		freeing RData before we drop any Libs makes RData destructors more ergonomic to write
+		(for example, this makes it possible for a Sprite rdata to deregister itself from 
+		the Graphics lib when it's dropped).
+
+		we then drop all of the Libs in the reverse order that they were registered.
+		we allow take_lib() and add_lib() to be called in a Lib destructor by leaving 
+		engine.libs and engine.libs_ordering unborrowed while the destructor runs.
+
+		finally, we clean up the Heap, make this Engine inactive, and then assert that the 
+		EngineStorage will be dropped when this Engine is dropped.
+		*/
+
 		self.run(|| {
 			with_engine(|engine| {
+
+				//free rdata. (todo: should probably find a more efficient way to handle the
+				//corner case where an RData destructor allocates another RData)
+				loop {
+					let to_free = engine.heap.all_unfreed_rdata();
+					if to_free.len() == 0 {
+						break
+					}
+
+					for rdata in to_free {
+						if !rdata.is_freed() {
+
+							//free() will return an Err if the RData is currently borrowed. in
+							//that case, we panic, because a Root should not exist while its Heap
+							//is being dropped. (todo: should we check this invariant explicitly?)
+							rdata.free().unwrap();
+						}
+					}
+				}
+
+				//drop libraries
 				while let Some(type_id) = engine.libs_ordering.borrow_mut().pop() {
 					let lib = engine.libs.borrow_mut().remove(&type_id).unwrap();
 					drop(lib);
 				}
 
-				//todo: we should consider free()ing all RData without any ACTIVE_RUNTIME, so
-				//that their destructors can't get up to any mischief like calling add_lib().
+				/*
+				we need to clean up the Heap because otherwise it will leak memory if the 
+				unsafe-internals flag is disabled, by leaving Rc reference loops intact. as 
+				such, we first need to clean up anything that holds a Root. (this also helps
+				us to uphold the invariant that a Root cannot exist when its Heap is dropped.)
+				*/
 
-				//we need to clean up the Heap because otherwise it will leak memory if the 
-				//unsafe-internals flag is disabled, by leaving Rc reference loops intact. as 
-				//such, we first need to clean up anything that holds a Root. (this also helps
-				//us to uphold the invariant that a Root cannot exist when its Heap is dropped.)
 				engine.lazy_storage.borrow_mut().clear();
 				engine.syms.borrow_mut().clear();
 				engine.rfns.borrow_mut().clear();
