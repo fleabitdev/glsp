@@ -1350,17 +1350,19 @@ fn interpret(
 		}
 		Instr::OpInt(dst_reg, arg_reg) => {
 			match reg!(arg_reg) {
-				Slot::Flo(f) => reg!(dst_reg) = Slot::Int(f as i32),
-				Slot::Bool(b) => reg!(dst_reg) = Slot::Int(b as i32),
 				Slot::Int(i) => reg!(dst_reg) = Slot::Int(i),
+				Slot::Flo(f) => reg!(dst_reg) = Slot::Int(f as i32),
+				Slot::Char(c) => reg!(dst_reg) = Slot::Int(c as i32),
+				Slot::Bool(b) => reg!(dst_reg) = Slot::Int(b as i32),
 				_ => bail_op!(INT_SYM, "cannot cast argument to an int")
 			}
 		}
 		Instr::OpFlo(dst_reg, arg_reg) => {
 			match reg!(arg_reg) {
 				Slot::Int(i) => reg!(dst_reg) = Slot::Flo(i as f32),
-				Slot::Bool(b) => reg!(dst_reg) = Slot::Flo(b as i32 as f32),
 				Slot::Flo(f) => reg!(dst_reg) = Slot::Flo(f),
+				Slot::Char(c) => reg!(dst_reg) = Slot::Flo(c as i32 as f32),
+				Slot::Bool(b) => reg!(dst_reg) = Slot::Flo(b as i32 as f32),
 				_ => bail_op!(FLO_SYM, "cannot cast argument to a flo")
 			}
 		}

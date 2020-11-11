@@ -179,14 +179,12 @@ fn int(arg: Val) -> GResult<i32> {
 	match arg {
 		Val::Int(i) => Ok(i),
 		Val::Flo(f) => {
-			//corner cases are resolved as: nan -> 0, inf -> i32::MAX, -inf -> i32::MIN.
-			//technically undefined behaviour, but it's heading towards stabilization:
-			//https://github.com/rust-lang/rust/issues/10184
+			//corner cases are resolved as: nan -> 0, inf -> i32::MAX, -inf -> i32::MIN
 			Ok(f as i32)
 		}
 		Val::Char(c) => {
 			//all possible char values are also valid i32 values
-			Ok(c as u32 as i32)
+			Ok(c as i32)
 		}
 		Val::Bool(b) => Ok(if b { 1 } else { 0 }),
 		arg  => bail!("could not cast {} to an int", arg.a_type_name())
