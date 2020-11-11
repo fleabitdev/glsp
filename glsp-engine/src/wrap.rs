@@ -2034,11 +2034,15 @@ impl_make_arg_text_slice!(
 //-------------------------------------------------------------------------------------------------
 
 /**
-Defines a library struct.
+Defines a library type.
 
-The input must be a struct declaration. The macro defines that struct, implements the 
-[`Lib` trait](trait.Lib.html) for the struct's type, and implements [`MakeArg`](trait.MakeArg.html) 
-for shared and mutable references to the struct's type.
+The input must be a struct or enum declaration. The macro defines that type, implements the 
+[`Lib` trait](trait.Lib.html) for the type, and implements [`MakeArg`](trait.MakeArg.html) 
+for shared and mutable references to the type.
+
+When a reference to a library struct is bound as an `RFn` parameter, that parameter won't 
+consume any input arguments. Instead, it will attempt to [borrow](trait.Lib.html#method.borrow) 
+the library struct from the active `Runtime`.
 	
 	lib! {
 		struct Graphics {
@@ -2053,14 +2057,12 @@ for shared and mutable references to the struct's type.
 	}
 
 	glsp::bind_rfn("draw-rect", rfn!(Graphics::draw_rect))?;
-
-When a reference to a library struct is bound as an `RFn` parameter, that parameter doesn't 
-consume any input arguments. Instead, it will attempt to [borrow](trait.Lib.html#method.borrow) 
-the library struct from the active `Runtime`.
 */
 
 #[macro_export]
 macro_rules! lib {
+
+	//struct Name { ... }
 	(
 		$(#[$struct_attr:meta])*
 		$struct_vis:vis struct $lib:ident { $($struct_token:tt)* }
@@ -2071,6 +2073,7 @@ macro_rules! lib {
 		$crate::lib_impls! { $lib }
 	);
 
+	//struct Name;
 	(
 		$(#[$struct_attr:meta])*
 		$struct_vis:vis struct $lib:ident;
@@ -2081,12 +2084,24 @@ macro_rules! lib {
 		$crate::lib_impls! { $lib }
 	);
 
+	//struct Name(...)
 	(
 		$(#[$struct_attr:meta])*
 		$struct_vis:vis struct $lib:ident ( $($struct_token:tt)* );
 	) => (
 		$(#[$struct_attr])*
 		$struct_vis struct $lib ( $($struct_token)* );
+
+		$crate::lib_impls! { $lib }
+	);
+
+	//enum Name { ... }
+	(
+		$(#[$enum_attr:meta])*
+		$enum_vis:vis enum $lib:ident { $($enum_token:tt)* }
+	) => (
+		$(#[$enum_attr])*
+		$enum_vis enum $lib { $($enum_token)* }
 
 		$crate::lib_impls! { $lib }
 	);
