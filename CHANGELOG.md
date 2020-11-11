@@ -8,6 +8,8 @@
 
 ### Changed
 
+- `meth`, `has-meth?`, `meth-name` and `call-meth` have been renamed to `met`, `has-met?`,
+  `met-name` and `call-met` respectively
 - Improved error message when glsp functions are called with no active `Runtime`
 
 ### Fixed
