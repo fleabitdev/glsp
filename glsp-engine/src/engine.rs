@@ -91,7 +91,12 @@ fn free_engine_id(id: u8) {
 fn with_engine<R, F: FnOnce(&EngineStorage) -> R>(f: F) -> R {
 	ACTIVE_ENGINE.with(|ref_cell| {
 		let borrow = ref_cell.borrow();
-		let rc = borrow.as_ref().unwrap();
+		let rc = borrow
+			.as_ref()
+			.expect(concat!(
+			    "Couldn't find Runtime; make sure you are creating one",
+			    " and calling glsp functions from inside of `Runtime::run()`",
+			));
 		f(&rc)
 	})
 }
