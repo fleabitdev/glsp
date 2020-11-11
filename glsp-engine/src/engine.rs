@@ -820,12 +820,12 @@ macro_rules! syms {
 		}
 	) => (
 		$struct_vis struct $struct_name {
-			$($vis $name: Sym,)*
+			$($vis $name: crate::Sym,)*
 		}
 
 		impl $struct_name {
 			#[allow(unused_variables)]
-			$struct_vis fn new() -> GResult<Syms> {
+			$struct_vis fn new() -> crate::GResult<Self> {
 				Ok($struct_name {
 					$($name: glsp::sym($contents)?,)*
 				})
