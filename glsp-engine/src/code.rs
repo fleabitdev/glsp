@@ -80,6 +80,9 @@ The name `GFn` was chosen to avoid a name collision with Rust's [`Fn` trait][0].
 Most of this type's methods belong to the `callable` abstract type, so they can be found in
 the [`CallableOps`](trait.CallableOps.html) trait. To invoke a function, use
 [`glsp::call`](fn.call.html).
+
+GameLisp functions are always stored on the garbage-collected heap, so they're normally 
+represented by the type [`Root<GFn>`](struct.Root.html).
 */
 
 pub struct GFn {
@@ -177,6 +180,9 @@ a [`GFn`](struct.GFn.html) for which [`GFn::yields`](struct.GFn.html#method.yiel
 `true`.
 
 To resume a `newborn` or `paused` coroutine, use [`glsp::coro_run`](fn.coro_run.html).
+
+Coroutines are always stored on the garbage-collected heap, so they're normally represented by
+the type [`Root<Coro>`](struct.Root.html).
 */
 
 pub struct Coro {

@@ -37,6 +37,9 @@ The `obj` primitive type.
 
 Note that [`CallableOps`](trait.CallableOps.html) is implemented for `Root<Class>`, so an
 `Obj` can be constructed from a [`Class`](struct.Class.html) using [`glsp::call`](fn.call.html).
+
+Objects are always stored on the garbage-collected heap, so they're normally represented by
+the type [`Root<Obj>`](struct.Root.html).
 */
 
 pub struct Obj {
@@ -65,6 +68,9 @@ The `class` primitive type.
 Note that [`CallableOps`](trait.CallableOps.html) is implemented for `Root<Class>`, so an
 [`Obj`](struct.Obj.html) can be constructed from a `Class` using 
 [`glsp::call`](fn.call.html).
+
+Classes are always stored on the garbage-collected heap, so they're normally represented by
+the type [`Root<Class>`](struct.Root.html).
 */
 
 pub struct Class {

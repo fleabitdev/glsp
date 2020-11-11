@@ -19,6 +19,9 @@ The `iter` primitive type.
 
 The name `GIter` was chosen to avoid confusion with Rust's iterators.
 
+GameLisp iterators are always stored on the garbage-collected heap, so they're normally 
+represented by the type [`Root<GIter>`](struct.Root.html).
+
 It's possible to use a `Root<GIter>` as a Rust iterator. However, collection types like 
 [`Arr`](struct.Arr.html) also provide methods to create native Rust iterators, which will 
 generally have much better performance.

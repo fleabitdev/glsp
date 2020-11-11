@@ -775,6 +775,8 @@ traits [`DequeOps`](trait.DequeOps.html), [`DequeAccess`](trait.DequeAccess.html
 
 New arrays can be constructed using the [`arr!` macro](macro.arr.html) or various toplevel
 functions, such as [`glsp::arr`](fn.arr.html) and [`glsp::arr_from_iter`](fn.arr_from_iter.html).
+Arrays are always stored on the garbage-collected heap, so they're normally represented by
+the type [`Root<Arr>`](struct.Root.html).
 */
 
 pub struct Arr {
@@ -1740,6 +1742,8 @@ traits [`DequeOps`](trait.DequeOps.html), [`DequeAccess`](trait.DequeAccess.html
 
 New strings can be constructed using the [`str!` macro](macro.str.html) or various toplevel
 functions, such as [`glsp::str`](fn.str.html) and [`glsp::str_from_iter`](fn.str_from_iter.html).
+Strings are always stored on the garbage-collected heap, so they're normally represented by
+the type [`Root<Str>`](struct.Root.html).
 */
 
 pub struct Str {
@@ -2889,6 +2893,8 @@ The `tab` primitive type.
 
 New tables can be constructed using the [`tab!` macro](macro.tab.html) or various toplevel 
 functions, such as [`glsp::tab`](fn.tab.html) and [`glsp::tab_from_iter`](fn.tab_from_iter.html).
+Tables are always stored on the garbage-collected heap, so they're normally represented by
+the type [`Root<Tab>`](struct.Root.html).
 */
 
 pub struct Tab {

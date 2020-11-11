@@ -1047,7 +1047,8 @@ impl RClass {
 The `rdata` primitive type.
 
 This is a Rust value which has been moved onto the garbage-collected heap. It can be constructed
-using the [`glsp::rdata`](fn.rdata.html) function.
+using the [`glsp::rdata`](fn.rdata.html) function, which returns a 
+[`Root<RData>`](struct.Root.html).
 
 `RData` has several convenience features:
 
