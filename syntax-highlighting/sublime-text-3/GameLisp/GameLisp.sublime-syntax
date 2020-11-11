@@ -17,7 +17,7 @@ variables:
             |else|any-of|forni|forn|for|block|restart-block|finish-block|in|\
             |do|break|continue|\@base|\@enab!|\@enab\?|\@disab!|enab!|enab\?|disab!|\
             |match|matches\?|when-let
-  class_decls: meth|wrap|init-state|init-mixin|init|fini-state|fini-mixin|fini|mixin
+  class_decls: met|wrap|init-state|init-mixin|init|fini-state|fini-mixin|fini|mixin
 
 contexts:
   main:

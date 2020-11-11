@@ -90,18 +90,18 @@ text = """
 	"""
 
 [[apis]]
-	filename = "meth-name-abbrv"
+	filename = "met-name-abbrv"
 	name = "."
 	kinds = ["abbrv"]
 	args = []
-	pre-text = ".form\n(meth-name form)"
+	pre-text = ".form\n(met-name form)"
 	text = """
-		The abbreviation for `meth-name`.
+		The abbreviation for `met-name`.
 
-		As far as the parser and printer are concerned, `.form` and [`(meth-name form)`](meth-name)
+		As far as the parser and printer are concerned, `.form` and [`(met-name form)`](met-name)
 		are exactly equivalent.
 
-			(prn '((meth-name m) ob arg)) ; prints (.m ob arg)
+			(prn '((met-name m) ob arg)) ; prints (.m ob arg)
 	"""
 
 [[apis]]

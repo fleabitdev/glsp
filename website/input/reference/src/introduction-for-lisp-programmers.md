@@ -57,7 +57,7 @@ changed a handful of names to make them more concise or more descriptive. Notabl
   representation](syntax-and-types.md#abbreviations)): 
 	- `[a b]` to access the field `b` in the collection `a`.
 	- `@name` to access the field `name` on a method's self-object.
-	- `(.meth-name a b c)` to invoke the method `meth-name` on the object `a`.
+	- `(.met-name a b c)` to invoke the method `met-name` on the object `a`.
 	- `(callee ..args x)` to splay the contents of the `args` collection into individual 
 	  function arguments. This is similar to `(apply)`, but more powerful and versatile.
 

@@ -30,7 +30,7 @@ and croaking:
 	  (field vertical-speed 0.0)
 	  (const gravity -9.81)
 
-	  (meth on-step (elapsed)
+	  (met on-step (elapsed)
 	    (match @state
 	      ('crouching
 	        (dec! @state-change-timer elapsed)
@@ -88,7 +88,7 @@ This brings us to GameLisp's `state` clauses:
 
 	      (init-state ((? @timer 3.0) (? @next-state 'Jumping)))
 
-	      (meth on-step (elapsed)
+	      (met on-step (elapsed)
 	        (dec! @timer elapsed)
 	        (when (<= @timer 0.0)
 	          (@enab! @next-state))))
@@ -98,7 +98,7 @@ This brings us to GameLisp's `state` clauses:
 	      (field vertical-speed 3.0)
 	      (const gravity -9.81)
 
-	      (meth on-step (elapsed)
+	      (met on-step (elapsed)
 	        (inc! @elevation (* elapsed @vertical-speed))
 	        (inc! @vertical-speed (* elapsed @gravity))
 	        (when (<= @elevation 0.0)
@@ -107,7 +107,7 @@ This brings us to GameLisp's `state` clauses:
 	    (state Croaking
 	      (field timer 2.0)
 
-	      (meth on-step (elapsed)
+	      (met on-step (elapsed)
 	        (dec! @timer elapsed)
 	        (when (<= @timer 0.0)
 	          (@enab! 'Crouching))))))
@@ -120,7 +120,7 @@ be switched on and switched off. [`state*` clauses](../std/statex-clause) are en
 whereas [`state` clauses](../std/state-clause) are disabled by default.
 
 States may contain most of the same clauses which are permitted at the toplevel of a class:
-`field`, `const`, `prop`, `meth`, classmacros, and so on. The difference is that, while the state 
+`field`, `const`, `prop`, `met`, classmacros, and so on. The difference is that, while the state 
 is disabled, its contents "stop existing". Its fields, constants and properties can't be accessed, 
 and its methods can't be invoked.
 
@@ -136,7 +136,7 @@ Within a method, `(@enab! name)` is shorthand for `(enab! @self name)`, and like
 	  ...
 
 	  (state Sparkling
-	    (meth stop-sparkling
+	    (met stop-sparkling
 	      (@disab! @state-name))
 
 	    ...))
@@ -188,20 +188,20 @@ will automatically be disabled first.
 	  (fsm
 	    (state* Sleeping
 	      ...
-	      (meth on-startled ()
+	      (met on-startled ()
 	        (@enab! 'Awake))) ; disables Sleeping, enables Fleeing
 
 	    (state Awake
 	      (fsm
 	        (state* Fleeing
 	          ...
-	          (meth on-collide (other)
+	          (met on-collide (other)
 	            (when (is? other TreeBranch)
 	              (@enab! 'Perching other)))) ; disables Fleeing
 	        
 	        (state Perching
 	          ...
-	          (meth on-step ()
+	          (met on-step ()
 	            (unless (humans-nearby? @self)
 	              (@enab! 'Sleeping)))))))) ; disables Perching and Awake
 
@@ -219,7 +219,7 @@ arguments are the same arguments which were passed to `enab!` or `@enab!`.
 	(defclass Cog
 	  (fsm
 	    (state* Immobile
-	      (meth on-activate ()
+	      (met on-activate ()
 	        (@enab! 'Mobile (rand-select -1 1))))
 
 	    (state Mobile
@@ -347,21 +347,21 @@ do nothing.
 A naive attempt to achieve this using name shadowing will fail:
 	
 	(defclass Character
-	  (meth on-input (input-event)
+	  (met on-input (input-event)
 	    (match [input-event 'tag]
 	      ('left (@walk-left))
 	      ('right (@walk-right))
 	      ('pause (game:pause))))
 	  
 	  (state CutsceneControl
-	    (meth on-input (input-event)
+	    (met on-input (input-event)
 	      ; do nothing
 	      #n)))
 
 	(let mc (Character))
 	(enab! mc 'CutsceneControl) ; error: name collision for 'on-input
 
-It's not possible to have multiple active `meth` forms which share the same name. This is because, 
+It's not possible to have multiple active `met` forms which share the same name. This is because, 
 although name-shadowing is adequate for fields and constants, it's not powerful enough for methods.
 We provide a better alternative.
 
@@ -369,7 +369,7 @@ A [`(wrap ...)` clause](../std/wrap-clause) defines a "wrapper method": a method
 and modifies, a method in another state.
 	
 	(defclass Character
-	  (meth on-input (input-event)
+	  (met on-input (input-event)
 	    (match [input-event 'tag]
 	      ('left (@walk-left))
 	      ('right (@walk-right))
@@ -384,7 +384,7 @@ In this case, when the `CutsceneControl` state is active, any calls to `(.on-inp
 routed to the wrapper method in `CutsceneControl`. It would still be possible to invoke the 
 original method using its fully-qualified name: `(.Main:on-input ch ev)` or `(@Main:on-input ev)`.
 
-Within our wrapper method, we can invoke the original `meth on-input` by calling 
+Within our wrapper method, we can invoke the original `met on-input` by calling 
 [`(@base)`](../std/atsign-base). This is a versatile tool. We could ignore the base method 
 altogether, execute some additional code before or after calling `(@base)`, transform the 
 base method's arguments or return value, or even call the base method multiple times!
@@ -394,7 +394,7 @@ character around, but still forbid them from opening the pause menu. This would 
 using `(@base)`:
 	
 	(defclass Character
-	  (meth on-input (input-event)
+	  (met on-input (input-event)
 	    (match [input-event 'tag]
 	      ('left (@walk-left))
 	      ('right (@walk-right))
@@ -410,15 +410,15 @@ using `(@base)`:
 You will have noticed that the `wrap` clause receives a fully-qualified name for its target
 method: in this case, `Main:on-input`. 
 
-The target is usually a `meth` form, but it's also possible to recursively wrap another `wrap` 
+The target is usually a `met` form, but it's also possible to recursively wrap another `wrap` 
 form. The wrapper methods form an orderly stack, with each `(@base)` call moving down the stack 
-until it reaches the `meth`.
+until it reaches the `met`.
 
 Let's suppose that we're writing an action game (or a business simulation game?) with a 
 `BerserkerBoss` entity who turns progressively more red and angry as the encounter goes on:
 	
 	(defclass BerserkerBoss
-	  (meth ruddiness ()
+	  (met ruddiness ()
 	    (+ @attacks-received @henchmen-defeated))
 
 	  (state Angry
@@ -473,7 +473,7 @@ field accesses or `(@name)` method calls will usually trigger an error. I call t
 "zombie method".
 	
 	(defclass Person
-	  (meth check-health ()
+	  (met check-health ()
 	    (when (<= @health 0)
 	      (obj-kill! @self))
 

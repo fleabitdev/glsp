@@ -330,28 +330,28 @@ text = """
 	"""
 
 [[apis]]
-	filename = "meth-name"
+	filename = "met-name"
 	kinds = ["special"]
 	args = ["n sym"]
 	text = """
 		Shorthand for a method call.
 
 		During evaluation of a function call, the runtime checks whether the callee is a
-		`(meth-name n)` form. If so, the call is converted into a [`call-meth`](call-meth)
+		`(met-name n)` form. If so, the call is converted into a [`call-met`](call-met)
 		function call.
 
 			(.name ob arg0 arg1)
 
 			; ...is equivalent to...
 
-			((meth-name name) ob arg0 arg1)
+			((met-name name) ob arg0 arg1)
 
 			; ...is equivalent to...
 
-			(call-meth 'name ob arg0 arg1)
+			(call-met 'name ob arg0 arg1)
 
-		`(meth-name x)` is usually [abbreviated](../reference/syntax-and-types.html#abbreviations) 
-		as [`.x`](meth-name-abbrv).
+		`(met-name x)` is usually [abbreviated](../reference/syntax-and-types.html#abbreviations) 
+		as [`.x`](met-name-abbrv).
 	"""
 
 [[apis]]

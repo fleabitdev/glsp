@@ -114,7 +114,7 @@ text = ""
 		Registers a classmacro.
 
 		A classmacro is a macro which can be invoked where class clauses like 
-		[`field`](field-clause) or [`meth`](meth-clause) would normally appear.
+		[`field`](field-clause) or [`met`](met-clause) would normally appear.
 
 		Normal macros are not invoked in classmacro position, and classmacros are not invoked
 		as normal macros.
@@ -154,13 +154,13 @@ text = ""
 		  a value is an instance of this struct.
 
 		To keep structs simple, their class clauses may only be [`const`](const-clause),
-		[`meth`](meth-clause) or [`prop`](prop-clause). Classmacros, mixins, states, wrappers,
+		[`met`](met-clause) or [`prop`](prop-clause). Classmacros, mixins, states, wrappers,
 		field patterns and field initializers are not supported.
 
 			(defstruct Rect
 			  x y w h
 
-			  (meth area ()
+			  (met area ()
 			    (* @w @h)))
 
 			(let r (Rect:new 0 0 10 10))
@@ -211,7 +211,7 @@ text = ""
 
 		- Any [states](state-clause) defined by the mixins are effectively copied-and-pasted at the 
 		  beginning of the class definition. Name collisions between states are forbidden.
-		- Any [fields](field-clause), [constants](const-clause), [methods](meth-clause) and
+		- Any [fields](field-clause), [constants](const-clause), [methods](met-clause) and
 		  [properties](prop-clause), including wrappers, are copied into the toplevel of the
 		  class definition. Their fully-qualified name is `MixinName:item`, rather than the
 		  usual `Main:item`. Name collisions are forbidden; mixins do not participate in
@@ -292,14 +292,14 @@ text = ""
 	"""
 
 [[apis]]
-	filename = "meth-clause"
-	name = "meth"
+	filename = "met-clause"
+	name = "met"
 	kinds = ["clause"]
 	args = ["name sym", "params arr", "body form *"]
 	text = """
 		Defines a method.
 
-		Methods can be invoked using [`meth-name`](meth-name) or [`call-meth`](call-meth).
+		Methods can be invoked using [`met-name`](met-name) or [`call-met`](call-met).
 		Just like [fields](field-clause), methods are bound to both a qualified name and an 
 		unqualified name.
 
@@ -317,7 +317,7 @@ text = ""
 			  (field x)
 			  (prop y (get) (set))
 
-			  (meth receive-values (@x @y)
+			  (met receive-values (@x @y)
 			    (prn @x @y)))
 
 			; ...is equivalent to...
@@ -326,7 +326,7 @@ text = ""
 			  (field x)
 			  (prop y (get) (set))
 
-			  (meth receive-values (x y)
+			  (met receive-values (x y)
 			    (= @x x)
 			    (= @y y)
 			    (prn @x @y)))
@@ -489,7 +489,7 @@ text = ""
 		- Invokes the topmost method in the stack, returning its result.
 
 		The wrapper method's name must be the qualified name of the method which is being
-		wrapped. To wrap the `meth dance` method in the `Joyful` state, write `wrap Joyful:dance`
+		wrapped. To wrap the `met dance` method in the `Joyful` state, write `wrap Joyful:dance`
 		in a different state or mixin.
 
 		If you replace the name of the state with an underscore, e.g. `_:dance`, then this clause 
@@ -617,7 +617,7 @@ text = ""
 		`(atsign sym)` is usually [abbreviated](../reference/syntax-and-types.html#abbreviations) 
 		as [`@sym`](atsign-abbrv).
 
-		`atsign` is only meaningful within the body or parameter list of a [method](meth-clause), 
+		`atsign` is only meaningful within the body or parameter list of a [method](met-clause), 
 		or the initializer form of a [field](field-clause), [constant](const-clause) or 
 		[property](prop-clause).
 
@@ -646,7 +646,7 @@ text = ""
 		  on the self-object which may be absent.
 
 		In a method parameter list, when a parameter's name is prefixed with `@`, that method
-		will [prefix its body with `(= @name name)`](meth-clause), assigning the value of that
+		will [prefix its body with `(= @name name)`](met-clause), assigning the value of that
 		parameter to the corresponding field or property.
 	"""
 
@@ -752,7 +752,7 @@ text = ""
 	"""
 
 [[apis]]
-	filename = "call-meth"
+	filename = "call-met"
 	starts-subcategory = "Functions"
 	kinds = ["fn", "mac"]
 	args = ["name sym", "receiver obj|class|rdata", "args val *"]
@@ -769,26 +769,26 @@ text = ""
 		If the receiver is an RData, `name` must be the exact name of one of the methods which
 		was registered using the [`rdata!`](https://docs.rs/glsp/0.1/glsp/macro.rdata.html) macro.
 
-		`call-meth` supports the `?` special syntax. When the method `name` doesn't actually
-		exist, `(call-meth (? name) rcv ...)` will succeed and return `#n`.
+		`call-met` supports the `?` special syntax. When the method `name` doesn't actually
+		exist, `(call-met (? name) rcv ...)` will succeed and return `#n`.
 
-		`(call-meth 'name rcv)` is usually [abbreviated][0] as [`(.name rcv)`](meth-name).
+		`(call-met 'name rcv)` is usually [abbreviated][0] as [`(.name rcv)`](met-name).
 		
-		Similarly, `(call-meth (? 'name) rcv)` is usually abbreviated as `((? .name) rcv)`.
+		Similarly, `(call-met (? 'name) rcv)` is usually abbreviated as `((? .name) rcv)`.
 
 		[0]: ../reference/syntax-and-types.html#abbreviations
 	"""
 
 [[apis]]
-	filename = "has-meth-p"
+	filename = "has-met-p"
 	kinds = ["fn"]
 	args = ["receiver obj|class|rdata", "name sym"]
 	returns = "bool"
 	text = """
 		Returns `#t` if the given name is bound to a method.
 
-		In other words, if `(has-meth? rcv name)` returns `#t`, then it would be possible to 
-		invoke a method using `(call-meth name rcv ...)`.
+		In other words, if `(has-met? rcv name)` returns `#t`, then it would be possible to 
+		invoke a method using `(call-met name rcv ...)`.
 	"""
 
 [[apis]]

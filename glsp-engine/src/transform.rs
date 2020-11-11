@@ -369,8 +369,8 @@ pub(crate) enum OpId {
 	Access,
 	SetAccess,
 	Arr,
-	CallMeth,
-	CallMethOpt,
+	CallMet,
+	CallMetOpt,
 	CallBaseRaw,
 	Global,
 	SetGlobal
@@ -441,8 +441,8 @@ pub(crate) fn op_instr_variadic(op_id: OpId, dst: u8, arg0: u8, arg_count: u8) -
 
 	match op_id {
 		OpId::Arr => OpArr(dst, arg0, arg_count),
-		OpId::CallMeth => OpCallMeth(dst, arg0, arg_count),
-		OpId::CallMethOpt => OpCallMethOpt(dst, arg0, arg_count),
+		OpId::CallMet => OpCallMet(dst, arg0, arg_count),
+		OpId::CallMetOpt => OpCallMetOpt(dst, arg0, arg_count),
 		OpId::CallBaseRaw => OpCallBaseRaw(dst, arg0, arg_count),
 		_ => panic!()
 	}
@@ -537,8 +537,8 @@ static KNOWN_OPS: [(Sym, KnownOp); 54] = {
 		
 		(ARR_SYM, Variadic(OpId::Arr)),
 
-		(CALL_METH_SYM, Variadic(OpId::CallMeth)),
-		(CALL_METH_OPT_SYM, Variadic(OpId::CallMethOpt)),
+		(CALL_MET_SYM, Variadic(OpId::CallMet)),
+		(CALL_MET_OPT_SYM, Variadic(OpId::CallMetOpt)),
 		(CALL_BASE_RAW_SYM, Variadic(OpId::CallBaseRaw)),
 
 		(GLOBAL_SYM, Fixed(OpId::Global, 1)),

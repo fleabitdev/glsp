@@ -115,7 +115,7 @@ This is similar to a classmacro, but it comes with several advantages:
 	      (= @field new-coords)
 	      (colliders:update @self)))
 
-	  (meth move (dx dy)
+	  (met move (dx dy)
 	    (colliders:move @self dx dy))
 
 	  (init-mixin (..args)
@@ -129,7 +129,7 @@ This is similar to a classmacro, but it comes with several advantages:
 ## Advanced Wrapper Methods
 
 In the [previous chapter](state-machines.md), we discussed wrapper methods, which can be used to 
-override a specific `meth` or `wrap` clause defined elsewhere in the class.
+override a specific `met` or `wrap` clause defined elsewhere in the class.
 
 So far, the obvious limitation of wrapper methods is that they require you to know the entire 
 structure of your class up front. There's a `Jumping` state, which wraps the `Active:energy-level` 
@@ -147,7 +147,7 @@ The first option:
 	    (spawn-particle @coords 'clouds)))
 
 If `Main:on-step` is undefined, or if you include multiple states or mixins which all try to 
-override `Main:on-step`, or if a state other than `Main` tries to define a `meth on-step`, an 
+override `Main:on-step`, or if a state other than `Main` tries to define a `met on-step`, an 
 error will occur. This is normally a good thing! It highlights the fact that your code has 
 an ambiguous order of execution, and it prompts you to disambiguate it by, for example, changing 
 one of your wrapper methods to override `Cloudy:on-step` instead.
@@ -164,7 +164,7 @@ The underscore makes this a "wildcard wrapper method". It means "I want this cod
 when `on-step` is called, but I don't care about what happens before or after".
 
 Wildcard wrappers are much less strict than explicit wrappers. It's fine to have a wildcard
-wrapper for `_:on-step`, even when there is no actual `meth on-step` anywhere in the class. 
+wrapper for `_:on-step`, even when there is no actual `met on-step` anywhere in the class. 
 If there is no other `on-step` method, or if it's disabled, `(@base)` will be a silent no-op. 
 There can be any number of `_:on-step` wrappers in each class; you can even put several in the 
 same state!
@@ -172,14 +172,14 @@ same state!
 Wildcard wrappers can only be invoked using their unqualified method name: `(.Cloudy:on-step ob)`
 would fail, but `(.on-step ob)` would succeed. When you call an unqualified method like `on-step`,
 `(@base)` will chain through all of the wildcard wrappers in an unspecified order, followed by all 
-of the explicit wrappers, followed by the `meth` form. Methods which belong to disabled states are 
+of the explicit wrappers, followed by the `met` form. Methods which belong to disabled states are 
 skipped.
 
 Although wildcard wrappers can lead to spaghetti code when overused, they're a powerful tool when
 used responsibly.
 	
 	(class Monster
-	  (meth on-inspect ()
+	  (met on-inspect ()
 	    (prn "It's terrifying!"))
 	  
 	  (state OnFire
@@ -309,10 +309,10 @@ parameter. States make it easy to compartmentalize the class into two sub-types.
 
 	  (state Red
 	    (const weapon-name 'musket)
-	    (meth select-action ()
+	    (met select-action ()
 	      ...))
 
 	  (state Blue
 	    (const weapon-name 'pike)
-	    (meth select-action ()
+	    (met select-action ()
 	      ...)))

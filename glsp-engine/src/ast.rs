@@ -496,55 +496,55 @@ fn arr_to_node(ast: &mut Ast, arr: &Root<Arr>) -> GResult<Node> {
 			special_to_node(ast, sym, &args, span)
 		}
 
-		//(.name ...) -> (call-meth 'name ...)
+		//(.name ...) -> (call-met 'name ...)
 		Val::Arr(root) 
 			if root.len() >= 1 && 
-			   root.get::<Val>(0).unwrap() == Val::Sym(METH_NAME_SYM) => 
+			   root.get::<Val>(0).unwrap() == Val::Sym(MET_NAME_SYM) => 
 		{
-			ensure_at!(span, root.len() == 2, "invalid (meth-name ...) abbreviation");
+			ensure_at!(span, root.len() == 2, "invalid (met-name ...) abbreviation");
 
-			let meth_name = match root.get::<Val>(1).unwrap() {
-				Val::Sym(meth_name) => meth_name,
-				val => bail_at!(span, "invalid (meth-name ...) form: argument is {}", 
+			let met_name = match root.get::<Val>(1).unwrap() {
+				Val::Sym(met_name) => met_name,
+				val => bail_at!(span, "invalid (met-name ...) form: argument is {}", 
 				                val.a_type_name())
 			};
 
 			let replacement = arr.shallow_clone();
 			let _: Val = replacement.pop_start()?;
-			replacement.push_start(arr![QUOTE_SYM, meth_name])?;
-			replacement.push_start(CALL_METH_SYM)?;
+			replacement.push_start(arr![QUOTE_SYM, met_name])?;
+			replacement.push_start(CALL_MET_SYM)?;
 
 			arr_to_node(ast, &replacement)
 		}
 
-		//((? .name) ...) -> (call-meth-opt 'name ...)
+		//((? .name) ...) -> (call-met-opt 'name ...)
 		Val::Arr(root) 
 			if root.len() >= 1 && 
 			   root.get::<Val>(0).unwrap() == Val::Sym(QUESTION_MARK_SYM) => 
 		{
 			ensure_at!(span, root.len() == 2, "invalid (? ...) callee");
 
-			let meth_name_arr = match root.get::<Val>(1).unwrap() {
+			let met_name_arr = match root.get::<Val>(1).unwrap() {
 				Val::Arr(arr)
 					if arr.len() >= 1 &&
-					   arr.get::<Val>(0).unwrap() == Val::Sym(METH_NAME_SYM) => arr,
+					   arr.get::<Val>(0).unwrap() == Val::Sym(MET_NAME_SYM) => arr,
 				Val::Sym(name) => bail_at!(span, "(? {}) is not a valid callee. \
 				                         did you mean (? .{})?", name, name),
 				form => bail_at!(span, "(? {}) is not a valid callee", form)
 			};
 
-			ensure_at!(span, meth_name_arr.len() == 2, "invalid (meth-name ...) form");
+			ensure_at!(span, met_name_arr.len() == 2, "invalid (met-name ...) form");
 
-			let meth_name = match meth_name_arr.get::<Val>(1).unwrap() {
-				Val::Sym(meth_name) => meth_name,
-				val => bail_at!(span, "invalid (meth-name ...) form: argument is {}", 
+			let met_name = match met_name_arr.get::<Val>(1).unwrap() {
+				Val::Sym(met_name) => met_name,
+				val => bail_at!(span, "invalid (met-name ...) form: argument is {}", 
 				                val.a_type_name())
 			};
 
 			let replacement = arr.shallow_clone();
 			let _: Val = replacement.pop_start()?;
-			replacement.push_start(arr![QUOTE_SYM, meth_name])?;
-			replacement.push_start(CALL_METH_OPT_SYM)?;
+			replacement.push_start(arr![QUOTE_SYM, met_name])?;
+			replacement.push_start(CALL_MET_OPT_SYM)?;
 
 			arr_to_node(ast, &replacement)
 		}

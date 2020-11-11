@@ -593,7 +593,7 @@ fn detect_abbrv(arr: &Arr) -> Option<(&'static str, Val)> {
 			Val::Sym(BACKQUOTE_SYM) => Some(("`", form)),
 			Val::Sym(UNQUOTE_SYM) => Some(("~", form)),
 			Val::Sym(SPLAY_SYM) => Some(("..", form)),
-			Val::Sym(METH_NAME_SYM) => Some((".", form)),
+			Val::Sym(MET_NAME_SYM) => Some((".", form)),
 			Val::Sym(ATSIGN_SYM) => Some(("@", form)),
 			_ => None
 		}
@@ -677,7 +677,7 @@ static BREAKING_SYMS: [(&str, usize); 48] = [
 	("defn", 3),
 	("let-macro", 3),
 	("let-fn", 3),
-	("meth", 3),
+	("met", 3),
 	("wrap", 3),
 	("when-let", 3),
 
@@ -920,7 +920,7 @@ if i ever find myself with a couple of days free, the improved pretty-printing r
 	- when the arguments to `if` are very short (< 20 chars?), it will not linebreak, and instead 
 	  acts like an indivisible item. (should this rule be generalised to all forms?)
 - these forms follow "function rules": defn, defmacro, let-fn (n=2)
-	- when the immediate child of a class, defclass, state or state* form: meth, wrap (n=2)
+	- when the immediate child of a class, defclass, state or state* form: met, wrap (n=2)
 	- when the immediate child of a def form: fn (n=1)
 	- "function rules" are to always start linebreaking after the nth argument, and to have
 	  special handling for the parameter list, indenting linebreaks to its opening delimeter.
@@ -1232,12 +1232,12 @@ pub(crate) fn instr_to_string(instr: Instr, local_count: u8, scratch_count: u8) 
 			format!("OpArr(dst_reg: {}, arg0_reg: {}, arg_count: {})",
 			        reg(dst), reg(arg0), arg_count)
 		}
-		OpCallMeth(dst, arg0, arg_count) => {
-			format!("OpCallMeth(dst_reg: {}, arg0_reg: {}, arg_count: {})",
+		OpCallMet(dst, arg0, arg_count) => {
+			format!("OpCallMet(dst_reg: {}, arg0_reg: {}, arg_count: {})",
 			        reg(dst), reg(arg0), arg_count)
 		}
-		OpCallMethOpt(dst, arg0, arg_count) => {
-			format!("OpCallMethOpt(dst_reg: {}, arg0_reg: {}, arg_count: {})",
+		OpCallMetOpt(dst, arg0, arg_count) => {
+			format!("OpCallMetOpt(dst_reg: {}, arg0_reg: {}, arg_count: {})",
 			        reg(dst), reg(arg0), arg_count)
 		}
 		OpCallBaseRaw(dst, arg0, arg_count) => {

@@ -62,7 +62,7 @@
 	(init ()
 		(@reset))
 
-	(meth reset ()
+	(met reset ()
 		(= @score 0)
 		(= @level (clamp :starting-level 0 20))
 		(= @lines 0)
@@ -73,7 +73,7 @@
 	; draws everything except the falling piece, the "GAME OVER" or "PAUSED" popup, and
 	; the line-clearing animation. if `grid-mode` is `hide-grid`, the grid and the 
 	; "next piece" frame will both appear to be empty.
-	(meth draw-backdrop (grid-mode)
+	(met draw-backdrop (grid-mode)
 		(ensure (eq-any? grid-mode 'show-grid 'hide-grid))
 
 		; draw the brick walls on either side of the stage
@@ -141,14 +141,14 @@
 	; the `update` and `draw` methods are called by play:update, once per frame. they're overridden
 	; by the Paused state. when not overridden, they delegate to the `update-gameplay` and 
 	; `draw-gameplay` methods, implemented differently by various states in a finite state machine.
-	(meth update (dt)
+	(met update (dt)
 		(cond 
 			((and (play:pressed? 'enter) (@enab? 'Playing))
 				(@enab! 'Paused))
 			(else
 				(@update-gameplay dt))))
 
-	(meth draw ()
+	(met draw ()
 		(@draw-gameplay))
 
 	#|
@@ -204,11 +204,11 @@
 						(= @next-piece (Piece (rand-piece-type))))
 
 					; draw the stage, then delegate to the current piece's `draw` method
-					(meth draw-gameplay ()
+					(met draw-gameplay ()
 						(@draw-backdrop 'show-grid)
 						(.draw @piece (+ 32 (* [@piece 'origin-x] 16)) (* [@piece 'origin-y] 16)))
 
-					(meth update-gameplay (dt)
+					(met update-gameplay (dt)
 						; at the start of a frame, if the piece overlaps with existing blocks, the game has
 						; been lost. (this can only happen when a piece spawns in on top of occupied space.)
 						(when (.collides? @piece @grid)
@@ -330,7 +330,7 @@
 
 					(init-state (@cleared-lines))
 
-					(meth update-gameplay (dt)
+					(met update-gameplay (dt)
 						(inc! @clearing-timer dt)
 						(when (>= @clearing-timer 1.4)
 							; the animation is complete. remove the cleared lines from the grid
@@ -360,7 +360,7 @@
 
 					; a simple animation - we just draw the backdrop over some lines to "disappear" them,
 					; switching on and off every 200ms
-					(meth draw-gameplay ()
+					(met draw-gameplay ()
 						(@draw-backdrop 'show-grid)
 
 						(when (<= (% @clearing-timer 0.4) 0.2)
@@ -373,20 +373,20 @@
 					(field frozen-timer 0.0)
 
 					; nothing exciting here - we simply wait for two seconds, then enable GameOver
-					(meth update-gameplay (dt)
+					(met update-gameplay (dt)
 						(inc! @frozen-timer dt)
 						(when (>= @frozen-timer 2.0)
 							(@enab! 'GameOver)
 							(return)))
 
-					(meth draw-gameplay ()
+					(met draw-gameplay ()
 						(@draw-backdrop 'show-grid)))))
 
 		; showing the "GAME OVER" message
 		(state GameOver
 			(field game-over-timer 0.0)
 
-			(meth update-gameplay (dt)
+			(met update-gameplay (dt)
 				(inc! @game-over-timer dt)
 
 				; we don't allow the message to be dismissed for the first second, to make it less
@@ -399,7 +399,7 @@
 						(@enab! 'Playing)
 						(return))))
 
-			(meth draw-gameplay ()
+			(met draw-gameplay ()
 				(@draw-backdrop 'hide-grid)
 
 				; draw the floating text box
@@ -453,7 +453,7 @@
 					frame))))))
 
 	; returns #t if this piece is currently overlapping with an obstacle
-	(meth collides? (grid)
+	(met collides? (grid)
 
 		; test each part separately...
 		(for [offset-x offset-y] in @parts
@@ -473,7 +473,7 @@
 		#f)
 
 	; copy each of this piece's Parts onto the grid, in their current position
-	(meth place-onto-grid (grid)
+	(met place-onto-grid (grid)
 		(for [offset-x offset-y tile] in @parts
 			(let x (+ offset-x @origin-x))
 			(let y (+ offset-y @origin-y))
@@ -482,12 +482,12 @@
 				(= [grid (+ x (* y :grid-width))] (clone tile)))))
 
 	; shift this piece by the given horizontal and vertical offset
-	(meth move! (dx dy)
+	(met move! (dx dy)
 		(inc! @origin-x dx)
 		(inc! @origin-y dy))
 
 	; rotate this piece around its origin
-	(meth rotate-cw! ()
+	(met rotate-cw! ()
 
 		; O pieces never rotate. I pieces toggle betweeen "default" and "one step anticlockwise".
 		; S and Z pieces toggle between "default" and "one step clockwise". all other pieces truly
@@ -509,7 +509,7 @@
 					(inc! [[part 'tile] 'frame] 3))
 				(inc! @rotation))))
 
-	(meth rotate-acw! ()
+	(met rotate-acw! ()
 
 		; see above
 		(cond
@@ -527,7 +527,7 @@
 				(dec! @rotation))))
 
 	; draw this piece on the grid, at its current position
-	(meth draw (x y)
+	(met draw (x y)
 		(for [offset-x offset-y (tile [sprite frame])] in @parts
 			(play:draw sprite (+ x (* offset-x 16)) (+ y (* offset-y 16)) 'frame frame))))
 

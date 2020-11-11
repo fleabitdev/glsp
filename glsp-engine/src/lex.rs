@@ -77,7 +77,7 @@ pub(crate) enum TokType {
 	Backquote,
 	Unquote,
 	Splay,
-	MethName,
+	MetName,
 	Atsign
 }
 
@@ -341,7 +341,7 @@ fn lex<'a>(lexer: &mut Lexer, text: &mut &'a str) -> GResult<Tok<'a>> {
 				('`', _) => (TokType::Backquote, 1), 
 				('~', _) => (TokType::Unquote, 1), 
 				('.', Some('.')) => (TokType::Splay, 2), 
-				('.', _) => (TokType::MethName, 1), 
+				('.', _) => (TokType::MetName, 1), 
 				('@', _) => (TokType::Atsign, 1),
 
 				(first, _) if is_valid_sym_char(first) => {

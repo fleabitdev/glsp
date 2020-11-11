@@ -67,7 +67,7 @@ in an unrolled loop.
 
 (defn primitive-method ()
 	(let-class C
-		(meth a ()))
+		(met a ()))
 
 	(let o (C))
 
@@ -86,7 +86,7 @@ to real game source code.
 	(defstruct Rect
 		x y w h
 
-		(meth intersects? (other)
+		(met intersects? (other)
 			(and
 				(> (+ @x @w) [other 'x])
 				(< @x (+ [other 'x] [other 'w]))
@@ -141,7 +141,7 @@ to real game source code.
 	(defstruct Point
 		x y
 
-		(meth rotate! (diff)
+		(met rotate! (diff)
 			(let distance (sqrt (+ (* @x @x) (* @y @y))))
 			(let angle (atan @y @x))
 			(let new-angle (+ angle diff))

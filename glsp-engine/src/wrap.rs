@@ -2166,7 +2166,7 @@ macro_rules! lib_impls {
 /**
 Defines a Rust type which can be stored on the garbage-collected heap.
 
-The input must be a struct or enum declaration, optionally followed by a `meths { ... }` block. 
+The input must be a struct or enum declaration, optionally followed by a `mets { ... }` block. 
 
 The macro declares the specified type, implements the [`RStore` trait](trait.RStore.html) trait 
 for the type, implements [`MakeArg`](trait.MakeArg.html) for shared and mutable references to 
@@ -2183,7 +2183,7 @@ be [borrowed](struct.RData.html#method.borrow) for the duration of the function 
 			channels: Channels
 		}
 
-		meths {
+		mets {
 			get "duration": AudioClip::duration,
 			"play": AudioClip::play
 		}
@@ -2211,7 +2211,7 @@ When a type is declared using the `rdata!` macro, it can be associated with name
 These methods can be called directly from GameLisp code. Alternatively, they can be called from
 Rust code - for example, using [`RData::call`](struct.RData.html#method.call).
 
-The `meths` block contains a comma-separated list of `"name": fn_expr` pairs. Each `fn_expr` 
+The `mets` block contains a comma-separated list of `"name": fn_expr` pairs. Each `fn_expr` 
 is passed to the [`rfn!`](macro.rfn.html) macro, and the resulting 
 [`WrappedFn`](struct.WrappedFn.html) is made into an associated method.
 
@@ -2294,20 +2294,20 @@ macro_rules! rdata {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! rdata_impls {
-	($rdata:ident;) => (rdata_impls!($rdata; meths { }););
+	($rdata:ident;) => (rdata_impls!($rdata; mets { }););
 
 	(
 		$rdata:ident;
 
-		meths { 
-			$($($meth_kind:ident)? $meth_name:literal : $meth_expr:path,)+
+		mets { 
+			$($($met_kind:ident)? $met_name:literal : $met_expr:path,)+
 		}
 	) => (
 		rdata_impls!(
 			$rdata;
 
-			meths {
-				$($($meth_kind)? $meth_name: $meth_expr),+
+			mets {
+				$($($met_kind)? $met_name: $met_expr),+
 			}
 		);
 	);
@@ -2315,8 +2315,8 @@ macro_rules! rdata_impls {
 	(
 		$rdata:ident;
 
-		meths { 
-			$($($meth_kind:ident)? $meth_name:literal : $meth_expr:path),*
+		mets { 
+			$($($met_kind:ident)? $met_name:literal : $met_expr:path),*
 		}
 	) => (
 		impl $crate::RStore for $rdata {
@@ -2332,7 +2332,7 @@ macro_rules! rdata_impls {
 				$crate::RClass::from_vec(
 					stringify!($rdata),
 					std::vec![
-						$((stringify!($($meth_kind)?), $meth_name, $crate::rfn!($meth_expr))),*
+						$((stringify!($($met_kind)?), $met_name, $crate::rfn!($met_expr))),*
 					]
 				)
 			}

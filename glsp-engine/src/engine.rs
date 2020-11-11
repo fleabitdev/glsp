@@ -990,7 +990,7 @@ pub struct RClass {
 }
 
 enum RBinding {
-	Meth(RFn),
+	Met(RFn),
 	Prop(Option<RFn>, Option<RFn>)
 }
 
@@ -1014,25 +1014,29 @@ impl RClass {
 			}
 
 			match (kind, bindings.entry(name)) {
-				("", Vacant(entry)) => { entry.insert(RBinding::Meth(rfn)); }
+				("", Vacant(entry)) => { entry.insert(RBinding::Met(rfn)); }
 				("get", Vacant(entry)) => { entry.insert(RBinding::Prop(Some(rfn), None)); }
 				("set", Vacant(entry)) => { entry.insert(RBinding::Prop(None, Some(rfn))); }
-				("", Occupied(_)) => bail!("duplicate meth name {}", name),
+				("", Occupied(_)) => bail!("duplicate method name {}", name),
 				("get", Occupied(mut entry)) => {
 					match entry.get_mut() {
-						RBinding::Meth(_) => bail!("{} is bound to both a meth and a prop", name),
+						RBinding::Met(_) => {
+							bail!("{} is bound to both a method and a property", name)
+						}
 						RBinding::Prop(Some(_), _) => bail!("duplicate getter {}", name),
 						RBinding::Prop(ref mut none, _) => *none = Some(rfn)
 					}
 				}
 				("set", Occupied(mut entry)) => {
 					match entry.get_mut() {
-						RBinding::Meth(_) => bail!("{} is bound to both a meth and a prop", name),
+						RBinding::Met(_) => {
+							bail!("{} is bound to both a method and a property", name)
+						}
 						RBinding::Prop(_, Some(_)) => bail!("duplicate setter {}", name),
 						RBinding::Prop(_, ref mut none) => *none = Some(rfn)
 					}
 				}
-				(kind, _) => bail!("{} is not a valid tag for an RData meth", kind)
+				(kind, _) => bail!("{} is not a valid tag for an RData method", kind)
 			}
 		}
 
@@ -1430,7 +1434,7 @@ impl RData {
 	/**
 	Invokes a method.
 	
-	Equivalent to [`(call-meth rdata key ..args)`](https://gamelisp.rs/std/call-meth).
+	Equivalent to [`(call-met rdata key ..args)`](https://gamelisp.rs/std/call-met).
 	*/
 	pub fn call<S, A, R>(&self, key: S, args: &A) -> GResult<R> 
 	where
@@ -1448,7 +1452,7 @@ impl RData {
 	/**
 	Invokes a method, if it exists.
 	
-	Equivalent to [`(call-meth rdata (? key) ..args)`](https://gamelisp.rs/std/call-meth).
+	Equivalent to [`(call-met rdata (? key) ..args)`](https://gamelisp.rs/std/call-met).
 	*/
 	pub fn call_if_present<S, A, R>(&self, key: S, args: &A) -> GResult<Option<R>> 
 	where
@@ -1459,7 +1463,7 @@ impl RData {
 		let sym = key.to_sym()?;
 
 		match self.class.bindings.get(&sym) {
-			Some(RBinding::Meth(rfn)) => {
+			Some(RBinding::Met(rfn)) => {
 				with_vm(|vm| {
 					let mut stacks = vm.stacks.borrow_mut();
 					let starting_len = stacks.regs.len();
@@ -1481,13 +1485,13 @@ impl RData {
 	/**
 	Returns `true` if the given name is bound to a method.
 	
-	Equivalent to [`(has-meth? rdata key)`](https://gamelisp.rs/std/has-meth-p).
+	Equivalent to [`(has-met? rdata key)`](https://gamelisp.rs/std/has-met-p).
 	*/
-	pub fn has_meth<S: ToSym>(&self, key: S) -> GResult<bool> {
+	pub fn has_met<S: ToSym>(&self, key: S) -> GResult<bool> {
 		let sym = key.to_sym()?;
 
 		match self.class.bindings.get(&sym) {
-			Some(RBinding::Meth(_)) => Ok(true),
+			Some(RBinding::Met(_)) => Ok(true),
 			_ => Ok(false)
 		}
 	}
@@ -1495,7 +1499,7 @@ impl RData {
 	//designed to imitate Obj::get_method(). used in vm.rs
 	pub(crate) fn get_method(&self, key: Sym) -> Option<(Slot, bool, bool, Slot)> {
 		match self.class.bindings.get(&key) {
-			Some(&RBinding::Meth(rfn)) => Some((Slot::RFn(rfn), true, false, Slot::Nil)),
+			Some(&RBinding::Met(rfn)) => Some((Slot::RFn(rfn), true, false, Slot::Nil)),
 			_ => None
 		}
 	}
@@ -3751,7 +3755,7 @@ define_stock_syms!(
 		("backquote", BACKQUOTE_SYM),
 		("unquote", UNQUOTE_SYM),
 		("splay", SPLAY_SYM),
-		("meth-name", METH_NAME_SYM),
+		("met-name", MET_NAME_SYM),
 		("atsign", ATSIGN_SYM),
 		("atsign=", SET_ATSIGN_SYM),
 		("atsign-opt", ATSIGN_OPT_SYM),
@@ -3774,7 +3778,7 @@ define_stock_syms!(
 
 		("field", FIELD_SYM),
 		("const", CONST_SYM),
-		("meth", METH_SYM),
+		("met", MET_SYM),
 		("wrap", WRAP_SYM),
 		("wildcard-wrap", WILDCARD_WRAP_SYM),
 		("prop", PROP_SYM),
@@ -3886,8 +3890,8 @@ define_stock_syms!(
 
 		("arr", ARR_SYM),
 
-		("call-meth", CALL_METH_SYM),
-		("call-meth-opt", CALL_METH_OPT_SYM),
+		("call-met", CALL_MET_SYM),
+		("call-met-opt", CALL_MET_OPT_SYM),
 		("call-base-raw", CALL_BASE_RAW_SYM),
 
 		("global", GLOBAL_SYM),

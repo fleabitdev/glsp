@@ -628,8 +628,8 @@ pub(crate) enum Instr {
 	OpAccess(u8, u8, u8),
 	OpSetAccess(u8, u8, u8, u8),
 	OpArr(u8, u8, u8),
-	OpCallMeth(u8, u8, u8),
-	OpCallMethOpt(u8, u8, u8),
+	OpCallMet(u8, u8, u8),
+	OpCallMetOpt(u8, u8, u8),
 	OpCallBaseRaw(u8, u8, u8),
 	OpGlobal(u8, u8),
 	OpSetGlobal(u8, u8, u8)
@@ -767,8 +767,8 @@ impl Instr {
 			OpAccess(a 0, b 1, c 2),
 			OpSetAccess(a 0, b 1, c 2, d 3),
 			OpArr(a 0, b 1, c 2),
-			OpCallMeth(a 0, b 1, c 2),
-			OpCallMethOpt(a 0, b 1, c 2),
+			OpCallMet(a 0, b 1, c 2),
+			OpCallMetOpt(a 0, b 1, c 2),
 			OpCallBaseRaw(a 0, b 1, c 2),
 			OpGlobal(a 0, b 1),
 			OpSetGlobal(a 0, b 1, c 2)

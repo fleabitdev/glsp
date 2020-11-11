@@ -116,7 +116,7 @@
 	mine-state ; one of 'no-mine, 'mine, or 'boom
 	neighbours ; the number of neighbouring cells which contain mines
 
-	(meth on-left-click ()
+	(met on-left-click ()
 		; left-click only has an effect for tiles displaying [ ] or [?]
 		(unless (eq-any? @tile-state 'hidden 'question)
 			(return))
@@ -185,7 +185,7 @@
 					(= :game-state 'won)
 					(= :mines-remaining 0)))))
 
-	(meth on-right-click ()
+	(met on-right-click ()
 		; cycle between [flag], [?] and [ ], keeping `:mines-remaining` up-to-date
 		(cond-eq? @tile-state
 			('hidden
@@ -198,7 +198,7 @@
 				(= @tile-state 'hidden))))
 
 	; `sunken?` is #t when the lmb is down and the cursor is over the tile
-	(meth draw (sunken?)
+	(met draw (sunken?)
 
 		; various special cases for rendering the victory and failure screens
 		(when (eq? :game-state 'lost)

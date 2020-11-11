@@ -42,7 +42,7 @@ You can define a new class using the macros [`defclass`](../std/defclass),
 	  (const initial-time 30.0)
 	  (field timer @initial-time)
 
-	  (meth tick (delta-time)
+	  (met tick (delta-time)
 	    (dec! @timer delta-time)
 	    (when (<= @timer 0.0)
 	      (prn "BOOM!"))))
@@ -63,7 +63,7 @@ Classes are always immutable. There's no way to modify a class after you've defi
 
 As demonstrated above, classes are described using a sequence of "clause" forms. The most 
 important clauses are [`(field ...)`](../std/field-clause), 
-[`(const ...)`](../std/const-clause) and [`(meth ...)`](../std/meth-clause).
+[`(const ...)`](../std/const-clause) and [`(met ...)`](../std/met-clause).
 
 ### Fields and Constants
 
@@ -97,9 +97,9 @@ You can also use `[]` to look up the value of a constant in a class.
 
 ### Methods
 
-A [`(meth name (args...) body...)` clause](../std/meth-clause) defines a method: a function which 
+A [`(met name (args...) body...)` clause](../std/met-clause) defines a method: a function which 
 "acts on" a particular object. Unlike Rust, the `self` argument is defined implicitly rather than 
-explicitly, so you would write `(meth a (b) ...)` rather than `(meth a (self b) ...)`.
+explicitly, so you would write `(met a (b) ...)` rather than `(met a (self b) ...)`.
 
 Methods share the same namespace as fields and constants, and like fields and constants, they're 
 public by default.
@@ -139,13 +139,13 @@ constant. Broadly speaking, it's used to access some property of the current obj
 	  (field green)
 	  (field blue)
 
-	  (meth rgb ()
+	  (met rgb ()
 	    (arr @red @green @blue))
 
-	  (meth print-color ()
+	  (met print-color ()
 	    (prn (@rgb)))
 
-	  (meth make-grayscale! ()
+	  (met make-grayscale! ()
 	    (let avg (/ (+ @red @green @blue) 3))
 	    (= @red avg, @green avg, @blue avg)))
 
@@ -161,17 +161,17 @@ access a field or constant, it's an error.
 	(defclass WidgetValidator
 	  (const threshold 10.0)
 
-	  (meth widget-valid? (widget)
+	  (met widget-valid? (widget)
 	    (>= [widget 'validity] @threshold))
 
-	  (meth validate (widgets)
+	  (met validate (widgets)
 	    (all? @widget-valid? widgets))) ; an error
 
 However, forms like `@self` and `@width` work by referring to a hidden local variable, which is
 eligible to be captured using `fn`. Therefore, creating a first-class function which delegates to 
 a method is straightforward.
 	
-	(meth validate (widgets)
+	(met validate (widgets)
 	  ; invoke the widget-valid? method on @self, passing in each widget
 	  (all? (fn1 (@widget-valid? _)) widgets))
 
@@ -231,16 +231,16 @@ In other words, the above `AppleTree` class definition is equivalent to:
 	    (= @planted-on-date planted-on-date)
 	    (prn "created an apple tree with {@fruit-count} fruit")))
 
-Normal `meth` clauses may also have `@`-parameters. In that case, they just emit a `(= @name name)`
+Normal `met` clauses may also have `@`-parameters. In that case, they just emit a `(= @name name)`
 form at the start of their body, in no particular order.
 	
-	(meth on-health-change (@health)
+	(met on-health-change (@health)
 	  (when (< @health 0)
 	    (prn "the tree withers away!")))
 
 	; ...is equivalent to...
 
-	(meth on-health-change (health)
+	(met on-health-change (health)
 	  (= @health health)
 	  (when (< @health 0)
 	    (prn "the tree withers away!")))
@@ -300,7 +300,7 @@ the class, but it can still be accessed by other objects of the same class.
 
 	  (init (@x# @y#))
 
-	  (meth op-eq? (other)
+	  (met op-eq? (other)
 	    (and (== @x# [other 'x#]) (== @y# [other 'y#]))))
 
 	(let point (SecretivePoint 20 20))
@@ -320,10 +320,10 @@ methods which only return a field's value.
 	  (field width# 5)
 	  (field height# 5)
 
-	  (meth width ()
+	  (met width ()
 	    @width#)
 
-	  (meth height ()
+	  (met height ()
 	    @height#))
 
 GameLisp borrows a leaf from C#'s book by allowing you to define a pair of methods which behave 
@@ -352,10 +352,10 @@ methods, it's possible to refer to the backing field as [`@field`](../std/atsign
 	      (let (x y) arg)
 	      (= @field (arr (+ x 10) (+ y 10)))))
 
-	  (meth print-description ()
+	  (met print-description ()
 	    (prn "my coords are " @coords))
 
-	  (meth print-secret-description ()
+	  (met print-secret-description ()
 	    (prn "my actual coords are " @coords:field)))
 
 Just like fields and constants, properties can be initialized automatically, using the syntax
@@ -396,11 +396,11 @@ Class definitions can become repetitive. For example, every entity in your game 
 an `on-step` method with the same set of parameters:
 	
 	(defclass MetalWall
-	  (meth on-step (controller delta-time)
+	  (met on-step (controller delta-time)
 	    ...))
 
 	(defclass LaserSword
-	  (meth on-step (controller delta-time)
+	  (met on-step (controller delta-time)
 	    ...))
 
 	; i've only typed that boilerplate twice and i'm already tired of it
@@ -409,7 +409,7 @@ You can use `defclassmacro` to define a macro which will be invoked in place of 
 For example, in the above case, we might define a `step` classmacro:
 	
 	(defclassmacro step (..body)
-	  `(meth on-step (controller delta-time)
+	  `(met on-step (controller delta-time)
 	    ..body))
 
 	(defclass MetalWall
@@ -432,7 +432,7 @@ resumes a coroutine every step.
 	    (field coro-name#)
 	    (field setter-name#)
 
-	    (meth on-step (controller cur-delta-time#)
+	    (met on-step (controller cur-delta-time#)
 	      (when (or (nil? coro-name#) (not (eq? (coro-state coro-name#) 'paused))) 
 	        (let delta-time cur-delta-time#)
 	        (= coro-name# ((fn () ..body)))

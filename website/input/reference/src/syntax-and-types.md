@@ -306,7 +306,7 @@ The abbreviations are:
 |`[x y]`|[`(access x y)`](../std/access)|
 |`..val`|[`(splay val)`](../std/splay)|
 |`@val`|[`(atsign val)`](../std/atsign)|
-|`.val`|[`(meth-name val)`](../std/meth-name)|
+|`.val`|[`(met-name val)`](../std/met-name)|
 
 In addition, we use curly braces for string interpolation. When a string contains curly braces, 
 it actually represents an array rather than a string. These two lines are exactly equivalent:

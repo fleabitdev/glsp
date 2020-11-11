@@ -142,7 +142,7 @@ fn parse(parser: &mut Parser, text: &mut &str) -> GResult<Option<Val>> {
 		TokType::Whitespace | TokType::FormComment | TokType::ArrOpen | TokType::TabOpen |
 		TokType::AccessOpen | TokType::StrOpen | TokType::StrPause | TokType::StrResume | 
 		TokType::StrChars | TokType::RawStrOpen | TokType::RawStrChars | TokType::Quote | 
-		TokType::Backquote | TokType::Unquote | TokType::Splay | TokType::MethName |
+		TokType::Backquote | TokType::Unquote | TokType::Splay | TokType::MetName |
 		TokType::Atsign => false
 	};
 
@@ -327,13 +327,13 @@ fn parse(parser: &mut Parser, text: &mut &str) -> GResult<Option<Val>> {
 		}
 
 		TokType::Quote | TokType::Backquote | TokType::Unquote | 
-		TokType::Splay | TokType::MethName | TokType::Atsign => {
+		TokType::Splay | TokType::MetName | TokType::Atsign => {
 			let sym = match tok.tok_type {
 				TokType::Quote => QUOTE_SYM,
 				TokType::Backquote => BACKQUOTE_SYM,
 				TokType::Unquote => UNQUOTE_SYM,
 				TokType::Splay => SPLAY_SYM,
-				TokType::MethName => METH_NAME_SYM,
+				TokType::MetName => MET_NAME_SYM,
 				TokType::Atsign => ATSIGN_SYM,
 				_ => unreachable!()
 			};

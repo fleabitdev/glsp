@@ -44,7 +44,7 @@ pub fn init(sandboxed: bool) -> GResult<()> {
 	glsp::bind_rfn_macro("del!", rfn!(del))?;
 	glsp::bind_rfn_macro("remove!", rfn!(remove))?;
 
-	glsp::bind_rfn_macro("call-meth", rfn!(call_meth))?;
+	glsp::bind_rfn_macro("call-met", rfn!(call_met))?;
 
 	glsp::bind_rfn_macro("ensure", rfn!(ensure))?;
 	glsp::bind_rfn_macro("dbg", rfn!(dbg))?;
@@ -75,7 +75,7 @@ pub fn init(sandboxed: bool) -> GResult<()> {
 	glsp::bind_rfn_macro("when-let", rfn!(when_let))?;
 
 	glsp::bind_rfn_macro("fn", rfn!(fn_))?;
-	glsp::bind_rfn_macro("%meth-fn", rfn!(meth_fn))?;
+	glsp::bind_rfn_macro("%met-fn", rfn!(met_fn))?;
 	glsp::bind_rfn_macro("fn0", rfn!(fn0))?;
 	glsp::bind_rfn_macro("fn1", rfn!(fn1))?;
 
@@ -381,7 +381,7 @@ fn with_global(args: &[Val]) -> GResult<Val> {
 }
 
 //we generalise handling of (? x) optional arguments, and `x : y` slice arguments, to several
-//different macro-rfns (global, global=, access, access=, remove!, del!, call-meth). they
+//different macro-rfns (global, global=, access, access=, remove!, del!, call-met). they
 //expand to their something-opt or something-slice variants, respectively.
 
 fn unwrap_question_mark(val: Val) -> GResult<Option<Val>> {
@@ -520,14 +520,14 @@ fn del(coll: Val, rest: &[Val]) -> GResult<Val> {
 	macro_no_op!()
 }
 
-fn call_meth(args: &[Val]) -> GResult<Val> {
+fn call_met(args: &[Val]) -> GResult<Val> {
 	if args.len() == 0 {
 		macro_no_op!()
 	}
 
-	if let Some(opt_meth_name) = unwrap_question_mark(args[0].clone())? {
+	if let Some(opt_met_name) = unwrap_question_mark(args[0].clone())? {
 		let rest = &args[1..];
-		Ok(backquote!("(call-meth-opt ~opt_meth_name ~..rest)"))
+		Ok(backquote!("(call-met-opt ~opt_met_name ~..rest)"))
 	} else {
 		macro_no_op!()
 	}
@@ -1052,12 +1052,12 @@ fn fn_(args: &[Val]) -> GResult<Val> {
 }
 
 /*
-the (%meth-fn) macro is exactly like (fn), except that @-bindings are permitted in param patterns.
+the (%met-fn) macro is exactly like (fn), except that @-bindings are permitted in param patterns.
 `@param` is handled as though it was `param`. this saves us from needing to write a transformation 
 pass to change (fn (@a @b (? @c)) ..) into (fn (a b (? c)) ...).
 */
 
-fn meth_fn(args: &[Val]) -> GResult<Val> {
+fn met_fn(args: &[Val]) -> GResult<Val> {
 	fn_common(args, true)
 }
 
@@ -1085,7 +1085,7 @@ fn fn_common(args: &[Val], atsign_params: bool) -> GResult<Val> {
 		if atsign_params == false {
 			macro_no_op!()
 		} else {
-			//convert %meth-fn into fn
+			//convert %met-fn into fn
 			return Ok(backquote!("(fn ~..flags () ~..body)"))
 		}
 	}
@@ -1400,7 +1400,7 @@ fn arrow(pos: ArrowPos, first: Val, rest: &[Val]) -> GResult<Val> {
 				let args: Vec<Val> = Vec::from_iter(call_arr.iter().skip(1));
 
 				let out_call_arr: Root<Arr> = match callee {
-					Val::Sym(METH_NAME_SYM) | Val::Sym(QUESTION_MARK_SYM) | Val::Sym(ATSIGN_SYM) => {
+					Val::Sym(MET_NAME_SYM) | Val::Sym(QUESTION_MARK_SYM) | Val::Sym(ATSIGN_SYM) => {
 						backquote!("(~call_arr ~result_form)")
 					}
 					callee => {

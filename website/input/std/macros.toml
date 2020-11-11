@@ -592,9 +592,9 @@ text = ""
 		performs the following syntax transformations on its second and subsequent arguments:
 
 		- The symbol `name` becomes `(name)`
-		- [`.name`](meth-name) becomes `(.name)`
+		- [`.name`](met-name) becomes `(.name)`
 		- [`@name`](atsign) becomes `(@name)`
-		- [`(? .name)`](meth-name) becomes `((? .name))`
+		- [`(? .name)`](met-name) becomes `((? .name))`
 		- [`(? @name)`](atsign) becomes `((? @name))`
 
 		Finally, if a function call is prefixed with [`..`](splay), the result of the previous 

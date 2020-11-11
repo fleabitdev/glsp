@@ -33,9 +33,9 @@ pub fn init(_sandboxed: bool) -> GResult<()> {
 	glsp::bind_rfn("%eval-as-method", rfn!(eval_as_method))?;
 	glsp::bind_rfn("%create-pseudo-method", rfn!(create_pseudo_method))?;
 
-	glsp::bind_rfn("call-meth", rfn!(call_meth))?;
-	glsp::bind_rfn("call-meth-opt", rfn!(call_meth_opt))?;
-	glsp::bind_rfn("has-meth?", rfn!(has_methp))?;
+	glsp::bind_rfn("call-met", rfn!(call_meth))?;
+	glsp::bind_rfn("call-met-opt", rfn!(call_met_opt))?;
+	glsp::bind_rfn("has-met?", rfn!(has_metp))?;
 	glsp::bind_rfn("call-base-raw", rfn!(call_base_raw))?;
 	glsp::bind_rfn("is?", rfn!(isp))?;
 	glsp::bind_rfn("class-name", rfn!(class_name))?;
@@ -344,7 +344,7 @@ fn check_name(name: Sym, permits_hash: bool) -> GResult<()> {
 		STATE_NAME_SYM,
 		FIELD_SYM,
 		CONST_SYM,
-		METH_SYM,
+		MET_SYM,
 		WRAP_SYM,
 		STATE_SYM,
 		STATEX_SYM,
@@ -513,16 +513,16 @@ fn process_class_state(
 				}
 			}
 
-			METH_SYM => {
+			MET_SYM => {
 				ensure_at!(clause.span(), clause.len() >= 3 && clause.get::<Val>(1)?.is_sym() &&
-				           clause.get::<Val>(2)?.is_arr(), "invalid meth clause");
+				           clause.get::<Val>(2)?.is_arr(), "invalid met clause");
 
-				let meth_name = clause.get::<Sym>(1)?;
-				let qualified_name = make_qualified_name(meth_name)?;
+				let met_name = clause.get::<Sym>(1)?;
+				let qualified_name = make_qualified_name(met_name)?;
 
-				ensure_at!(clause.span(), !binding_names.contains_key(&meth_name),
+				ensure_at!(clause.span(), !binding_names.contains_key(&met_name),
 				           "the name {} is already bound", qualified_name);
-				binding_names.insert(meth_name, binding_forms.len());
+				binding_names.insert(met_name, binding_forms.len());
 
 				let method_form = method_clause_to_form(
 					class_name,
@@ -535,7 +535,7 @@ fn process_class_state(
 				)?;
 
 				binding_forms.push(backquote!("
-					(arr '~meth_name '~qualified_name '~state_name 'meth ~method_form)
+					(arr '~met_name '~qualified_name '~state_name 'met ~method_form)
 				"));
 			}
 
@@ -1023,7 +1023,7 @@ fn method_clause_to_form(
 ) -> GResult<Root<Arr>> {
 
 	/*
-	this method takes a (meth ...), (wrap ...), (init[-x] ...), etc. clause, and returns
+	this method takes a (met ...), (wrap ...), (init[-x] ...), etc. clause, and returns
 	a (fn ...) expression for the method. this involves detecting whether the clause
 	requires a next-index parameter, processing @params (including the special way that they're
 	handled in (init) forms), and replacing (@base), @self, etc. etc. in the method body.
@@ -1032,7 +1032,7 @@ fn method_clause_to_form(
 	//destructure the clause
 	let tag: Sym = clause.get(0)?;
 	let (params_i, body_start_i, is_wrap) = match tag {
-		METH_SYM => (Some(2), 3, false),
+		MET_SYM => (Some(2), 3, false),
 		WRAP_SYM => (Some(2), 3, true),
 		GET_SYM => (None, 1, prop_backing_name.is_none()),
 		SET_SYM => (Some(1), 2, prop_backing_name.is_none()),
@@ -1072,7 +1072,7 @@ fn method_clause_to_form(
 
 	//for field-initializers, we have two possibilities. either this is an (init) form, in which
 	//case we want to prepend some pattern-matching code to initialize each field in its original
-	//textual order. otherwise, it's a (meth)/(wrap) form, so we just want to emit (= @x x) to
+	//textual order. otherwise, it's a (met)/(wrap) form, so we just want to emit (= @x x) to
 	//the start of the method body, for x in at_params, in an arbitrary order.
 	let body_init = glsp::arr();
 
@@ -1135,7 +1135,7 @@ fn method_clause_to_form(
 
 	//macro-expand the method's (fn) form
 	let fn_form: Val = backquote!("
-		(%meth-fn &name ~qualified_name ~params_arr ~..body_init ~..body)
+		(%met-fn &name ~qualified_name ~params_arr ~..body_init ~..body)
 	");
 	let expanded_fn = glsp::expand(&fn_form, Some(EnvMode::Copied))?.unwrap_arr();
 	let expanded_params_i: usize = expanded_fn.iter().position(|v| v.is_arr()).unwrap();
@@ -1271,19 +1271,19 @@ fn method_clause_to_form(
 						           "@field is only valid in a (prop ...) clause");
 						let prop_backing_name = prop_backing_name.unwrap();
 						if is_opt {
-							Ok(backquote!("(call-meth-opt '~prop_backing_name ~self_name
+							Ok(backquote!("(call-met-opt '~prop_backing_name ~self_name
 							                              ~..transformed_arg_forms)"))
 						} else {
-							Ok(backquote!("(call-meth '~prop_backing_name ~self_name
+							Ok(backquote!("(call-met '~prop_backing_name ~self_name
 							                          ~..transformed_arg_forms)"))
 						}
 					}
 					Val::Sym(callee_name) => {
 						if is_opt {
-							Ok(backquote!("(call-meth-opt '~callee_name ~self_name 
+							Ok(backquote!("(call-met-opt '~callee_name ~self_name 
 							                              ~..transformed_arg_forms)"))
 						} else {
-							Ok(backquote!("(call-meth '~callee_name ~self_name 
+							Ok(backquote!("(call-met '~callee_name ~self_name 
 							                          ~..transformed_arg_forms)"))
 
 						}
@@ -1456,7 +1456,7 @@ fn eval_as_method(obj: Root<Obj>, to_eval: Val) -> GResult<Val> {
 		MAIN_SYM,
 		MAIN_SYM,
 		None,
-		backquote!("(meth m () ~to_eval)"),
+		backquote!("(met m () ~to_eval)"),
 		None,
 		None
 	)?;
@@ -1476,7 +1476,7 @@ fn create_pseudo_method(
 		MAIN_SYM,
 		MAIN_SYM,
 		Some(method_name),
-		backquote!("(meth ~method_name ~args ~..body)"),
+		backquote!("(met ~method_name ~args ~..body)"),
 		None,
 		None
 	)?;
@@ -1495,9 +1495,9 @@ fn bind_classmacro(std: &mut Std, name: Sym, gfn: Root<GFn>) -> GResult<()> {
 }
 
 fn defstruct(name: Sym, clauses: &[Val]) -> GResult<Val> {
-	//input syntax: any number of bare syms, followed by any number of (meth) clauses, (prop) 
+	//input syntax: any number of bare syms, followed by any number of (met) clauses, (prop) 
 	//clauses, and (const) clauses. we emit a (field) for each sym; an (init); and implementations
-	//for (meth op-eq? ...) and (meth op-clone ...) if they're not already present. we also
+	//for (met op-eq? ...) and (met op-clone ...) if they're not already present. we also
 	//bind Name:new to the class, and bind a constructor macro to the Name.
 	let mut clause_stack = Vec::from_iter(clauses.iter().rev().cloned());
 
@@ -1513,7 +1513,7 @@ fn defstruct(name: Sym, clauses: &[Val]) -> GResult<Val> {
 		init_params.push(backquote!("@~field_name"));
 	}
 
-	//validate the remaining clauses, and check for (meth op-eq?) and (meth op-clone)
+	//validate the remaining clauses, and check for (met op-eq?) and (met op-clone)
 	let mut seen_eq = false;
 	let mut seen_clone = false;
 	for clause in clause_stack.iter().rev() {
@@ -1524,7 +1524,7 @@ fn defstruct(name: Sym, clauses: &[Val]) -> GResult<Val> {
 
 					match tag {
 						PROP_SYM | CONST_SYM => (),
-						METH_SYM => {
+						MET_SYM => {
 							if arr.len() >= 2 {
 								match arr.get::<Val>(1)? {
 									Val::Sym(OP_EQP_SYM) => seen_eq = true,
@@ -1560,14 +1560,14 @@ fn defstruct(name: Sym, clauses: &[Val]) -> GResult<Val> {
 		}
 
 		clause_stack.push(backquote!(r#"
-			(meth op-eq? (~other_name)
+			(met op-eq? (~other_name)
 			  (and ~..eq_forms))
 		"#));
 	}
 
 	if !seen_clone {
 		clause_stack.push(backquote!(r#"
-			(meth op-clone ()
+			(met op-clone ()
 			  (~name_new ~..init_params))
 		"#));
 	}
@@ -1724,7 +1724,7 @@ fn call_meth(method_name: Sym, rcv: Val, args: &[Val]) -> GResult<Val> {
 	}
 }
 
-fn call_meth_opt(method_name: Sym, rcv: Val, args: &[Val]) -> GResult<Option<Val>> {
+fn call_met_opt(method_name: Sym, rcv: Val, args: &[Val]) -> GResult<Option<Val>> {
 	match rcv {
 		Val::Obj(obj) => obj.call_if_present(method_name, args),
 		Val::Class(class) => class.call_if_present(method_name, args),
@@ -1733,11 +1733,11 @@ fn call_meth_opt(method_name: Sym, rcv: Val, args: &[Val]) -> GResult<Option<Val
 	}
 }
 
-fn has_methp(rcv: Val, method_name: Sym) -> GResult<bool> {
+fn has_metp(rcv: Val, method_name: Sym) -> GResult<bool> {
 	match rcv {
-		Val::Obj(obj) => obj.has_meth(method_name),
-		Val::Class(class) => class.has_meth(method_name),
-		Val::RData(rdata) => rdata.has_meth(method_name),
+		Val::Obj(obj) => obj.has_met(method_name),
+		Val::Class(class) => class.has_met(method_name),
+		Val::RData(rdata) => rdata.has_met(method_name),
 		val => bail!("expected an obj, class or rdata, received {}", val.a_type_name())
 	}
 }

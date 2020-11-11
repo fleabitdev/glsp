@@ -72,7 +72,7 @@ pub(crate) enum Frame {
 	//glsp::expand_1() or (expand-1), the second field is its name.
 	Expand(Gc<Arr>, Option<Option<Sym>>),
 
-	//a vm Instr which recursively invokes call(): Call2, OpCallMeth, etc. the first field is a 
+	//a vm Instr which recursively invokes call(): Call2, OpCallMet, etc. the first field is a 
 	//copy of the callee, and the second field is the callsite.
 	Call(Slot, Span),
 
@@ -1885,9 +1885,9 @@ fn interpret(
 			arr.set_span(glsp::new_arr_span(Some(cur_span)));
 			reg!(dst_reg) = Slot::Arr(arr.into_gc());
 		}
-		Instr::OpCallMeth(dst_reg, arg0_reg, arg_count) => {
+		Instr::OpCallMet(dst_reg, arg0_reg, arg_count) => {
 			if arg_count < 2 {
-				bail_op!(CALL_METH_SYM, "expected 2 or more args, but received {}", arg_count)
+				bail_op!(CALL_MET_SYM, "expected 2 or more args, but received {}", arg_count)
 			}
 
 			for i in arg0_reg .. arg0_reg + arg_count {
@@ -1901,7 +1901,7 @@ fn interpret(
 			//it expects `self` and `next_index` arguments.
 			let method_name = match stacks.regs[base_index] {
 				Slot::Sym(method_name) => method_name,
-				_ => bail_op!(CALL_METH_SYM, "the first argument to call-meth must be a sym")
+				_ => bail_op!(CALL_MET_SYM, "the first argument to call-met must be a sym")
 			};
 
 			let receiver = stacks.regs[base_index + 1].clone();
@@ -1916,13 +1916,13 @@ fn interpret(
 				}
 				Slot::RData(ref rdata) => rdata.get_method(method_name),
 				Slot::Class(ref class) => class.get_method(method_name),
-				_ => bail_op!(CALL_METH_SYM, "the second argument to call-meth must be an \
+				_ => bail_op!(CALL_MET_SYM, "the second argument to call-met must be an \
 				              obj or an rdata")
 			};
 
 			let (callee, expects_self, expects_ni, ni) = match tuple {
 				Some(tuple) => tuple,
-				None => bail_op!(CALL_METH_SYM, "attempted to call nonexistent method '{}'", 
+				None => bail_op!(CALL_MET_SYM, "attempted to call nonexistent method '{}'", 
 						         method_name)
 			};
 
@@ -1958,9 +1958,9 @@ fn interpret(
 			stacks.regs.truncate(base_index);
 			reg!(dst_reg) = result;
 		}
-		Instr::OpCallMethOpt(dst_reg, arg0_reg, arg_count) => {
+		Instr::OpCallMetOpt(dst_reg, arg0_reg, arg_count) => {
 			if arg_count < 2 {
-				bail_op!(CALL_METH_OPT_SYM, "expected 2 or more args, but received {}", arg_count)
+				bail_op!(CALL_MET_OPT_SYM, "expected 2 or more args, but received {}", arg_count)
 			}
 
 			for i in arg0_reg .. arg0_reg + arg_count {
@@ -1971,8 +1971,8 @@ fn interpret(
 
 			let method_name = match stacks.regs[base_index] {
 				Slot::Sym(method_name) => method_name,
-				_ => bail_op!(CALL_METH_OPT_SYM, 
-				              "the first argument to call-meth-opt must be a sym")
+				_ => bail_op!(CALL_MET_OPT_SYM, 
+				              "the first argument to call-met-opt must be a sym")
 			};
 
 			let receiver = stacks.regs[base_index + 1].clone();
@@ -1987,7 +1987,7 @@ fn interpret(
 				}
 				Slot::RData(ref rdata) => rdata.get_method(method_name),
 				Slot::Class(ref class) => class.get_method(method_name),
-				_ => bail_op!(CALL_METH_OPT_SYM, "the second argument to call-meth-opt must \
+				_ => bail_op!(CALL_MET_OPT_SYM, "the second argument to call-met-opt must \
 				              be an obj or an rdata")
 			};
 
@@ -2051,9 +2051,9 @@ fn interpret(
 					stacks.regs.truncate(base_index);
 				}
 				Slot::Int(raw_index) if raw_index >= 0 => {
-					if let Some(meth_lookup) = obj.get_base_raw_method(raw_index as usize) {
-						if meth_lookup.requires_next_index {
-							stacks.regs[base_index + 1] = match meth_lookup.next_index {
+					if let Some(met_lookup) = obj.get_base_raw_method(raw_index as usize) {
+						if met_lookup.requires_next_index {
+							stacks.regs[base_index + 1] = match met_lookup.next_index {
 								Some(index) => Slot::Int(index as i32),
 								None => Slot::Nil
 							};
@@ -2061,7 +2061,7 @@ fn interpret(
 							stacks.regs.remove(base_index + 1);
 						}
 
-						let callee = Slot::GFn(meth_lookup.gfn.clone());
+						let callee = Slot::GFn(met_lookup.gfn.clone());
 						vm.frames.borrow_mut().push(Frame::Call(callee.clone(), cur_span));
 						let _guard = Guard::new(|| {
 							vm.frames.borrow_mut().pop().unwrap();

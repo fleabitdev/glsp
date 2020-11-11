@@ -8,16 +8,16 @@ from the given index, and invokes the first method in the stack which belongs to
 or performs a silent no-op if it reaches end-of-stack for the current unqualified name.
 
 Explicit wrappers are much less straightforward. They essentially form a graph of arbitrary 
-references from one explicit `wrap` to any explicit `wrap` or `meth` in any other state or mixin. 
+references from one explicit `wrap` to any explicit `wrap` or `met` in any other state or mixin. 
 In order for them to make sense, we need to guarantee that, at any given moment, this graph is a 
 singly-linked list: there is an outermost explicit `wrap`, which chains through a series of inner 
-wrappers, eventually calling a `meth`, without skipping any enabled explicit `wraps` or `meths`. 
+wrappers, eventually calling a `met`, without skipping any enabled explicit `wraps` or `mets`. 
 
 We particularly need to support code like this, which has the potential to dynamically become 
 invalid if the wrong set of states are enabled simultaneously:
 	
 	(class A
-	  (meth x ())
+	  (met x ())
 	  (state B
 	    (wrap A:x ()))
 	  (state C
@@ -37,7 +37,7 @@ it would be much too costly.
 
 Instead, we guarantee that these simple invariants are constantly upheld:
 
-1. There must be no more than one active `meth` for a particular unqualified name.
+1. There must be no more than one active `met` for a particular unqualified name.
 2. Each active explicit `wrap`'s target must exist and must be active.
 3. There cannot be multiple active explicit `wraps` which refer to the same target.
 4. There may not be multiple methods bound to the same qualified name (note that wildcard wrappers
@@ -62,5 +62,5 @@ against the current set of enabled states:
   being disabled: the inverse of `requires`.
 - The `excludes` bitmask indicates which states must not be enabled when this state is being
   enabled. It contains all of the states which wrap a qualified name which is also wrapped by this
-  state. It also contains any state which contains a `meth` whose unqualified name collides with 
-  one of this state's `meths`.
+  state. It also contains any state which contains a `met` whose unqualified name collides with 
+  one of this state's `mets`.

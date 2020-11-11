@@ -146,9 +146,9 @@ fn type_of(arg: Val) -> Sym {
 }
 
 macro_rules! builtin_typecheck {
-	($fn_name:ident, $meth_name:ident) => {
+	($fn_name:ident, $met_name:ident) => {
 		fn $fn_name(arg: Val) -> bool {
-			arg.$meth_name()
+			arg.$met_name()
 		}
 	}
 }

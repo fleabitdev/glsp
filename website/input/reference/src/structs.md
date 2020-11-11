@@ -10,15 +10,15 @@ function), it's usually best to implement it as a class, rather than a table or 
 	  (field w)
 	  (field h)
 
-	  (meth init (@x @y @w @h))
+	  (met init (@x @y @w @h))
 
-	  (meth area ()
+	  (met area ()
 	    (* @w @h))
 
-	  (meth op-clone ()
+	  (met op-clone ()
 	    (Rect @x @y @w @h))
 
-	  (meth op-eq? (other)
+	  (met op-eq? (other)
 	    (let [x y w h] other)
 	    (and (== @x x) (== @y y) (== @w w) (== @h h))))
 
@@ -28,7 +28,7 @@ the boilerplate:
 	(defstruct Rect 
 	  x y w h
 
-	  (meth area ()
+	  (met area ()
 	    (* @w @h)))
 
 	(prn Rect) ; prints #<class:Rect>
@@ -38,7 +38,7 @@ the boilerplate:
 	(prn (.area rect)) ; prints 400
 
 As demonstrated above, the `defstruct` macro defines a class with the given named fields. After 
-the list of field names, `defstruct` also accepts zero or more `meth`, `prop` and `const` 
+the list of field names, `defstruct` also accepts zero or more `met`, `prop` and `const` 
 clauses. Other class clauses, like `init`, `state`, `fsm`, `wrap` and `mixin`, are forbidden.
 Classmacros are also forbidden.
 
@@ -127,7 +127,7 @@ each struct field in turn using `eq?`.
 	  (field to-spawn) ; a class
 	  (field remaining) ; an integer counter
 
-	  (meth op-eq? (other)
+	  (met op-eq? (other)
 	    (and
 	      (same? @level [other 'level])
 	      (same? @to-spawn [other 'to-spawn])

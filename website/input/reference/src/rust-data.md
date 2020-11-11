@@ -122,7 +122,7 @@ rdata! {
 		/* as above */
 	}
 
-	meths {
+	mets {
 		get "name": Sprite::name,
 		set "name": Sprite::set_name,
 		get "width": Sprite::width,

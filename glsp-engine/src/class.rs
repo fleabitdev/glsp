@@ -88,15 +88,15 @@ pub struct Class {
 	//see Binding::StackableField, below
 	field_stack: Vec<FieldStackEntry>,
 
-	//see MethBinding::Stackable, below
-	meth_stack: Vec<MethStackEntry>,
+	//see MetBinding::Stackable, below
+	met_stack: Vec<MetStackEntry>,
 
 	//we store references to the class' mixins in no particular order, since we only use this 
 	//field to implement the (is?) function.
 	is: FnvHashSet<Gc<Class>>,
 
 	//likewise, we can store states in no particular order, since all of the state-priority 
-	//information is available in `State`, `field_stack` and `meth_stack`.
+	//information is available in `State`, `field_stack` and `met_stack`.
 	states: FnvHashMap<Sym, State>,
 
 	//see above
@@ -126,8 +126,8 @@ struct State {
 	excludes: u32,
 
 	//anonymous method bindings
-	init: Option<MethBinding>, //the init/init-mixin stack for Main, or init-state otherwise
-	finis: Vec<MethBinding>, //the fini/fini-mixin stack for Main, or fini-state otherwise
+	init: Option<MetBinding>, //the init/init-mixin stack for Main, or init-state otherwise
+	finis: Vec<MetBinding>, //the fini/fini-mixin stack for Main, or fini-state otherwise
 }
 
 #[derive(Clone)]
@@ -149,17 +149,17 @@ enum Binding {
 	// - an EndEntry, in which case the field does not currently exist
 	StackableField(u16),
 
-	//a method, which may be simple or stacked. we offload the complexity here to MethBinding, so 
+	//a method, which may be simple or stacked. we offload the complexity here to MetBinding, so 
 	//that it can be shared with properties, init and fini
-	Meth(MethBinding),
+	Met(MetBinding),
 
 	//a property, which may be simple or stacked. the first Option is the getter, the second is 
 	//the setter.
-	Prop(Option<MethBinding>, Option<MethBinding>),
+	Prop(Option<MetBinding>, Option<MetBinding>),
 }
 
 #[derive(Clone)]
-enum MethBinding {
+enum MetBinding {
 	//a method which does not participate in stacking. the u8 is the state index. the GFn can
 	//be called directly, passing in a `self` Slot::Obj as its first parameter, and a
 	//`next_base_index` (int or nil) as the second parameter if the bool flag is true.
@@ -168,7 +168,7 @@ enum MethBinding {
 	//a method which may be stacked. works similar to StackableField, except that the only two
 	//options are "end of stack" or "method binding"
 	//
-	//the u8 is the state of the qualified binding, so that if the user accesses the meth
+	//the u8 is the state of the qualified binding, so that if the user accesses the method
 	//'Foo:x while 'Foo is disabled, it will fail rather than propagating to a wrapped method. 
 	//for unqualified bindings, the u8 is 0 (i.e. the Main state).
 	Stackable(u8, u16),
@@ -182,10 +182,10 @@ enum FieldStackEntry {
 	End
 }
 
-//see MethBinding::Stackable, above
+//see MetBinding::Stackable, above
 #[derive(Clone)]
-enum MethStackEntry {
-	Meth(u8, Gc<GFn>, bool),
+enum MetStackEntry {
+	Met(u8, Gc<GFn>, bool),
 	End
 }
 
@@ -202,19 +202,19 @@ impl Binding {
 		}
 	}
 
-	fn to_meth_stack_entry(&self) -> MethStackEntry {
+	fn to_met_stack_entry(&self) -> MetStackEntry {
 		match *self {
-			Binding::Meth(ref meth_binding) => meth_binding.to_meth_stack_entry(),
+			Binding::Met(ref met_binding) => met_binding.to_met_stack_entry(),
 			_ => unreachable!()
 		}
 	}
 }
 
-impl MethBinding {
-	fn to_meth_stack_entry(&self) -> MethStackEntry {
+impl MetBinding {
+	fn to_met_stack_entry(&self) -> MetStackEntry {
 		match *self {
-			MethBinding::Simple(state_i, ref gfn, rni) => {
-				MethStackEntry::Meth(state_i, gfn.clone(), rni)
+			MetBinding::Simple(state_i, ref gfn, rni) => {
+				MetStackEntry::Met(state_i, gfn.clone(), rni)
 			}
 			_ => unreachable!()
 		}
@@ -243,7 +243,7 @@ impl Class {
 				bindings: FnvHashMap::default(),
 				field_count: 0,
 				field_stack: Vec::new(),
-				meth_stack: Vec::new(),
+				met_stack: Vec::new(),
 				is: FnvHashSet::default(),
 				states: FnvHashMap::default(),
 
@@ -327,7 +327,7 @@ impl Class {
 	/**
 	Invokes a callable value stored in a constant.
 	
-	Equivalent to [`(call-meth key cls ..args)`](https://gamelisp.rs/std/call-meth).
+	Equivalent to [`(call-met key cls ..args)`](https://gamelisp.rs/std/call-met).
 	*/
 	pub fn call<S, A, R>(&self, key: S, args: &A) -> GResult<R> 
 	where
@@ -347,7 +347,7 @@ impl Class {
 	If a constant with the given name is defined, and if it stores a callable value,
 	invokes it as a function and returns its result. Otherwise, returns `None`.
 	
-	Equivalent to [`(call-meth (? key) cls ..args)`](https://gamelisp.rs/std/call-meth).
+	Equivalent to [`(call-met (? key) cls ..args)`](https://gamelisp.rs/std/call-met).
 	*/
 	pub fn call_if_present<S, A, R>(&self, key: S, args: &A) -> GResult<Option<R>> 
 	where
@@ -369,9 +369,9 @@ impl Class {
 	/**
 	Returns `true` if the given name is bound to a constant with a callable value.
 
-	Equivalent to [`(has-meth? cls key)`](https://gamelisp.rs/std/has-meth-p).
+	Equivalent to [`(has-met? cls key)`](https://gamelisp.rs/std/has-met-p).
 	*/
-	pub fn has_meth<S: ToSym>(&self, key: S) -> GResult<bool> {
+	pub fn has_met<S: ToSym>(&self, key: S) -> GResult<bool> {
 		let sym = key.to_sym()?;
 
 		match self.lookup(sym) {
@@ -463,15 +463,15 @@ impl CallableOps for Root<Class> {
 
 	fn arg_limits(&self) -> (usize, Option<usize>) {
 		let (gfn, has_nbi) = match self.states.get(&MAIN_SYM).unwrap().init {
-			Some(MethBinding::Simple(_, ref gfn, has_nbi)) => (gfn.clone(), has_nbi),
-			Some(MethBinding::Stackable(_, i)) => {
-				match self.meth_stack[i as usize] {
-					MethStackEntry::Meth(_, ref gfn, has_nbi) => (gfn.clone(), has_nbi),
+			Some(MetBinding::Simple(_, ref gfn, has_nbi)) => (gfn.clone(), has_nbi),
+			Some(MetBinding::Stackable(_, i)) => {
+				match self.met_stack[i as usize] {
+					MetStackEntry::Met(_, ref gfn, has_nbi) => (gfn.clone(), has_nbi),
 					_ => unreachable!()
 				}
 			}
 			None => {
-				//classes with no (meth init) must only receive zero init arguments
+				//classes with no (init) must only receive zero init arguments
 				return (0, Some(0))
 			}
 		};
@@ -507,19 +507,19 @@ impl CallableOps for Gc<Class> {
 //access [x 'y]
 enum Lookup {
 	FieldOrConst(Slot),
-	Meth(MethLookup),
-	PropGetter(MethLookup),
+	Met(MetLookup),
+	PropGetter(MetLookup),
 	NotBound
 }
 
 //the result of trying to access a symbol in an Obj for a field assignment, (= [x 'y] z)
 enum LookupMut<'a> {
 	Field(RefMut<'a, Slot>),
-	PropSetter(MethLookup),
+	PropSetter(MetLookup),
 	Error(&'static str) //"a const", "a method", "a readonly prop", or "not bound"
 }
 
-pub(crate) struct MethLookup {
+pub(crate) struct MetLookup {
 	pub(crate) gfn: Gc<GFn>,
 	pub(crate) requires_next_index: bool,
 	pub(crate) next_index: Option<u16>
@@ -673,15 +673,15 @@ impl Obj {
 						stack_index += 1;
 					}
 				}
-				Binding::Meth(ref meth_binding) => {
-					match self.lookup_meth(storage, meth_binding) {
-						Some(meth_lookup) => Lookup::Meth(meth_lookup),
+				Binding::Met(ref met_binding) => {
+					match self.lookup_met(storage, met_binding) {
+						Some(met_lookup) => Lookup::Met(met_lookup),
 						None => Lookup::NotBound
 					}
 				}
 				Binding::Prop(ref get_binding, _) => {
 					if let Some(ref get_binding) = *get_binding {
-						match self.lookup_meth(storage, get_binding) {
+						match self.lookup_met(storage, get_binding) {
 							Some(get_lookup) => Lookup::PropGetter(get_lookup),
 							None => Lookup::NotBound
 						}
@@ -695,19 +695,19 @@ impl Obj {
 		}
 	}
 
-	//convert a MethBinding into a MethLookup, which contains the information required to
+	//convert a MetBinding into a MetLookup, which contains the information required to
 	//actually call the method. returns None if the method isn't currently enabled in any state
 	#[inline(always)]
-	fn lookup_meth(&self, storage: &ObjStorage, binding: &MethBinding) -> Option<MethLookup> {
+	fn lookup_met(&self, storage: &ObjStorage, binding: &MetBinding) -> Option<MetLookup> {
 		let states_enabled = storage.states_enabled;
 		let state_is_accessible = |state_index: u8| {
 			states_enabled & (1 << state_index as u32) != 0
 		};
 
 		match *binding {
-			MethBinding::Simple(state_index, ref gfn, requires_next_index) => {
+			MetBinding::Simple(state_index, ref gfn, requires_next_index) => {
 				if state_is_accessible(state_index) {
-					Some(MethLookup {
+					Some(MetLookup {
 						gfn: gfn.clone(),
 						requires_next_index, 
 						next_index: None
@@ -716,19 +716,19 @@ impl Obj {
 					None
 				}
 			}
-			MethBinding::Stackable(state_index, mut stack_index) => {
+			MetBinding::Stackable(state_index, mut stack_index) => {
 				if state_is_accessible(state_index) {
 					loop {
-						match self.class.meth_stack[stack_index as usize] {
-							MethStackEntry::Meth(state_index, ref gfn, requires_next_index) => {
+						match self.class.met_stack[stack_index as usize] {
+							MetStackEntry::Met(state_index, ref gfn, requires_next_index) => {
 								if state_is_accessible(state_index) {
 									let i = (stack_index + 1) as usize;
-									let next_index = match self.class.meth_stack[i] {
-										MethStackEntry::Meth(..) => Some((stack_index + 1) as u16),
-										MethStackEntry::End => None
+									let next_index = match self.class.met_stack[i] {
+										MetStackEntry::Met(..) => Some((stack_index + 1) as u16),
+										MetStackEntry::End => None
 									};
 
-									return Some(MethLookup {
+									return Some(MetLookup {
 										gfn: gfn.clone(), 
 										requires_next_index, 
 										next_index
@@ -737,7 +737,7 @@ impl Obj {
 									stack_index += 1;
 								}
 							}
-							MethStackEntry::End => return None
+							MetStackEntry::End => return None
 						}
 					}
 				} else {
@@ -803,7 +803,7 @@ impl Obj {
 				}
 				Binding::Prop(_, ref set_binding) => {
 					if let Some(ref set_binding) = *set_binding {
-						match self.lookup_meth(storage, set_binding) {
+						match self.lookup_met(storage, set_binding) {
 							Some(set_lookup) => LookupMut::PropSetter(set_lookup),
 							None => LookupMut::Error("not bound")
 						}
@@ -811,7 +811,7 @@ impl Obj {
 						LookupMut::Error("a readonly prop")
 					}
 				}
-				Binding::Meth(_) => LookupMut::Error("a method")
+				Binding::Met(_) => LookupMut::Error("a method")
 			}
 		} else {
 			LookupMut::Error("not bound")
@@ -826,18 +826,18 @@ impl Obj {
 	pub fn has<S: ToSym>(&self, key: S) -> GResult<bool> {
 		match self.lookup(key.to_sym()?) {
 			Lookup::FieldOrConst(_) | Lookup::PropGetter(_) => Ok(true),
-			Lookup::Meth(_) | Lookup::NotBound => Ok(false)
+			Lookup::Met(_) | Lookup::NotBound => Ok(false)
 		}
 	}
 
 	/**
 	Returns `true` if the given name is currently bound to a method.
 	
-	Equivalent to [`(has-meth? ob key)`](https://gamelisp.rs/std/has-meth-p).
+	Equivalent to [`(has-met? ob key)`](https://gamelisp.rs/std/has-met-p).
 	*/
-	pub fn has_meth<S: ToSym>(&self, key: S) -> GResult<bool> {
+	pub fn has_met<S: ToSym>(&self, key: S) -> GResult<bool> {
 		match self.lookup(key.to_sym()?) {
-			Lookup::Meth(..) => Ok(true),
+			Lookup::Met(..) => Ok(true),
 			Lookup::FieldOrConst(Slot::GFn(_)) => Ok(true),
 			Lookup::FieldOrConst(Slot::RFn(_)) => Ok(true),
 			Lookup::FieldOrConst(Slot::Class(_)) => Ok(true),
@@ -867,7 +867,7 @@ impl Obj {
 			Lookup::PropGetter(getter) => {
 				self.invoke_method(&getter, &())
 			}
-			Lookup::Meth(..) => bail!("attempted to access method '{}' as a field", sym),
+			Lookup::Met(..) => bail!("attempted to access method '{}' as a field", sym),
 			Lookup::NotBound => bail!("attempted to access nonexistent field '{}'", sym)
 		}
 	}
@@ -884,7 +884,7 @@ impl Obj {
 				Lookup::PropGetter(getter) => {
 					Ok(Some(self.invoke_method(&getter, &())?))
 				}
-				Lookup::Meth(..) | Lookup::NotBound => Ok(None)
+				Lookup::Met(..) | Lookup::NotBound => Ok(None)
 			}
 		} else {
 			Ok(None)
@@ -926,7 +926,7 @@ impl Obj {
 					_ => None
 				}
 			}
-			Lookup::Meth(MethLookup { gfn, requires_next_index, next_index }) => {
+			Lookup::Met(MetLookup { gfn, requires_next_index, next_index }) => {
 				let ni_slot = match next_index {
 					Some(ni) => Slot::Int(ni as i32),
 					None => Slot::Nil
@@ -939,22 +939,22 @@ impl Obj {
 	}
 
 	//used by OpCallBaseRaw
-	pub(crate) fn get_base_raw_method(&self, mut index: usize) -> Option<MethLookup> {
+	pub(crate) fn get_base_raw_method(&self, mut index: usize) -> Option<MetLookup> {
 		let states_enabled = self.storage.borrow().as_ref().unwrap().states_enabled;
 
 		loop {
-			match self.class.meth_stack[index] {
-				MethStackEntry::End => {
+			match self.class.met_stack[index] {
+				MetStackEntry::End => {
 					return None
 				}
-				MethStackEntry::Meth(state_id, ref gfn, requires_next_index) => { 
+				MetStackEntry::Met(state_id, ref gfn, requires_next_index) => { 
 					if states_enabled & (1 << state_id as u32) != 0 {
-						let next_index = match self.class.meth_stack[index + 1] {
-							MethStackEntry::End => None,
+						let next_index = match self.class.met_stack[index + 1] {
+							MetStackEntry::End => None,
 							_ => Some((index + 1) as u16)
 						};
 
-						return Some(MethLookup {
+						return Some(MetLookup {
 							gfn: gfn.clone(),
 							requires_next_index, 
 							next_index
@@ -974,7 +974,7 @@ impl Obj {
 		A: ToCallArgs + ?Sized
 	{
 		match self.get_base_raw_method(index) {
-			Some(meth_lookup) => self.invoke_method(&meth_lookup, args),
+			Some(met_lookup) => self.invoke_method(&met_lookup, args),
 			None => Ok(Val::Nil)
 		}
 	}
@@ -982,7 +982,7 @@ impl Obj {
 	/**
 	Invokes a method.
 	
-	Equivalent to [`(call-meth ob key ..args)`](https://gamelisp.rs/std/call-meth).
+	Equivalent to [`(call-met ob key ..args)`](https://gamelisp.rs/std/call-met).
 	*/
 	pub fn call<S, A, R>(&self, key: S, args: &A) -> GResult<R> 
 	where
@@ -1000,7 +1000,7 @@ impl Obj {
 	/**
 	Invokes a method, if it exists.
 	
-	Equivalent to [`(call-meth ob (? key) ..args)`](https://gamelisp.rs/std/call-meth).
+	Equivalent to [`(call-met ob (? key) ..args)`](https://gamelisp.rs/std/call-met).
 	*/
 	pub fn call_if_present<S, A, R>(&self, key: S, args: &A) -> GResult<Option<R>> 
 	where
@@ -1012,8 +1012,8 @@ impl Obj {
 
 		if self.storage.borrow().is_some() {
 			let slot = match self.lookup(sym) {
-				Lookup::Meth(meth_lookup) => {
-					return Ok(Some(self.invoke_method(&meth_lookup, args)?))
+				Lookup::Met(met_lookup) => {
+					return Ok(Some(self.invoke_method(&met_lookup, args)?))
 				}
 				Lookup::FieldOrConst(slot) => slot,
 				Lookup::PropGetter(getter) => self.invoke_method(&getter, &())?,
@@ -1031,8 +1031,8 @@ impl Obj {
 		}
 	}
 
-	//invoke a method represented by a MethLookup. the `self` and `next_index` args are implicit.
-	fn invoke_method<A, R>(&self, meth_lookup: &MethLookup, args: &A) -> GResult<R> 
+	//invoke a method represented by a MetLookup. the `self` and `next_index` args are implicit.
+	fn invoke_method<A, R>(&self, met_lookup: &MetLookup, args: &A) -> GResult<R> 
 	where
 		A: ToCallArgs + ?Sized, 
 		R: FromVal
@@ -1043,8 +1043,8 @@ impl Obj {
 
 			stacks.regs.push(Slot::Obj(self.storage.borrow().as_ref().unwrap().gc_self.clone()));
 
-			if meth_lookup.requires_next_index {
-				let next_index_slot = match meth_lookup.next_index {
+			if met_lookup.requires_next_index {
+				let next_index_slot = match met_lookup.next_index {
 					Some(next_index) => Slot::Int(next_index as i32),
 					None => Slot::Nil
 				};
@@ -1056,7 +1056,7 @@ impl Obj {
 			let arg_count = stacks.regs.len() - starting_len;
 			drop(stacks);
 
-			let val = meth_lookup.gfn.root().receive_call(arg_count)?;
+			let val = met_lookup.gfn.root().receive_call(arg_count)?;
 			R::from_val(&val)
 		})
 	}
@@ -1257,7 +1257,7 @@ impl Obj {
 
 		//call the initializer method
 		if let Some(ref init_binding) = state_ref.init {
-			let init_lookup = self.lookup_meth(storage, init_binding).unwrap();
+			let init_lookup = self.lookup_met(storage, init_binding).unwrap();
 			drop(storage_ref);
 			let _: Slot = self.invoke_method(&init_lookup, args)?;
 		} else {
@@ -1309,7 +1309,7 @@ impl Obj {
 		//call the finalizer methods
 		for fini_binding in state_ref.finis.iter().rev() {
 			let storage = self.storage.borrow();
-			let fini_lookup = self.lookup_meth(
+			let fini_lookup = self.lookup_met(
 				&storage.as_ref().unwrap(), 
 				&fini_binding
 			).unwrap();
@@ -1438,13 +1438,13 @@ impl Allocate for Class {
 				Binding::SimpleField(_, _) => (),
 				Binding::SimpleConst(_, ref val) => visitor.visit_slot(val),
 				Binding::StackableField(_) => (),
-				Binding::Meth(MethBinding::Simple(_, ref gfn, _)) => visitor.visit_gc(gfn),
-				Binding::Meth(MethBinding::Stackable(_, _)) => (),
+				Binding::Met(MetBinding::Simple(_, ref gfn, _)) => visitor.visit_gc(gfn),
+				Binding::Met(MetBinding::Stackable(_, _)) => (),
 				Binding::Prop(ref getter, ref setter) => {
-					if let Some(MethBinding::Simple(_, ref gfn, _)) = *getter {
+					if let Some(MetBinding::Simple(_, ref gfn, _)) = *getter {
 						visitor.visit_gc(gfn);
 					}
-					if let Some(MethBinding::Simple(_, ref gfn, _)) = *setter {
+					if let Some(MetBinding::Simple(_, ref gfn, _)) = *setter {
 						visitor.visit_gc(gfn);
 					}
 				}
@@ -1459,10 +1459,10 @@ impl Allocate for Class {
 			}
 		}
 
-		for entry in &self.meth_stack {
+		for entry in &self.met_stack {
 			match *entry {
-				MethStackEntry::Meth(_, ref gfn, _) => visitor.visit_gc(gfn),
-				MethStackEntry::End => ()
+				MetStackEntry::Met(_, ref gfn, _) => visitor.visit_gc(gfn),
+				MetStackEntry::End => ()
 			}
 		}
 
@@ -1471,10 +1471,10 @@ impl Allocate for Class {
 		}
 
 		for state in self.states.values() {
-			for meth_binding in state.init.iter().chain(state.finis.iter()) {
-				match *meth_binding {
-					MethBinding::Simple(_, ref gfn, _) => visitor.visit_gc(gfn),
-					MethBinding::Stackable(_, _) => ()
+			for met_binding in state.init.iter().chain(state.finis.iter()) {
+				match *met_binding {
+					MetBinding::Simple(_, ref gfn, _) => visitor.visit_gc(gfn),
+					MetBinding::Stackable(_, _) => ()
 				}
 			}
 		}
@@ -1498,7 +1498,7 @@ impl Allocate for Class {
 					}
 					RawBindee::Const(ref slot) => visitor.visit_slot(slot),
 
-					RawBindee::Meth(ref gfn) => visitor.visit_gc(gfn),
+					RawBindee::Met(ref gfn) => visitor.visit_gc(gfn),
 					RawBindee::Wrap(_, ref gfn) => visitor.visit_gc(gfn),
 					RawBindee::WildcardWrap(ref gfn) => visitor.visit_gc(gfn), 
 
@@ -1525,7 +1525,7 @@ impl Allocate for Class {
 	fn owned_memory_usage(&self) -> usize {
 		let basic = self.bindings.capacity() * size_of::<(Sym, Binding)>()
 		+ self.field_stack.capacity() * size_of::<FieldStackEntry>()
-		+ self.meth_stack.capacity() * size_of::<MethStackEntry>()
+		+ self.met_stack.capacity() * size_of::<MetStackEntry>()
 		+ self.is.capacity() * size_of::<Gc<Class>>()
 		+ self.states.capacity() * size_of::<(Sym, State)>();
 
@@ -1533,7 +1533,7 @@ impl Allocate for Class {
 		for state in self.states.values() {
 			states += state.fsm_siblings.capacity() * size_of::<Sym>();
 			states += state.children.capacity() * size_of::<Sym>();
-			states += state.finis.capacity() * size_of::<MethBinding>();
+			states += state.finis.capacity() * size_of::<MetBinding>();
 		}
 
 		let raw_class = if let Some(raw_class) = self.raw_class.as_ref() {
@@ -1547,7 +1547,7 @@ impl Allocate for Class {
 			for state in &raw_class.states {
 				raw += state.fsm_siblings.capacity() * size_of::<Sym>();
 				raw += state.children.capacity() * size_of::<Sym>();
-				raw += state.finis.capacity() * size_of::<MethBinding>();
+				raw += state.finis.capacity() * size_of::<MetBinding>();
 			}
 
 			raw
@@ -1575,7 +1575,7 @@ struct RawClass {
 }
 
 //a RawBinding represents the partial binding introduced by a single clause: (field ...), 
-//(meth ...), etc. some of the unqualified Bindings in the final class are actually the flattened 
+//(met ...), etc. some of the unqualified Bindings in the final class are actually the flattened 
 //combination of several RawBindings.
 #[derive(Clone)]
 struct RawBinding {
@@ -1597,9 +1597,9 @@ enum RawBindee {
 	PreConst(Option<Gc<GFn>>),
 	Const(Slot),
 
-	Meth(Gc<GFn>), //meth_gfn
-	Wrap(Sym, Gc<GFn>), // qualified_dst, meth_gfn
-	WildcardWrap(Gc<GFn>), // meth_gfn
+	Met(Gc<GFn>), //met_gfn
+	Wrap(Sym, Gc<GFn>), // qualified_dst, met_gfn
+	WildcardWrap(Gc<GFn>), // met_gfn
 	
 	//all start with qualified_get, qualified_set. then...
 	Prop(Sym, Sym, Option<Gc<GFn>>, Option<Gc<GFn>>), //get_gfn, set_gfn
@@ -1610,7 +1610,7 @@ enum RawBindee {
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Category {
 	FieldLike,
-	MethLike,
+	MetLike,
 	PropLike
 }
 
@@ -1619,7 +1619,7 @@ impl RawBindee {
 		use RawBindee::*;
 		match self {
 			Field | PreConst(_) | Const(_) => Category::FieldLike,
-			Meth(_) | Wrap(_, _) | WildcardWrap(_) => Category::MethLike,
+			Met(_) | Wrap(_, _) | WildcardWrap(_) => Category::MetLike,
 			Prop(..) | WrapProp(..) | WildcardWrapProp(..) => Category::PropLike
 		}
 	}
@@ -1642,7 +1642,7 @@ impl RawClass {
 	//	- bindings: an arr of raw-binding arrs, in their textual order. each arr is one of..
 	//		(unqualified-name qualified-name state-name 'field)
 	//		(... 'const (? initializer-gfn))
-	//		(... 'meth gfn)
+	//		(... 'met gfn)
 	//		(... 'wrap qualified-dst gfn)
 	//		(... 'wildcard-wrap gfn)
 	//		(... 'prop qualified-get qualified-set get-gfn-or-nil set-gfn-or-nil)
@@ -1695,7 +1695,7 @@ impl RawClass {
 				} else {
 					None
 				}),
-				METH_SYM => RawBindee::Meth(arr.get(4)?),
+				MET_SYM => RawBindee::Met(arr.get(4)?),
 				WRAP_SYM => RawBindee::Wrap(arr.get(4)?, arr.get(5)?),
 				WILDCARD_WRAP_SYM => RawBindee::WildcardWrap(arr.get(4)?),
 				PROP_SYM | WRAP_PROP_SYM | WILDCARD_WRAP_PROP_SYM => {
@@ -1882,7 +1882,7 @@ struct ClassBuilder {
 	bindings: FnvHashMap<Sym, Binding>,
 	field_count: u16,
 	field_stack: Vec<FieldStackEntry>,
-	meth_stack: Vec<MethStackEntry>
+	met_stack: Vec<MetStackEntry>
 }
 
 impl ClassBuilder {
@@ -1905,7 +1905,7 @@ impl ClassBuilder {
 			bindings: FnvHashMap::default(),
 			field_count: 0,
 			field_stack: Vec::new(),
-			meth_stack: Vec::new()
+			met_stack: Vec::new()
 		})
 	}
 
@@ -1913,7 +1913,7 @@ impl ClassBuilder {
 		//convert any PreConst RawBindings into Consts by evaluating them in the correct order
 		self.evaluate_consts()?;
 
-		//the init MethBinding and fini MethBinding for each state, including Main, can be 
+		//the init MetBinding and fini MetBinding for each state, including Main, can be 
 		//constructed easily enough from the `inits` and `finis` vecs in RawClass. just need to 
 		//check that states other than Main don't contain any duplicate inits/finis.
 		let mut main_inits = Vec::<RawInit>::new();
@@ -1925,7 +1925,7 @@ impl ClassBuilder {
 			} else {
 				let state = self.states.get_mut(&init.state_name).unwrap();
 				ensure!(state.init.is_none(), "multiple (init-state) forms in {}", state.name);
-				state.init = Some(MethBinding::Simple(
+				state.init = Some(MetBinding::Simple(
 					state.index, 
 					init.gfn.clone(),
 					false
@@ -1935,22 +1935,22 @@ impl ClassBuilder {
 
 		if main_inits.len() == 1 {
 			let state = self.states.get_mut(&MAIN_SYM).unwrap();
-			state.init = Some(MethBinding::Simple(
+			state.init = Some(MetBinding::Simple(
 				state.index,
 				main_inits[0].gfn.clone(),
 				main_inits[0].requires_next_index
 			));
 		} else if main_inits.len() > 1 {
 			let state = self.states.get_mut(&MAIN_SYM).unwrap();
-			state.init = Some(MethBinding::Stackable(state.index, self.meth_stack.len() as u16));
+			state.init = Some(MetBinding::Stackable(state.index, self.met_stack.len() as u16));
 			for init in &main_inits {
-				self.meth_stack.push(MethStackEntry::Meth(
+				self.met_stack.push(MetStackEntry::Met(
 					state.index,
 					init.gfn.clone(),
 					init.requires_next_index
 				));
 			}
-			self.meth_stack.push(MethStackEntry::End);
+			self.met_stack.push(MetStackEntry::End);
 		}
 
 		for fini in &self.raw_class.finis {
@@ -1959,7 +1959,7 @@ impl ClassBuilder {
 			} else {
 				let state = self.states.get_mut(&fini.state_name).unwrap();
 				ensure!(state.finis.is_empty(), "multiple (fini-state) forms in {}", state.name);
-				state.finis.push(MethBinding::Simple(
+				state.finis.push(MetBinding::Simple(
 					state.index, 
 					fini.gfn.clone(),
 					false
@@ -1969,7 +1969,7 @@ impl ClassBuilder {
 
 		for fini in &main_finis {
 			let state = self.states.get_mut(&MAIN_SYM).unwrap();
-			state.finis.push(MethBinding::Simple(
+			state.finis.push(MetBinding::Simple(
 				state.index,
 				fini.gfn.clone(),
 				false
@@ -1982,7 +1982,7 @@ impl ClassBuilder {
 
 		the technique is that we group the RawBindings vec by unqualified name, check that
 		all of the raw-bindings for that unqualified name belong to the same category (field-like,
-		meth-like or prop-like), and then branch for that category.
+		met-like or prop-like), and then branch for that category.
 
 		for the time being, we've written the RawBindings processing code to be clear and simple,
 		rather than fast. might try to improve performance once it's more stable (todo).
@@ -2058,45 +2058,45 @@ impl ClassBuilder {
 					}
 				}
 
-				Category::MethLike => {
-					//use stack_meths to validate and reorder the group of RawBindings
-					let stacked = self.stack_meths(&group)?;
+				Category::MetLike => {
+					//use stack_mets to validate and reorder the group of RawBindings
+					let stacked = self.stack_mets(&group)?;
 
 					if stacked.len() > 1 {
 						//bind the method stack
-						let meth_stack_start = self.meth_stack.len() as u16;
+						let met_stack_start = self.met_stack.len() as u16;
 						for raw_binding in stacked.iter().rev() {
-							ensure!(self.meth_stack.len() <= u16::MAX as usize, 
+							ensure!(self.met_stack.len() <= u16::MAX as usize, 
 						            "too many wrapper methods");
-							let stack_i = self.meth_stack.len() as u16;
+							let stack_i = self.met_stack.len() as u16;
 
 							if !matches!(raw_binding.bindee, RawBindee::WildcardWrap(_)) {
 								ensure!(self.bindings.insert(
 									raw_binding.qualified,
-									Binding::Meth(MethBinding::Stackable(
+									Binding::Met(MetBinding::Stackable(
 										raw_binding.state_i,
 										stack_i
 									))
 								).is_none());
 							}
 							
-							let binding = self.bind_meth_like(raw_binding);
-							let stack_entry = binding.to_meth_stack_entry();
+							let binding = self.bind_met_like(raw_binding);
+							let stack_entry = binding.to_met_stack_entry();
 
-							self.meth_stack.push(stack_entry);
+							self.met_stack.push(stack_entry);
 						}
 
-						self.meth_stack.push(MethStackEntry::End);
+						self.met_stack.push(MetStackEntry::End);
 
-						ensure!(self.meth_stack.len() <= u16::MAX as usize, 
+						ensure!(self.met_stack.len() <= u16::MAX as usize, 
 						        "too many wrapper methods");
 
 						ensure!(self.bindings.insert(
 							unqualified,
-							Binding::Meth(MethBinding::Stackable(0, meth_stack_start))
+							Binding::Met(MetBinding::Stackable(0, met_stack_start))
 						).is_none());
 					} else {
-						let binding = self.bind_meth_like(&stacked[0]);
+						let binding = self.bind_met_like(&stacked[0]);
 
 						ensure!(self.bindings.insert(unqualified, binding.clone()).is_none());
 						ensure!(self.bindings.insert(qualified, binding).is_none());
@@ -2104,11 +2104,11 @@ impl ClassBuilder {
 				}
 
 				Category::PropLike => {
-					//basically identical to our MethLike branch above, except we emit 
-					//Binding::Props rather than Binding::Meths, and we check in advance that
+					//basically identical to our MetLike branch above, except we emit 
+					//Binding::Props rather than Binding::Mets, and we check in advance that
 					//all of the props have the same getter/setter arrangement (e.g. can't
 					//wrap a getter-only property with a getter-and-setter property).
-					let stacked = self.stack_meths(&group)?;
+					let stacked = self.stack_mets(&group)?;
 
 					if stacked.len() > 1 {
 						let bindings = SmallVec::<[Binding; 8]>::from_iter(stacked.iter().rev()
@@ -2133,59 +2133,59 @@ impl ClassBuilder {
 
 						//first produce a method stack for the getters...
 						let getter_binding = if has_getter {
-							let meth_stack_start = self.meth_stack.len() as u16;
+							let met_stack_start = self.met_stack.len() as u16;
 							for binding in bindings.iter() {
-								ensure!(self.meth_stack.len() <= u16::MAX as usize, 
+								ensure!(self.met_stack.len() <= u16::MAX as usize, 
 							            "too many wrapper methods");
 
 								let stack_entry = match *binding {
 									Binding::Prop(ref get, _) => {
-										get.as_ref().unwrap().to_meth_stack_entry()
+										get.as_ref().unwrap().to_met_stack_entry()
 									}
 									_ => unreachable!()
 								};
-								self.meth_stack.push(stack_entry);
+								self.met_stack.push(stack_entry);
 							}
 
-							self.meth_stack.push(MethStackEntry::End);
+							self.met_stack.push(MetStackEntry::End);
 
-							Some(MethBinding::Stackable(0, meth_stack_start))
+							Some(MetBinding::Stackable(0, met_stack_start))
 						} else {
 							None
 						};
 
 						//...then produce another stack for the setters...
 						let setter_binding = if has_setter {
-							let meth_stack_start = self.meth_stack.len() as u16;
+							let met_stack_start = self.met_stack.len() as u16;
 							for binding in bindings.iter() {
-								ensure!(self.meth_stack.len() <= u16::MAX as usize, 
+								ensure!(self.met_stack.len() <= u16::MAX as usize, 
 							            "too many wrapper methods");
 
 								let stack_entry = match *binding {
 									Binding::Prop(_, ref set) => {
-										set.as_ref().unwrap().to_meth_stack_entry()
+										set.as_ref().unwrap().to_met_stack_entry()
 									}
 									_ => unreachable!()
 								};
-								self.meth_stack.push(stack_entry);
+								self.met_stack.push(stack_entry);
 							}
 
-							self.meth_stack.push(MethStackEntry::End);
+							self.met_stack.push(MetStackEntry::End);
 
-							Some(MethBinding::Stackable(0, meth_stack_start))
+							Some(MetBinding::Stackable(0, met_stack_start))
 						} else {
 							None
 						};
 
-						ensure!(self.meth_stack.len() <= u16::MAX as usize, 
+						ensure!(self.met_stack.len() <= u16::MAX as usize, 
 						        "too many wrapper methods");
 
 						//...then finally, emit qualified bindings for each raw binding
 						for (i, raw_binding) in stacked.iter().rev().enumerate() {
 							if !matches!(raw_binding.bindee, RawBindee::WildcardWrapProp(..)) {
-								let getter_meth_binding = match getter_binding {
-									Some(MethBinding::Stackable(_, stack_start)) => {
-										Some(MethBinding::Stackable(
+								let getter_met_binding = match getter_binding {
+									Some(MetBinding::Stackable(_, stack_start)) => {
+										Some(MetBinding::Stackable(
 											raw_binding.state_i,
 											stack_start + i as u16
 										))
@@ -2194,9 +2194,9 @@ impl ClassBuilder {
 									_ => unreachable!()
 								};
 
-								let setter_meth_binding = match setter_binding {
-									Some(MethBinding::Stackable(_, stack_start)) => {
-										Some(MethBinding::Stackable(
+								let setter_met_binding = match setter_binding {
+									Some(MetBinding::Stackable(_, stack_start)) => {
+										Some(MetBinding::Stackable(
 											raw_binding.state_i,
 											stack_start + i as u16
 										))
@@ -2208,8 +2208,8 @@ impl ClassBuilder {
 								ensure!(self.bindings.insert(
 									raw_binding.qualified,
 									Binding::Prop(
-										getter_meth_binding,
-										setter_meth_binding
+										getter_met_binding,
+										setter_met_binding
 									)
 								).is_none());
 							}
@@ -2248,17 +2248,17 @@ impl ClassBuilder {
 		}
 	}
 
-	fn bind_meth_like(&mut self, raw_binding: &RawBinding) -> Binding {
+	fn bind_met_like(&mut self, raw_binding: &RawBinding) -> Binding {
 		let state_i = raw_binding.state_i;
 
 		let (gfn, rni) = match raw_binding.bindee {
-			RawBindee::Meth(ref gfn) => (gfn.clone(), false),
+			RawBindee::Met(ref gfn) => (gfn.clone(), false),
 			RawBindee::Wrap(_, ref gfn) => (gfn.clone(), true),
 			RawBindee::WildcardWrap(ref gfn) => (gfn.clone(), true),
 			_ => unreachable!()
 		};
 
-		Binding::Meth(MethBinding::Simple(state_i, gfn.clone(), rni))
+		Binding::Met(MetBinding::Simple(state_i, gfn.clone(), rni))
 	}
 
 	fn bind_prop_like(&mut self, raw_binding: &RawBinding) -> Binding {
@@ -2280,27 +2280,27 @@ impl ClassBuilder {
 		};
 
 		let getter_binding = getter_gfn.as_ref().map(|getter_gfn| {
-			MethBinding::Simple(state_i, getter_gfn.clone(), rni)
+			MetBinding::Simple(state_i, getter_gfn.clone(), rni)
 		});
 
 		let setter_binding = setter_gfn.as_ref().map(|setter_gfn| {
-			MethBinding::Simple(state_i, setter_gfn.clone(), rni)
+			MetBinding::Simple(state_i, setter_gfn.clone(), rni)
 		});
 
 		Binding::Prop(getter_binding, setter_binding)
 	}
 
-	fn stack_meths(
+	fn stack_mets(
 		&mut self,
 		raw_bindings: &VecDeque<RawBinding>
 	) -> GResult<Vec<RawBinding>> {
 
 		/*
-		the input is a slice of MethLike or PropLike RawBindings, in field-shadowing order: fields
+		the input is a slice of MetLike or PropLike RawBindings, in field-shadowing order: fields
 		towards the right of the slice shadow those towards the left.
 
 		the output is those same RawBindings, reordered so that they can be bound as a method
-		stack or property stack. any number of meths/props, followed by explicit wraps/wrap-props 
+		stack or property stack. any number of mets/props, followed by explicit wraps/wrap-props 
 		in their explicit order, followed by wildcard wraps/wrap-props in field-shadowing order.
 
 		we also detect, and store, dependencies between states implied by the explicit wraps,
@@ -2310,17 +2310,17 @@ impl ClassBuilder {
 		let mut src = Vec::from_iter(raw_bindings.iter().cloned());
 		let mut dst = Vec::<RawBinding>::with_capacity(src.len());
 
-		//drain all of the meths from src and put them at the start of dst. set the `excludes`
-		//flag for any two states which both share a meth.
+		//drain all of the mets from src and put them at the start of dst. set the `excludes`
+		//flag for any two states which both share a met.
 		dst.extend(src.drain_filter(|rb| {
-			matches!(rb.bindee, RawBindee::Meth(_) | RawBindee::Prop(..))
+			matches!(rb.bindee, RawBindee::Met(_) | RawBindee::Prop(..))
 		}));
 
 		for i in 0 .. dst.len() {
 			for j in i + 1 .. dst.len() {
 				let state_i = dst[i].state_i;
 				let state_j = dst[j].state_i;
-				ensure!(state_i != state_j, "duplicate `meth` form {}", dst[i].qualified);
+				ensure!(state_i != state_j, "duplicate `met` form {}", dst[i].qualified);
 
 				self.states.get_mut(&dst[i].state_name)
 					.unwrap().excludes |= 1 << (state_j as u32);
@@ -2329,10 +2329,10 @@ impl ClassBuilder {
 			}
 		}
 
-		//starting from the first meth in dst (if any), search src for any wraps which target that
-		//meth's qualified name, and move them to dst. set the `requires` flag for each wrap's 
+		//starting from the first met in dst (if any), search src for any wraps which target that
+		//met's qualified name, and move them to dst. set the `requires` flag for each wrap's 
 		//state, and the `excludes` flag for any state which wraps the same qualified name. 
-		//continue scanning through until you've checked every meth/wrap in `dst`.
+		//continue scanning through until you've checked every met/wrap in `dst`.
 		let mut dst_i = 0;
 		while dst_i < dst.len() {
 			let dst_qualified = dst[dst_i].qualified;
@@ -2344,7 +2344,7 @@ impl ClassBuilder {
 			//this is O(n^2) but n will usually be very small
 			dst.extend(src.drain_filter(|src_rb| {
 				match src_rb.bindee {
-					RawBindee::Meth(_) | RawBindee::Prop(..) => unreachable!(),
+					RawBindee::Met(_) | RawBindee::Prop(..) => unreachable!(),
 					RawBindee::Wrap(target_qualified, _) |
 					RawBindee::WrapProp(_, _, target_qualified, _, _) => {
 						if target_qualified == dst_qualified {
@@ -2390,7 +2390,7 @@ impl ClassBuilder {
 		//doesn't exist, or refer to other wraps in a cycle. throw an error.
 		for rb in &src {
 			match rb.bindee {
-				RawBindee::Meth(_) | RawBindee::Prop(..) => unreachable!(),
+				RawBindee::Met(_) | RawBindee::Prop(..) => unreachable!(),
 				RawBindee::Wrap(target, _) => {
 					bail!("the wrapped method {} is nonexistent or cyclical", target)
 				}
@@ -2508,7 +2508,7 @@ impl ClassBuilder {
 			bindings: self.bindings,
 			field_count: self.field_count as usize,
 			field_stack: self.field_stack,
-			meth_stack: self.meth_stack,
+			met_stack: self.met_stack,
 			is: self.is,
 			states: self.states,
 

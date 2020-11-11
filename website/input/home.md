@@ -27,7 +27,7 @@ more information.
 <pre><code>(<b>defstruct</b> Rect
   x y w h
 
-  (<b>meth</b> overlaps? (other-rect)
+  (<b>met</b> overlaps? (other-rect)
     (<b>let</b> [x y w h] other-rect)
     (and (< @x (+ x w))
          (< x (+ @x @w))
