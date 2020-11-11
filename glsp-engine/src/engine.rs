@@ -91,12 +91,10 @@ fn free_engine_id(id: u8) {
 fn with_engine<R, F: FnOnce(&EngineStorage) -> R>(f: F) -> R {
 	ACTIVE_ENGINE.with(|ref_cell| {
 		let borrow = ref_cell.borrow();
-		let rc = borrow
-			.as_ref()
-			.expect(concat!(
-			    "Couldn't find Runtime; make sure you are creating one",
-			    " and calling glsp functions from inside of `Runtime::run()`",
-			));
+		let rc = borrow.as_ref().expect(
+			"no glsp runtime is active; consider calling Runtime::run()"
+		);
+
 		f(&rc)
 	})
 }
@@ -107,7 +105,7 @@ pub(crate) fn with_heap<R, F: FnOnce(&Heap) -> R>(f: F) -> R {
 		let opt_rc = ref_cell.borrow();
 		match &*opt_rc {
 			Some(rc) => f(&rc.heap),
-			None => panic!("called with_heap when no glsp engine is active")
+			None => panic!("no glsp runtime is active; consider calling Runtime::run()")
 		}
 	})
 }
@@ -118,7 +116,7 @@ pub(crate) fn with_vm<R, F: FnOnce(&Vm) -> R>(f: F) -> R {
 		let opt_rc = ref_cell.borrow();
 		match &*opt_rc {
 			Some(rc) => f(&rc.vm),
-			None => panic!("called with_vm when no glsp engine is active")
+			None => panic!("no glsp runtime is active; consider calling Runtime::run()")
 		}
 	})
 }
@@ -129,7 +127,7 @@ pub(crate) fn with_known_ops<R, F: FnOnce(&HashMap<Sym, KnownOp>) -> R>(f: F) ->
 		let opt_rc = ref_cell.borrow();
 		match &*opt_rc {
 			Some(rc) => f(&rc.known_ops),
-			None => panic!("called with_known_ops when no glsp engine is active")
+			None => panic!("no glsp runtime is active; consider calling Runtime::run()")
 		}
 	})
 }
