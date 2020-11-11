@@ -2152,12 +2152,15 @@ macro_rules! lib_impls {
 Defines a Rust type which can be stored on the garbage-collected heap.
 
 The input must be a struct or enum declaration, optionally followed by a `meths { ... }` block. 
-Generic parameters, lifetime parameters and `where` clauses are not supported.
 
 The macro declares the specified type, implements the [`RStore` trait](trait.RStore.html) trait 
 for the type, implements [`MakeArg`](trait.MakeArg.html) for shared and mutable references to 
 the type, and implements [`IntoResult`](trait.IntoResult.html) for the type itself.
-	
+
+When a reference to an `rdata!` type is bound as an `RFn` parameter, that parameter expects
+an argument which belongs to the [`rdata` primitive type](struct.RData.html). The argument will
+be [borrowed](struct.RData.html#method.borrow) for the duration of the function call.
+
 	rdata! {
 		#[derive(Clone)]
 		struct AudioClip {
@@ -2187,16 +2190,37 @@ the type, and implements [`IntoResult`](trait.IntoResult.html) for the type itse
 
 	glsp::bind_rfn("AudioClip:load", AudioClip::load::<PathBuf>)?;
 
-When a reference to an `rdata!` type is bound as an `RFn` parameter, that parameter expects
-an argument which belongs to the [`rdata` primitive type](struct.RData.html). The argument will
-be [borrowed](struct.RData.html#method.borrow) for the duration of the function call.
+## Methods
+
+When a type is declared using the `rdata!` macro, it can be associated with named methods.
+These methods can be called directly from GameLisp code. Alternatively, they can be called from
+Rust code - for example, using [`RData::call`](struct.RData.html#method.call).
 
 The `meths` block contains a comma-separated list of `"name": fn_expr` pairs. Each `fn_expr` 
 is passed to the [`rfn!`](macro.rfn.html) macro, and the resulting 
-[`WrappedFn`](struct.WrappedFn.html) is bound as a method which can be called by GameLisp code.
+[`WrappedFn`](struct.WrappedFn.html) is made into an associated method.
 
 Each `"name"` can be prefixed with the keyword `get` or `set` to bind it as a property getter
 or property setter, respectively.
+
+## Limitations
+
+Types defined using the `rdata!` macro must follow a number of restrictions. Most of these
+restrictions are checked automatically, at compile time.
+
+The type declaration must not have any generic parameters, and it must not have a `where` clause.
+
+The type must be `'static`. GameLisp currently provides no mechanism for moving borrowed Rust
+data onto the garbage-collected heap.
+
+The type may not contain any [`Root`](struct.Root.html)s. This means that `RData` cannot directly
+point to other `RData`. Instead, consider storing your `Root` in a [library](macro.lib.html)
+or a [global variable](fn.bind_global.html). Other `RData` can then refer to the `Root` 
+indirectly - perhaps using an integer to index an array, or using a symbol to access a hash table.
+
+The type's unprefixed name must be unique. If you define two `rdata!` types, one named 
+`audio::Clip` and one named `video::Clip`, then an error will occur when you call 
+[`glsp::rdata`](fn.rdata.html).
 */
 
 #[macro_export]
