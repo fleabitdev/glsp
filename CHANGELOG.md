@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- The `rdata!` macro now supports `enum` declarations as well as `struct` declarations
+
 ### Changed
 
 - Improved error message when glsp functions are called with no active `Runtime`

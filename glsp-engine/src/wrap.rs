@@ -2149,12 +2149,14 @@ macro_rules! lib_impls {
 }
 
 /**
-Defines a struct which can be stored on the garbage-collected heap.
+Defines a Rust type which can be stored on the garbage-collected heap.
 
-The input must be a struct declaration, optionally followed by a `meths { ... }` block. The macro 
-defines that struct, implements the [`RStore` trait](trait.RStore.html) for the struct's type, 
-implements [`MakeArg`](trait.MakeArg.html) for shared and mutable references to the struct's type,
-and implements [`IntoResult`](trait.IntoResult.html) for the struct's value type.
+The input must be a struct or enum declaration, optionally followed by a `meths { ... }` block. 
+Generic parameters, lifetime parameters and `where` clauses are not supported.
+
+The macro declares the specified type, implements the [`RStore` trait](trait.RStore.html) trait 
+for the type, implements [`MakeArg`](trait.MakeArg.html) for shared and mutable references to 
+the type, and implements [`IntoResult`](trait.IntoResult.html) for the type itself.
 	
 	rdata! {
 		#[derive(Clone)]
@@ -2185,9 +2187,9 @@ and implements [`IntoResult`](trait.IntoResult.html) for the struct's value type
 
 	glsp::bind_rfn("AudioClip:load", AudioClip::load::<PathBuf>)?;
 
-When a reference to an `rdata!` struct is bound as an `RFn` parameter, that parameter expects
-an argument which belongs to the [`rdata` primitive type](struct.RData.html). That argument is
-[borrowed](struct.RData.html#method.borrow) for the duration of the function call.
+When a reference to an `rdata!` type is bound as an `RFn` parameter, that parameter expects
+an argument which belongs to the [`rdata` primitive type](struct.RData.html). The argument will
+be [borrowed](struct.RData.html#method.borrow) for the duration of the function call.
 
 The `meths` block contains a comma-separated list of `"name": fn_expr` pairs. Each `fn_expr` 
 is passed to the [`rfn!`](macro.rfn.html) macro, and the resulting 
@@ -2199,9 +2201,12 @@ or property setter, respectively.
 
 #[macro_export]
 macro_rules! rdata {
+
+	//struct Name { ... }
 	(
 		$(#[$struct_attr:meta])*
 		$struct_vis:vis struct $rdata:ident { $($struct_token:tt)* }
+
 		$($rest:tt)*
 	) => (
 		$(#[$struct_attr])*
@@ -2210,6 +2215,7 @@ macro_rules! rdata {
 		$crate::rdata_impls! { $rdata; $($rest)* }
 	);
 
+	//struct Name;
 	(
 		$(#[$struct_attr:meta])*
 		$struct_vis:vis struct $rdata:ident;
@@ -2221,6 +2227,7 @@ macro_rules! rdata {
 		$crate::rdata_impls! { $rdata; $($rest)* }
 	);
 
+	//struct Name(...)
 	(
 		$(#[$struct_attr:meta])*
 		$struct_vis:vis struct $rdata:ident ( $($struct_token:tt)* );
@@ -2228,6 +2235,18 @@ macro_rules! rdata {
 	) => (
 		$(#[$struct_attr])*
 		$struct_vis struct $rdata ( $($struct_token)* );
+
+		$crate::rdata_impls! { $rdata; $($rest)* }
+	);
+
+	//enum Name { ... }
+	(
+		$(#[$enum_attr:meta])*
+		$enum_vis:vis enum $rdata:ident { $($enum_token:tt)* }
+		$($rest:tt)*
+	) => (
+		$(#[$enum_attr])*
+		$enum_vis enum $rdata { $($enum_token)* }
 
 		$crate::rdata_impls! { $rdata; $($rest)* }
 	);
