@@ -1257,8 +1257,8 @@ impl RData {
 
 	Any future attempts to access the value will gracefully fail.
 
-	Returns an `Err` if the `RData` is not storing a value of type `T`; if its value has already 
-	been freed; or if it's currently borrowed.
+	Returns an `Err` if the `RData` is currently borrowed, or if its value has already
+	been freed.
 	*/
 	pub fn free(&self) -> GResult<()> {
 		//freeing the stored data changes our owned_memory_usage(), so we need to write-barrier it.
