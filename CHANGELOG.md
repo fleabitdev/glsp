@@ -4,7 +4,7 @@
 
 ### Added
 
-- The `rdata!` macro now supports `enum` declarations as well as `struct` declarations
+- The `rdata!` and `lib!` macros now support `enum` declarations as well as `struct` declarations
 
 ### Changed
 
