@@ -8,6 +8,7 @@
 - Added the `sym!` macro, as a convenient alternative to `glsp::sym(x).unwrap()`
 - Defined a total ordering for floats: NaNs now compare equal to other NaNs, and compare greater 
   than all non-NaN numbers
+- Added `sort` and `sort_by` methods to the `DequeOps` trait
 
 ### Changed
 
