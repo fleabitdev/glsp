@@ -151,9 +151,7 @@ manipulate its contents.
 ```rust
 fn push_one_pop_one(deq: Deque, to_push: Val) -> GResult<Val> {
 	deq.push(to_push)?;
-	deq.pop_start()?;
-
-	Ok(())
+	deq.pop_start()
 }
 ```
 
