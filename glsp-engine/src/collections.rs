@@ -566,7 +566,7 @@ pub trait DequeOps: Sized + deque_ops_private::Sealed {
 	If the deque contains any two elements which are unordered relative to one another 
 	(for example, an integer and a symbol), an error may occur.
 
-	[0]: https://doc.rust-lang.org/std/collections/enum.Val.html#impl-PartialCmp<Val>
+	[0]: enum.Val.html#method.partial_cmp
 	*/
 	fn sort(&self) -> GResult<()>;
 
