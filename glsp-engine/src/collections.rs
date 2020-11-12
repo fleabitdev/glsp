@@ -1,4 +1,5 @@
 use fnv::{FnvHashMap};
+use smallvec::{SmallVec};
 use std::{u8, u16, char};
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::cmp::{Ordering};
@@ -12,7 +13,7 @@ use std::marker::{PhantomData};
 use std::mem::{size_of};
 use std::ops::{Bound, RangeBounds};
 use super::engine::{glsp, Guard, Span, with_heap};
-use super::error::{GResult};
+use super::error::{GError, GResult};
 use super::gc::{Allocate, GcHeader, Slot, Root, Visitor};
 use super::iter::{GIter, GIterState};
 use super::val::{Val};
@@ -561,6 +562,22 @@ pub trait DequeOps: Sized + deque_ops_private::Sealed {
 	fn contains<V: IntoElement<Self::Element>>(&self, x: V) -> GResult<bool>;
 
 	/**
+	Sorts the deque, in place. Elements are compared using [`Val::partial_cmp`][0]. 
+	If the deque contains any two elements which are unordered relative to one another 
+	(for example, an integer and a symbol), an error may occur.
+
+	[0]: https://doc.rust-lang.org/std/collections/enum.Val.html#impl-PartialCmp<Val>
+	*/
+	fn sort(&self) -> GResult<()>;
+
+	/**
+	Sorts the deque, in place, using the specified comparison function. If the comparison
+	function returns an error, the `sort_by` call will return an error.
+	*/
+	fn sort_by<F>(&self, f: F) -> GResult<()>
+		where F: FnMut(&Self::Item, &Self::Item) -> GResult<Ordering>;
+
+	/**
 	Makes the deque immutable.
 
 	Equivalent to [`(freeze! deq)`](https://gamelisp.rs/std/freeze-mut).
@@ -980,28 +997,7 @@ impl Eq for Arr { }
 
 impl PartialOrd<Arr> for Arr {
 	fn partial_cmp(&self, other: &Arr) -> Option<Ordering> {
-		let len0 = self.len();
-		let len1 = other.len();
-
-		if len0 < len1 {
-			Some(Ordering::Less)
-		} else if len0 > len1 {
-			Some(Ordering::Greater)
-		} else {
-			for i in 0 .. len0 {
-				let val0: Val = self.get(i).unwrap();
-				let val1: Val = other.get(i).unwrap();
-
-				match val0.partial_cmp(&val1) {
-					Some(Ordering::Less) => return Some(Ordering::Less),
-					Some(Ordering::Equal) => (),
-					Some(Ordering::Greater) => return Some(Ordering::Greater),
-					None => return None
-				}
-			}
-
-			Some(Ordering::Equal)
-		}
+		self.iter().partial_cmp(other.iter())
 	}
 }
 
@@ -1038,6 +1034,58 @@ impl DequeOps for Arr {
 
 	fn can_mutate(&self) -> bool {
 		(!self.header.frozen()) && self.vec.try_borrow_mut().is_ok()
+	}
+
+	fn sort(&self) -> GResult<()> {
+		self.sort_by(|v0, v1| {
+			match v0.partial_cmp(v1) {
+				Some(ordering) => Ok(ordering),
+				None => bail!(
+					"attempted to compare incompatible types: {} and {}",
+					v0.a_type_name(),
+					v1.a_type_name()
+				)
+			}
+		})
+	}
+
+	fn sort_by<F>(&self, mut f: F) -> GResult<()>
+	where
+		F: FnMut(&Val, &Val) -> GResult<Ordering>
+	{
+		//rust's built-in sort_by() can only sort a slice
+		let mut vec = SmallVec::<[Val; 64]>::from_iter(self.iter());
+
+		//this is an ugly hack to provide error-propagation from within sort_by's callback. when an
+		//error occurs, we store it on the stack, repeatedly return Ordering::Equal until sort_by
+		//returns (on the assumption that this (1) won't trigger any endless loops, and (2) will
+		//enable sort_by to return as early as possible), and then return the error.
+		let mut error: Option<GError> = None;
+		vec.sort_by(|a, b| {
+			if error.is_some() {
+				return Ordering::Equal
+			}
+
+			match f(a, b) {
+				Ok(ordering) => ordering,
+				Err(err) => {
+					error = Some(err);
+					Ordering::Equal
+				}
+			}
+		});
+
+		//copy the sorted values back into our storage
+		match error {
+			Some(error) => Err(error),
+			None => {
+				for (i, val) in vec.into_iter().enumerate() {
+					self.set(i, val).unwrap();
+				}
+
+				Ok(())
+			}
+		}
 	}
 
 	fn push<V: IntoElement<Slot>>(&self, val: V) -> GResult<()> {
@@ -1688,10 +1736,10 @@ macro_rules! with_str_storage_mut {
 }
 
 #[doc(hidden)]
-#[derive(Copy, Clone, PartialEq)]
-pub struct CharStorage<T: CoerceFromChar + Into<u32> + Copy + PartialEq>(T);
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct CharStorage<T: CoerceFromChar + Into<u32> + Copy + Eq + Ord>(T);
 
-impl<T: CoerceFromChar + Into<u32> + Copy + PartialEq> CharStorage<T> {
+impl<T: CoerceFromChar + Into<u32> + Copy + Eq + Ord> CharStorage<T> {
 	//there's a potential performance cost here, but there's no way to perform it as a "free"
 	//coercion, because not all values of u16 or u32 are valid values for char. once we have
 	//specialisation (todo), we will be able to specialise for the "free" u8-to-char coercion.
@@ -1707,7 +1755,7 @@ impl<T: CoerceFromChar + Into<u32> + Copy + PartialEq> CharStorage<T> {
 	}
 }
 
-impl<T: Hash + Copy + CoerceFromChar + Into<u32> + PartialEq> Hash for CharStorage<T> {
+impl<T: Hash + Copy + CoerceFromChar + Into<u32> + Eq + Ord> Hash for CharStorage<T> {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.0.hash(state)
 	}
@@ -2071,6 +2119,52 @@ impl DequeOps for Str {
 
 	fn can_mutate(&self) -> bool {
 		(!self.header.frozen()) && self.storage.try_borrow_mut().is_ok()
+	}
+
+	fn sort(&self) -> GResult<()> {
+		with_str_storage_mut!(&mut *self.borrow_mut()?, vec, (), {
+			vec.make_contiguous().sort();
+			Ok(())
+		})
+	}
+
+	fn sort_by<F>(&self, mut f: F) -> GResult<()>
+	where
+		F: FnMut(&char, &char) -> GResult<Ordering>
+	{
+		//we don't want to borrow the Str while executing an arbitrary user callback
+		let mut vec = SmallVec::<[char; 128]>::from_iter(self.iter());
+
+		//this is an ugly hack to provide error-propagation from within sort_by's callback. when an
+		//error occurs, we store it on the stack, repeatedly return Ordering::Equal until sort_by
+		//returns (on the assumption that this (1) won't trigger any endless loops, and (2) will
+		//enable sort_by to return as early as possible), and then return the error.
+		let mut error: Option<GError> = None;
+		vec.sort_by(|a, b| {
+			if error.is_some() {
+				return Ordering::Equal
+			}
+
+			match f(a, b) {
+				Ok(ordering) => ordering,
+				Err(err) => {
+					error = Some(err);
+					Ordering::Equal
+				}
+			}
+		});
+
+		//copy the sorted values back into our storage
+		match error {
+			Some(error) => Err(error),
+			None => {
+				for (i, ch) in vec.into_iter().enumerate() {
+					self.set(i, ch).unwrap();
+				}
+
+				Ok(())
+			}
+		}
 	}
 
 	fn push<C: IntoElement<char>>(&self, ch: C) -> GResult<()> {
@@ -2496,6 +2590,23 @@ impl DequeOps for Deque {
 		match self {
 			Deque::Arr(ar) => ar.is_deep_frozen(),
 			Deque::Str(st) => st.is_deep_frozen()
+		}
+	}
+
+	fn sort(&self) -> GResult<()> {
+		match self {
+			Deque::Arr(ar) => ar.sort(),
+			Deque::Str(st) => st.sort()
+		}
+	}
+
+	fn sort_by<F>(&self, mut f: F) -> GResult<()>
+	where
+		F: FnMut(&Val, &Val) -> GResult<Ordering>
+	{
+		match self {
+			Deque::Arr(ar) => ar.sort_by(f),
+			Deque::Str(st) => st.sort_by(|c0, c1| f(&Val::Char(*c0), &Val::Char(*c1)))
 		}
 	}
 

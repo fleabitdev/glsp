@@ -349,9 +349,12 @@ text = """
 
 		`ordf` must be a function which can accept any two elements from `deq` as arguments.
 		It must return one of the symbols `==`, `<` or `>` to represent the relative ordering of
-		those two elements. It defaults to the built-in function [`ord`](ord).
+		those two elements.
 
-			(let sorted (sort "Hello, world!" ord))
+		The comparison function defaults to the built-in function [`ord`](ord). Custom comparison
+		functions will have significantly worse performance.
+
+			(let sorted (sort "Hello, world!"))
 			(prn sorted) ; prints  !,Hdellloorw
 	"""
 

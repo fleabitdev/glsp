@@ -2,7 +2,7 @@
 
 #![feature(proc_macro_hygiene)]
 
-use glsp::{bail, Engine, EngineBuilder, Expander, GResult, GSend, lib, Lib, Sym};
+use glsp::{bail, Engine, EngineBuilder, Expander, GResult, GSend, lib, Lib, RFn, Sym};
 use std::{i32, thread};
 use std::collections::{hash_map::DefaultHasher, HashMap};
 use std::hash::{Hash, Hasher};
@@ -25,6 +25,7 @@ lib! {
 		opt_setters: HashMap<Sym, (Sym, bool)>,
 		classmacros: HashMap<Sym, Expander>,
 		rng: Rng,
+		ord_rfn: Option<RFn>,
 
 		#[cfg(not(target_arch = "wasm32"))]
 		start_time: Instant
@@ -38,6 +39,7 @@ impl Std {
 			opt_setters: HashMap::new(),
 			classmacros: HashMap::new(),
 			rng: Rng::seeded(),
+			ord_rfn: None,
 
 			#[cfg(not(target_arch = "wasm32"))]
 			start_time: std::time::Instant::now()
@@ -291,6 +293,8 @@ fn init_stdlib(sandboxed: bool) -> GResult<()> {
 	macros::init(sandboxed)?;
 	misc::init(sandboxed)?;
 	num::init(sandboxed)?;
+
+	Std::borrow_mut().ord_rfn = Some(glsp::global("ord")?);
 
 	glsp::freeze_transform_fns();
 

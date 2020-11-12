@@ -1,6 +1,6 @@
 use glsp::{
 	Arr, bail, Callable, Class, Deque, DequeAccess, DequeAccessRange, DequeOps, ensure, 
-	EprWriter, error, FromVal, GError, GIterLen, GResult, Iterable, IterableOps, Obj,
+	EprWriter, FromVal, GIterLen, GResult, Iterable, IterableOps, Lib, Obj,
 	OrNil, Parser, PrWriter, rfn, RData, Root, stock_syms::*, Str, Tab, ToVal, Val
 };
 use glsp_proc_macros::{backquote};
@@ -9,6 +9,7 @@ use std::{fmt, io, str};
 use std::cmp::{Ordering};
 use std::io::{Write};
 use std::iter::{FromIterator, repeat};
+use super::{Std};
 
 pub fn init(_sandboxed: bool) -> GResult<()> {
 	//apis shared between several collection types
@@ -633,50 +634,25 @@ fn map_syntax(callable: Callable, coll: Val) -> GResult<Val> {
 	}
 }
 
-fn sort(deq: Deque, ord: Callable) -> GResult<Deque> {
+fn sort(deq: Deque, ord: Option<Callable>) -> GResult<Deque> {
 	let cloned = deq.shallow_clone();
 	sort_mut(cloned.clone(), ord)?;
 	Ok(cloned)
 }
 
-fn sort_mut(deq: Deque, ord: Callable) -> GResult<()> {
-	//rust's built-in sort_by() can only sort a slice
-	let mut vec = SmallVec::<[Val; 32]>::from_iter(deq.iter());
-
-	//this is an ugly hack to provide error-propagation from within sort_by's callback. when an
-	//error occurs, we store it on the stack, repeatedly return Ordering::Equal until sort_by
-	//returns (on the assumption that this (1) won't trigger any endless loops, and (2) will
-	//enable sort_by to return as early as possible), and then return the error.
-	let mut error: Option<GError> = None;
-	vec.sort_by(|a, b| {
-		if error.is_some() {
-			return Ordering::Equal
-		}
-
-		match glsp::call(&ord, &[a.clone(), b.clone()]) {
-			Ok(Val::Sym(LT_SYM)) => Ordering::Less,
-			Ok(Val::Sym(NUM_EQ_SYM)) => Ordering::Equal,
-			Ok(Val::Sym(GT_SYM)) => Ordering::Greater,
-			Ok(result) => {
-				error = Some(error!("expected <, = or >, received {}", result));
-				Ordering::Equal
-			}
-			Err(err) => {
-				error = Some(err);
-				Ordering::Equal
-			}
-		}
-	});
-
-	match error {
-		Some(error) => Err(error),
-		None => {
-			deq.clear()?;
-			for val in vec.into_iter() {
-				deq.push(val)?;
-			}
-
-			Ok(())
+fn sort_mut(deq: Deque, ord: Option<Callable>) -> GResult<()> {
+	match ord {
+		None => deq.sort(),
+		Some(Callable::RFn(rfn)) if rfn == Std::borrow().ord_rfn.unwrap() => deq.sort(),
+		Some(ord) => {
+			deq.sort_by(|v0, v1| {
+				match glsp::call(&ord, &[v0, v1])? {
+					Val::Sym(LT_SYM) => Ok(Ordering::Less),
+					Val::Sym(NUM_EQ_SYM) => Ok(Ordering::Equal),
+					Val::Sym(GT_SYM) => Ok(Ordering::Greater),
+					result => bail!("expected <, == or >, but received {}", result),
+				}
+			})
 		}
 	}
 }
