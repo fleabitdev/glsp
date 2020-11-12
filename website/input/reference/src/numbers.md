@@ -41,6 +41,18 @@ their arguments unchanged.
 	(prn (clamp 1.0 3 5.0)) ; prints 3
 
 
+## NaN
+
+According to the IEEE 754 specification, all comparisons involving NaN floats should return 
+false. This means that NaN floats are unequal to themselves, and they're neither less than nor 
+greater than any other number.
+
+This rule is inconvenient when sorting numbers, and when working with hash tables, priority
+queues, and sorted arrays. GameLisp therefore imposes a total ordering on floats: NaN floats 
+compare greater than all other floats (including positive infinity), and all NaN floats compare 
+equal to all other NaN floats.
+
+
 ## Wrapping Arithmetic
 
 Integer arithmetic is always unchecked (wrapping), even when your crate is compiled in debug
@@ -54,7 +66,7 @@ In Rust, this adds a [large complexity burden][0] when working with integers.
 
 [0]: https://doc.rust-lang.org/std/primitive.i32.html
 
-Out of those three options, wrapping arithmetic was chosen over checked arithmetic in order to make 
-fatal errors less likely. In game development, overflowing an entity's coordinates and getting 
-a nonsensical value will usually be a minor bug, but overflowing an entity's coordinates and 
-crashing the game's executable would be catastrophic.
+GameLisp chose wrapping arithmetic over checked arithmetic in order to make fatal errors less 
+likely. In game development, overflowing an entity's coordinates and getting a nonsensical value 
+will usually be a minor bug, but overflowing an entity's coordinates and crashing the game's 
+executable would be catastrophic.

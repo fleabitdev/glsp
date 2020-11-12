@@ -2,6 +2,7 @@ use std::char;
 use std::cmp::{Ordering, PartialOrd};
 use std::fmt::{self, Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
+use std::iter::{once};
 use std::num::{FpCategory};
 use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
 use super::class::{Class, Obj};
@@ -416,6 +417,20 @@ impl Num {
 	}
 }
 
+#[inline]
+pub(crate) fn float_total_eq(a: f32, b: f32) -> bool {
+	(a.is_nan() && b.is_nan()) || a == b
+}
+
+pub(crate) fn float_total_cmp(a: f32, b: f32) -> Ordering {
+	match (a.is_nan(), b.is_nan()) {
+		(true, true) => Ordering::Equal,
+		(true, false) => Ordering::Greater,
+		(false, true) => Ordering::Less,
+		(false, false) => a.partial_cmp(&b).unwrap()
+	}
+}
+
 impl Default for Num {
 	fn default() -> Num {
 		Num::Int(0)
@@ -444,12 +459,14 @@ impl PartialEq<Num> for Num {
 	fn eq(&self, other: &Num) -> bool {
 		match (*self, *other) {
 			(Num::Int(i0), Num::Int(i1)) => i0 == i1,
-			(Num::Int(i0), Num::Flo(f1)) => i0 as f32 == f1,
-			(Num::Flo(f0), Num::Int(i1)) => f0 == i1 as f32,
-			(Num::Flo(f0), Num::Flo(f1)) => f0 == f1
+			(Num::Int(i0), Num::Flo(f1)) => float_total_eq(i0 as f32, f1),
+			(Num::Flo(f0), Num::Int(i1)) => float_total_eq(f0, i1 as f32),
+			(Num::Flo(f0), Num::Flo(f1)) => float_total_eq(f0, f1)
 		}
 	}
 }
+
+impl Eq for Num { }
 
 impl PartialEq<i32> for Num {
 	fn eq(&self, other: &i32) -> bool {
@@ -478,11 +495,17 @@ impl PartialEq<Num> for f32 {
 impl PartialOrd<Num> for Num {
 	fn partial_cmp(&self, other: &Num) -> Option<Ordering> {
 		match (*self, *other) {
-			(Num::Int(i0), Num::Int(i1)) => i0.partial_cmp(&i1),
-			(Num::Int(i0), Num::Flo(f1)) => (i0 as f32).partial_cmp(&f1),
-			(Num::Flo(f0), Num::Int(i1)) => f0.partial_cmp(&(i1 as f32)),
-			(Num::Flo(f0), Num::Flo(f1)) => f0.partial_cmp(&f1)
+			(Num::Int(i0), Num::Int(i1)) => Some(i0.cmp(&i1)),
+			(Num::Int(i0), Num::Flo(f1)) => Some(float_total_cmp(i0 as f32, f1)),
+			(Num::Flo(f0), Num::Int(i1)) => Some(float_total_cmp(f0, i1 as f32)),
+			(Num::Flo(f0), Num::Flo(f1)) => Some(float_total_cmp(f0, f1))
 		}
+	}
+}
+
+impl Ord for Num {
+	fn cmp(&self, other: &Num) -> Ordering {
+		self.partial_cmp(other).unwrap()
 	}
 }
 
@@ -596,16 +619,18 @@ impl Val {
 	pub fn num_eq(&self, other: &Val) -> Option<bool> {
 		match (self, other) {
 			(&Val::Int(i0), &Val::Int(i1)) => Some(i0 == i1),
-			(&Val::Flo(f0), &Val::Int(i1)) => Some(f0 == i1 as f32),
+			(&Val::Flo(f0), &Val::Int(i1)) => Some(float_total_eq(f0, i1 as f32)),
 			(&Val::Char(c0), &Val::Int(i1)) => Some(c0 as u32 as i32 == i1),
-			(&Val::Int(i0), &Val::Flo(f1)) => Some(i0 as f32 == f1),
-			(&Val::Flo(f0), &Val::Flo(f1)) => Some(f0 == f1),
-			(&Val::Char(c0), &Val::Flo(f1)) => Some(c0 as u32 as f32 == f1),
+			(&Val::Int(i0), &Val::Flo(f1)) => Some(float_total_eq(i0 as f32, f1)),
+			
+			(&Val::Flo(f0), &Val::Flo(f1)) => Some(float_total_eq(f0, f1)),
+			(&Val::Char(c0), &Val::Flo(f1)) => Some(float_total_eq(c0 as u32 as f32, f1)),
 			(&Val::Int(i0), &Val::Char(c1)) => Some(i0 == c1 as u32 as i32),
-			(&Val::Flo(f0), &Val::Char(c1)) => Some(f0 == c1 as u32 as f32),
+			(&Val::Flo(f0), &Val::Char(c1)) => Some(float_total_eq(f0, c1 as u32 as f32)),
+			
 			(&Val::Char(c0), &Val::Char(c1)) => Some(c0 == c1),
-			_ => None /*bail!("attempted to compare {} and {} using =", 
-			           self.a_type_name(), other.a_type_name())*/
+			
+			_ => None
 		}
 	}
 
@@ -624,16 +649,16 @@ impl Val {
 			(&Val::Char(_), &Val::Char(_)) => self.num_eq(other).unwrap(),
 			(&Val::Bool(b0), &Val::Bool(b1)) => b0 == b1,
 			(&Val::Sym(s0), &Val::Sym(s1)) => s0 == s1,
-			(&Val::RFn(f0), &Val::RFn(f1)) => f0 == f1,
-			(&Val::Arr(ref root0),   &Val::Arr(ref root1)) => Root::ptr_eq(root0, root1),
-			(&Val::Str(ref root0),   &Val::Str(ref root1)) => Root::ptr_eq(root0, root1),
-			(&Val::Tab(ref root0),   &Val::Tab(ref root1)) => Root::ptr_eq(root0, root1),
-			(&Val::GIter(ref root0),   &Val::GIter(ref root1)) => Root::ptr_eq(root0, root1),
-			(&Val::Obj(ref root0),   &Val::Obj(ref root1)) => Root::ptr_eq(root0, root1),
+			(&Val::RFn(r0), &Val::RFn(r1)) => r0 == r1,
+			(&Val::Arr(ref root0), &Val::Arr(ref root1)) => Root::ptr_eq(root0, root1),
+			(&Val::Str(ref root0), &Val::Str(ref root1)) => Root::ptr_eq(root0, root1),
+			(&Val::Tab(ref root0), &Val::Tab(ref root1)) => Root::ptr_eq(root0, root1),
+			(&Val::GIter(ref root0), &Val::GIter(ref root1)) => Root::ptr_eq(root0, root1),
+			(&Val::Obj(ref root0), &Val::Obj(ref root1)) => Root::ptr_eq(root0, root1),
 			(&Val::Class(ref root0), &Val::Class(ref root1)) => Root::ptr_eq(root0, root1),
-			(&Val::GFn(ref root0),   &Val::GFn(ref root1)) => Root::ptr_eq(root0, root1),
-			(&Val::Coro(ref root0),  &Val::Coro(ref root1)) => Root::ptr_eq(root0, root1),
-			(&Val::RData(ref root0),   &Val::RData(ref root1)) => Root::ptr_eq(root0, root1),
+			(&Val::GFn(ref root0), &Val::GFn(ref root1)) => Root::ptr_eq(root0, root1),
+			(&Val::Coro(ref root0), &Val::Coro(ref root1)) => Root::ptr_eq(root0, root1),
+			(&Val::RData(ref root0), &Val::RData(ref root1)) => Root::ptr_eq(root0, root1),
 			_ => false
 		}
 	}
@@ -677,8 +702,8 @@ impl Val {
 	Note that, because this method may need to invoke an `op-eq?` method when both of its
 	arguments are objects or `RData`, it can potentially fail.
 
-	The same is true for `PartialEq` comparisons between values using Rust's `==` operator.
-	In that case, if an error occurs, the operator will panic.
+	The same is true for `PartialEq` and `Eq` comparisons between values - for example, using 
+	Rust's `==` operator. If those comparisons encounter a GameLisp error, they will panic.
 	*/
 
 	pub fn try_eq(&self, other: &Val) -> GResult<bool> {
@@ -693,8 +718,15 @@ impl Val {
 	}
 }
 
-//`val0 == val` has the same semantics as `eq?`. for symmetry with the other equality methods,
-//it can be called as val0.eq(&val1). errors in `op-eq?` will panic - try_eq() is the alternative.
+/*
+`val0 == val` has the same semantics as `eq?`. for symmetry with the other equality methods,
+it can be called as val0.eq(&val1). errors in `op-eq?` will panic - try_eq() is the alternative.
+
+implementing PartialEq and Eq on types like Val and Arr will enable GameLisp code to violate
+the contract of those traits by defining an `op-eq?` method on a class. probably unlikely to be an
+issue in practice?
+*/
+
 impl PartialEq<Val> for Val {
 	fn eq(&self, other: &Val) -> bool {
 		match (self, other) {
@@ -708,61 +740,57 @@ impl PartialEq<Val> for Val {
 	}
 }
 
-impl Val {
-	#[doc(hidden)]
-	//todo: how to handle (ord nan 1), etc? currently panics.
-	pub fn num_cmp(&self, other: &Val) -> Option<Ordering> {
+impl Eq for Val { }
+
+/*
+if the user attempts to compare two Vals in Rust code in a way which doesn't make sense,
+e.g. Val::Int(1) < Val::Arr(arr![]), the comparison will return false. this is consistent
+with how Rust handles comparisons for types with a partial order, like f32
+*/
+
+impl PartialOrd<Val> for Val {
+	fn partial_cmp(&self, other: &Val) -> Option<Ordering> {
 		match (self, other) {
+			/*
+			numeric comparisons
+			*/
+
 			(&Val::Int(i0), &Val::Int(i1)) => Some(i0.cmp(&i1)),
-			(&Val::Flo(f0), &Val::Int(i1)) => f0.partial_cmp(&(i1 as f32)),
-			(&Val::Int(i0), &Val::Flo(f1)) => (i0 as f32).partial_cmp(&f1),
-			(&Val::Flo(f0), &Val::Flo(f1)) => f0.partial_cmp(&f1),
+			(&Val::Flo(f0), &Val::Int(i1)) => Some(float_total_cmp(f0, i1 as f32)),
+			(&Val::Int(i0), &Val::Flo(f1)) => Some(float_total_cmp(i0 as f32, f1)),
+			(&Val::Flo(f0), &Val::Flo(f1)) => Some(float_total_cmp(f0, f1)),
 
-			(&Val::Char(c0), &Val::Int(i1)) => Some((c0 as u32 as i32).cmp(&i1)),
-			(&Val::Char(c0), &Val::Flo(f1)) => (c0 as u32 as f32).partial_cmp(&f1),
-			(&Val::Int(i0), &Val::Char(c1)) => Some(i0.cmp(&(c1 as u32 as i32))),
-			(&Val::Flo(f0), &Val::Char(c1)) => f0.partial_cmp(&(c1 as u32 as f32)),
+			(&Val::Char(c0), &Val::Int(i1)) => Some((c0 as i32).cmp(&i1)),
+			(&Val::Char(c0), &Val::Flo(f1)) => Some(float_total_cmp(c0 as u32 as f32, f1)),
+			(&Val::Int(i0), &Val::Char(c1)) => Some(i0.cmp(&(c1 as i32))),
+			(&Val::Flo(f0), &Val::Char(c1)) => Some(float_total_cmp(f0, c1 as u32 as f32)),
 
-			(&Val::Char(c0), &Val::Char(c1)) => {
-				Some((c0 as u32 as i32).cmp(&(c1 as u32 as i32)))
-			}
+			/*
+			string comparisons
+			*/
+
+			(&Val::Char(c0), &Val::Char(c1)) => Some(c0.cmp(&c1)),
+			(&Val::Char(c0), &Val::Sym(s1)) => Some(once(c0).cmp(s1.name().chars())),
+			(&Val::Char(c0), &Val::Str(ref s1)) => Some(once(c0).cmp(s1.iter())),
+
+			(&Val::Str(ref s0), &Val::Char(c1)) => Some(s0.iter().cmp(once(c1))),
+			(&Val::Str(ref s0), &Val::Sym(s1)) => Some(s0.iter().cmp(s1.name().chars())),
+			(&Val::Str(ref s0), &Val::Str(ref s1)) => Some(s0.cmp(s1)),
+
+			(&Val::Sym(s0), &Val::Str(ref s1)) => Some(s0.name().chars().cmp(s1.iter())),
+			(&Val::Sym(s0), &Val::Char(c1)) => Some(s0.name().chars().cmp(once(c1))),
+			(&Val::Sym(s0), &Val::Sym(s1)) => Some(s0.cmp(&s1)),
+
+			/*
+			array comparisons
+			*/
+
+			(&Val::Arr(ref a0), &Val::Arr(ref a1)) => a0.partial_cmp(a1),
 
 			_ => None
 		}
 	}
 }
-
-macro_rules! partial_cmp_method (
-	($num_name:ident, $name:ident, $return_type:ty) => (
-		impl Val {
-			#[doc(hidden)]
-			pub fn $num_name(&self, other: &Val) -> Option<$return_type> {
-				match (self, other) {
-					(&Val::Int(i0), &Val::Int(i1)) => Some(i0.$name(&i1)),
-					(&Val::Flo(f0), &Val::Int(i1)) => Some(f0.$name(&(i1 as f32))),
-					(&Val::Int(i0), &Val::Flo(f1)) => Some((i0 as f32).$name(&f1)),
-					(&Val::Flo(f0), &Val::Flo(f1)) => Some(f0.$name(&f1)),
-
-					(&Val::Char(c0), &Val::Int(i1)) => Some((c0 as u32 as i32).$name(&i1)),
-					(&Val::Char(c0), &Val::Flo(f1)) => Some((c0 as u32 as f32).$name(&f1)),
-					(&Val::Int(i0), &Val::Char(c1)) => Some(i0.$name(&(c1 as u32 as i32))),
-					(&Val::Flo(f0), &Val::Char(c1)) => Some(f0.$name(&(c1 as u32 as f32))),
-
-					(&Val::Char(c0), &Val::Char(c1)) => {
-						Some((c0 as u32 as i32).$name(&(c1 as u32 as i32)))
-					}
-
-					_ => None
-				}
-			}
-		}
-	);
-);
-
-partial_cmp_method!(num_lt, lt, bool);
-partial_cmp_method!(num_le, le, bool);
-partial_cmp_method!(num_gt, gt, bool);
-partial_cmp_method!(num_ge, ge, bool);
 
 /**
 A thin wrapper over `Val` which enables it to be used as a key in a `HashTable`.

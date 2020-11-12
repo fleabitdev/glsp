@@ -9,7 +9,7 @@ use super::wrap::{ToVal};
 use std::{f32};
 use std::borrow::{Borrow};
 use std::cell::{Cell, RefCell, RefMut};
-use std::cmp::{max};
+use std::cmp::{max, Ordering};
 use std::fmt::{self, Debug};
 use std::hash::{Hash, Hasher};
 use std::mem::{size_of};
@@ -315,7 +315,21 @@ impl<T: Allocate> AsRef<T> for Root<T> {
 
 impl<T: Allocate + PartialEq<T>> PartialEq<Root<T>> for Root<T> {
 	fn eq(&self, other: &Root<T>) -> bool {
-		**self == **other
+		(**self).eq(&**other)
+	}
+}
+
+impl<T: Allocate + Eq> Eq for Root<T> { }
+
+impl<T: Allocate + PartialOrd<T>> PartialOrd<Root<T>> for Root<T> {
+	fn partial_cmp(&self, other: &Root<T>) -> Option<Ordering> {
+		(**self).partial_cmp(&**other)
+	}
+}
+
+impl<T: Allocate + Ord> Ord for Root<T> {
+	fn cmp(&self, other: &Root<T>) -> Ordering {
+		(**self).cmp(&**other)
 	}
 }
 

@@ -312,24 +312,32 @@ text = """
 [[apis]]
 	filename = "ord"
 	kinds = ["fn"]
-	args = ["left num|char", "right num|char"]
+	args = ["left val", "right val"]
 	returns = "sym"
 	text = """
-		Numeric ordering.
+		Numeric or lexicographic ordering.
 
-		Returns a `sym` describing the ordering between its arguments: 
+		Returns a symbol describing the ordering between its arguments: 
 		- `<` when `left` is less than `right`.
 		- `==` when `left` is equal to `right`.
 		- `>` when `left` is greater than `right`.
 
-		Characters, integers and floats can all be compared with one another:
-		- When both arguments have the same type, no conversion is performed.
-		- When comparing a character to an integer, the character is converted as though 
-		  calling [`(int c)`](int).
-		- When comparing a character to a float, the character is converted as though 
-		  calling [`(flo c)`](flo).
-		- When comparing an integer to a float, the integer is converted as though 
-		  calling [`(flo i)`](flo).
+		Integers, floats and characters can all be compared with one another. When comparing
+		an integer or character to a float, it will first be converted to a float, as though
+		calling the [`flo` function](flo). When comparing a character to an integer, it will
+		first be converted to an integer, as though calling the [`int` function](int).
+
+		NaN floats compare greater than any other number, including positive infinity. All NaN 
+		floats compare equal to all other NaN floats.
+
+		Strings, symbols and characters can all be compared with one another. The ordering
+		is [lexicographic](https://en.wikipedia.org/wiki/Lexicographic_order). When compared
+		to a string or a symbol, a character acts like a string of length 1.
+
+		Finally, arrays can be lexicographically compared to other arrays.
+
+		Comparing values of incompatible types (for example, comparing an integer to a class,
+		or comparing an array to a string) is an error.
 	"""
 
 [[apis]]

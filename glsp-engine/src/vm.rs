@@ -1,6 +1,7 @@
 use smallvec::{SmallVec};
 use std::{i32, f32, fmt};
 use std::cell::{Cell, RefCell, RefMut};
+use std::cmp::{Ordering};
 use std::convert::{From};
 use std::iter::{FromIterator};
 use std::mem::{forget, replace};
@@ -15,7 +16,7 @@ use super::error::{GError, GResult};
 use super::gc::{Allocate, Gc, Slot, Root};
 use super::iter::{GIterLen, IterableOps};
 use super::transform::{Predicate};
-use super::val::{Val};
+use super::val::{Val, float_total_eq, float_total_cmp};
 use super::wrap::{CallableOps};
 
 
@@ -1261,54 +1262,36 @@ fn interpret(
 			}
 		}
 		Instr::OpMin(dst_reg, arg0_reg, arg1_reg) => {
-			let arg0 = match &reg!(arg0_reg) {
-				&Slot::Int(i0) => Slot::Int(i0),
-				&Slot::Flo(f0) => Slot::Flo(f0),
-				&Slot::Char(c0) => Slot::Int(c0 as u32 as i32),
-				_ => bail_op!(MIN_SYM, "non-number passed to min")
-			};
+			let slot0 = &reg!(arg0_reg);
+			let slot1 = &reg!(arg1_reg);
 
-			let arg1 = match &reg!(arg1_reg) {
-				&Slot::Int(i1) => Slot::Int(i1),
-				&Slot::Flo(f1) => Slot::Flo(f1),
-				&Slot::Char(c1) => Slot::Int(c1 as u32 as i32),
-				_ => bail_op!(MIN_SYM, "non-number passed to min")
-			};
+			if !(matches!(slot0, Slot::Int(_) | Slot::Flo(_) | Slot::Char(_)) &&
+			     matches!(slot1, Slot::Int(_) | Slot::Flo(_) | Slot::Char(_))) {
+				bail_op!(MIN_SYM, "invalid argument passed to min")
+			}
 
-			let result = match (arg0, arg1) {
-				(Slot::Int(i0), Slot::Int(i1)) => if i0 <= i1 { Slot::Int(i0) } else { Slot::Int(i1) },
-				(Slot::Int(i), Slot::Flo(f)) => if i as f32 <= f { Slot::Int(i) } else { Slot::Flo(f) },
-				(Slot::Flo(f), Slot::Int(i)) => if f <= i as f32 { Slot::Flo(f) } else { Slot::Int(i) },
-				(Slot::Flo(f0), Slot::Flo(f1)) => if f0 <= f1 { Slot::Flo(f0) } else { Slot::Flo(f1) },
-				_ => unreachable!()
-			};
-			
-			reg!(dst_reg) = result;
+			//todo: the rooting here isn't ideal
+			match slot0.root().partial_cmp(&slot1.root()) {
+				Some(Ordering::Less) | Some(Ordering::Equal) => reg!(dst_reg) = slot0.clone(),
+				Some(Ordering::Greater) => reg!(dst_reg) = slot1.clone(),
+				None => unreachable!()
+			}
 		}
 		Instr::OpMax(dst_reg, arg0_reg, arg1_reg) => {
-			let arg0 = match &reg!(arg0_reg) {
-				&Slot::Int(i0) => Slot::Int(i0),
-				&Slot::Flo(f0) => Slot::Flo(f0),
-				&Slot::Char(c0) => Slot::Int(c0 as u32 as i32),
-				_ => bail_op!(MAX_SYM, "non-number passed to max")
-			};
+			let slot0 = &reg!(arg0_reg);
+			let slot1 = &reg!(arg1_reg);
 
-			let arg1 = match &reg!(arg1_reg) {
-				&Slot::Int(i1) => Slot::Int(i1),
-				&Slot::Flo(f1) => Slot::Flo(f1),
-				&Slot::Char(c1) => Slot::Int(c1 as u32 as i32),
-				_ => bail_op!(MAX_SYM, "non-number passed to max")
-			};
+			if !(matches!(slot0, Slot::Int(_) | Slot::Flo(_) | Slot::Char(_)) &&
+			     matches!(slot1, Slot::Int(_) | Slot::Flo(_) | Slot::Char(_))) {
+				bail_op!(MAX_SYM, "invalid argument passed to max")
+			}
 
-			let result = match (arg0, arg1) {
-				(Slot::Int(i0), Slot::Int(i1)) => if i0 >= i1 { Slot::Int(i0) } else { Slot::Int(i1) },
-				(Slot::Int(i), Slot::Flo(f)) => if i as f32 >= f { Slot::Int(i) } else { Slot::Flo(f) },
-				(Slot::Flo(f), Slot::Int(i)) => if f >= i as f32 { Slot::Flo(f) } else { Slot::Int(i) },
-				(Slot::Flo(f0), Slot::Flo(f1)) => if f0 >= f1 { Slot::Flo(f0) } else { Slot::Flo(f1) },
-				_ => unreachable!()
-			};
-			
-			reg!(dst_reg) = result;
+			//todo: the rooting here isn't ideal
+			match slot0.root().partial_cmp(&slot1.root()) {
+				Some(Ordering::Greater) | Some(Ordering::Equal) => reg!(dst_reg) = slot0.clone(),
+				Some(Ordering::Less) => reg!(dst_reg) = slot1.clone(),
+				None => unreachable!()
+			}
 		}
 		Instr::OpPredicate(dst_reg, arg_reg, predicate) => {
 			let result = match (predicate, &reg!(arg_reg)) {
@@ -1380,7 +1363,7 @@ fn interpret(
 				NUM_EQ_SYM, 
 				dst_reg, arg0_reg, arg1_reg, 
 				|i0, i1| i0 == i1, 
-				|f0, f1| f0 == f1
+				|f0, f1| float_total_eq(f0, f1)
 			)
 		}
 		Instr::OpLt(dst_reg, arg0_reg, arg1_reg) => {
@@ -1388,7 +1371,7 @@ fn interpret(
 				LT_SYM, 
 				dst_reg, arg0_reg, arg1_reg, 
 				|i0, i1| i0 < i1, 
-				|f0, f1| f0 < f1
+				|f0, f1| float_total_cmp(f0, f1) == Ordering::Less
 			)
 		}
 		Instr::OpLte(dst_reg, arg0_reg, arg1_reg) => {
@@ -1396,7 +1379,7 @@ fn interpret(
 				LTE_SYM, 
 				dst_reg, arg0_reg, arg1_reg, 
 				|i0, i1| i0 <= i1, 
-				|f0, f1| f0 <= f1
+				|f0, f1| float_total_cmp(f0, f1) != Ordering::Greater
 			)
 		}
 		Instr::OpGt(dst_reg, arg0_reg, arg1_reg) => {
@@ -1404,7 +1387,7 @@ fn interpret(
 				GT_SYM, 
 				dst_reg, arg0_reg, arg1_reg, 
 				|i0, i1| i0 > i1, 
-				|f0, f1| f0 > f1
+				|f0, f1| float_total_cmp(f0, f1) == Ordering::Greater
 			)
 		}
 		Instr::OpGte(dst_reg, arg0_reg, arg1_reg) => {
@@ -1412,7 +1395,7 @@ fn interpret(
 				GTE_SYM, 
 				dst_reg, arg0_reg, arg1_reg, 
 				|i0, i1| i0 >= i1, 
-				|f0, f1| f0 >= f1
+				|f0, f1| float_total_cmp(f0, f1) != Ordering::Less
 			)
 		}
 		Instr::OpNot(dst_reg, arg_reg) => {

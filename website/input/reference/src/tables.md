@@ -90,16 +90,14 @@ previously created for key A.
 
 [equivalence relation]: https://en.wikipedia.org/wiki/Equivalence_relation
 
-Our hash tables can use any GameLisp data as a key, including `#n`. The equivalence relation is 
-represented by the function [`keys-eqv?`](../std/keys-eqv-p). This function is very similar to
-[`eq?`](miscellaneous.md#equality), with a few small changes:
+Our hash tables can use any GameLisp data as a key, including `#n` and NaN floats. The equivalence 
+relation is represented by the function [`keys-eqv?`](../std/keys-eqv-p). This function is very 
+similar to [`eq?`](miscellaneous.md#equality), with a few small changes:
 
 - Numbers and characters act as distinct keys, even if they're numerically equal.
   `65`, `65.0` and `\A` are all `==` to one another, but they're not key-equivalent.
 
-- All `nan.0` floating-point values are key-equivalent to one another.
-
-- For performance reasons, tables have to be compared for equivalence using 
+- For performance reasons, tables have to be compared for key-equivalence using 
   [`same?`](../std/same-p) rather than [`eq?`](../std/eq-p). This means that two tables can have 
   identical contents, but still be considered distinct when used as table keys.
 

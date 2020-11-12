@@ -6,12 +6,18 @@
 
 - The `rdata!` and `lib!` macros now support `enum` declarations as well as `struct` declarations
 - Added the `sym!` macro, as a convenient alternative to `glsp::sym(x).unwrap()`
+- Defined a total ordering for floats: NaNs now compare equal to other NaNs, and compare greater 
+  than all non-NaN numbers
 
 ### Changed
 
 - `meth`, `has-meth?`, `meth-name` and `call-meth` have been renamed to `met`, `has-met?`,
   `met-name` and `call-met` respectively
 - Improved error message when glsp functions are called with no active `Runtime`
+- The `ord` function now accepts strings, symbols and arrays
+- `sort`'s comparison function now defaults to `ord`
+- `PartialOrd`, `Ord` and `Eq` are now implemented, where appropriate, for `Val`, `Num`, `Root`,
+  `Arr`, `Str`, `Tab` and `Sym`
 
 ### Fixed
 

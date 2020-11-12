@@ -1,6 +1,7 @@
 use fnv::{FnvHashMap};
 use std::{u8, u16, char};
 use std::cell::{Cell, Ref, RefCell, RefMut};
+use std::cmp::{Ordering};
 use std::collections::{hash_map, VecDeque};
 use std::convert::{TryFrom};
 use std::default::{Default};
@@ -972,6 +973,35 @@ impl Arr {
 impl PartialEq<Arr> for Arr {
 	fn eq(&self, other: &Arr) -> bool {
 		self.try_eq(other).unwrap()
+	}
+}
+
+impl Eq for Arr { }
+
+impl PartialOrd<Arr> for Arr {
+	fn partial_cmp(&self, other: &Arr) -> Option<Ordering> {
+		let len0 = self.len();
+		let len1 = other.len();
+
+		if len0 < len1 {
+			Some(Ordering::Less)
+		} else if len0 > len1 {
+			Some(Ordering::Greater)
+		} else {
+			for i in 0 .. len0 {
+				let val0: Val = self.get(i).unwrap();
+				let val1: Val = other.get(i).unwrap();
+
+				match val0.partial_cmp(&val1) {
+					Some(Ordering::Less) => return Some(Ordering::Less),
+					Some(Ordering::Equal) => (),
+					Some(Ordering::Greater) => return Some(Ordering::Greater),
+					None => return None
+				}
+			}
+
+			Some(Ordering::Equal)
+		}
 	}
 }
 
@@ -1991,7 +2021,21 @@ impl fmt::Write for Root<Str> {
 
 impl PartialEq<Str> for Str {
 	fn eq(&self, other: &Str) -> bool {
-		self.len() == other.len() && self.iter().zip(other.iter()).all(|(c0, c1)| c0 == c1)
+		self.iter().eq(other.iter())
+	}
+}
+
+impl Eq for Str { }
+
+impl PartialOrd<Str> for Str {
+	fn partial_cmp(&self, other: &Str) -> Option<Ordering> {
+		Some(self.iter().cmp(other.iter()))
+	}
+}
+
+impl Ord for Str {
+	fn cmp(&self, other: &Str) -> Ordering {
+		self.iter().cmp(other.iter())
 	}
 }
 
@@ -3469,6 +3513,8 @@ impl PartialEq<Tab> for Tab {
 		self.try_eq(other).unwrap()
 	}
 }
+
+impl Eq for Tab { }
 
 
 //-------------------------------------------------------------------------------------------------

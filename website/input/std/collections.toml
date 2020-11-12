@@ -342,17 +342,14 @@ text = """
 [[apis]]
 	filename = "sort"
 	kinds = ["fn"]
-	args = ["deq deque", "ordf callable"]
+	args = ["deq deque", "ordf callable ?ord"]
 	returns = "deque"
 	text = """
 		Returns a sorted copy of a deque.
 
 		`ordf` must be a function which can accept any two elements from `deq` as arguments.
 		It must return one of the symbols `==`, `<` or `>` to represent the relative ordering of
-		those two elements.
-
-		If all of the deque's elements are numbers or characters, a good choice for `ordf`
-		would be the built-in function [`ord`](ord).
+		those two elements. It defaults to the built-in function [`ord`](ord).
 
 			(let sorted (sort "Hello, world!" ord))
 			(prn sorted) ; prints  !,Hdellloorw
@@ -361,7 +358,7 @@ text = """
 [[apis]]
 	filename = "sort-mut"
 	kinds = ["fn"]
-	args = ["deq deque", "ordf callable"]
+	args = ["deq deque", "ordf callable ?ord"]
 	returns = "nil"
 	see-also = ["sort"]
 	text = """

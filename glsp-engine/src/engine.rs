@@ -5,6 +5,7 @@ use smallvec::{SmallVec};
 use std::{fmt, fs, str, u32};
 use std::any::{Any, TypeId, type_name};
 use std::cell::{Cell, Ref, RefCell, RefMut};
+use std::cmp::{Ordering};
 use std::collections::{HashMap, hash_map::Entry::{Occupied, Vacant}, HashSet};
 use std::convert::{TryFrom};
 use std::fmt::{Debug, Display, Formatter, Pointer};
@@ -677,6 +678,26 @@ impl Sym {
 	#[doc(hidden)]
 	pub fn to_u32(&self) -> u32 {
 		self.0
+	}
+}
+
+impl PartialOrd<Sym> for Sym {
+	fn partial_cmp(&self, other: &Sym) -> Option<Ordering> {
+		if self.0 == other.0 {
+			Some(Ordering::Equal)
+		} else {
+			(*self.name()).partial_cmp(&*other.name())
+		}
+	}
+}
+
+impl Ord for Sym {
+	fn cmp(&self, other: &Sym) -> Ordering {
+		if self.0 == other.0 {
+			Ordering::Equal
+		} else {
+			(*self.name()).cmp(&*other.name())
+		}
 	}
 }
 

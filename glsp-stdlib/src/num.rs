@@ -144,7 +144,11 @@ fn min(first: Val, rest: &[Val]) -> GResult<Val> {
 	ensure!(rest.iter().all(|val| val.is_int() || val.is_flo() || val.is_char()),
 	        "non-number passed to min");
 	Ok(rest.iter().fold(first, |accum, arg| {
-		if arg.num_lt(&accum).unwrap() { arg.clone() } else { accum }
+		if arg.partial_cmp(&accum).unwrap() == Ordering::Less {
+			arg.clone()
+		} else {
+			accum
+		}
 	}))
 }
 
@@ -152,7 +156,11 @@ fn max(first: Val, rest: &[Val]) -> GResult<Val> {
 	ensure!(rest.iter().all(|val| val.is_int() || val.is_flo() || val.is_char()),
 	        "non-number passed to max");
 	Ok(rest.iter().fold(first, |accum, arg| {
-		if arg.num_gt(&accum).unwrap() { arg.clone() } else { accum }
+		if arg.partial_cmp(&accum).unwrap() == Ordering::Greater {
+			arg.clone()
+		} else {
+			accum
+		}
 	}))
 }
 
@@ -161,11 +169,14 @@ fn clamp(n: Val, min: Val, max: Val) -> GResult<Val> {
 		ensure!(val.is_int() || val.is_flo() || val.is_char(), "non-number passed to clamp");
 	}
 
-	ensure!(min.num_le(&max).unwrap(), "min value passed to (clamp) is larger than its max value");
+	ensure!(
+		min.partial_cmp(&max).unwrap() != Ordering::Greater,
+		"min value passed to (clamp) is larger than its max value"
+	);
 
-	if n.num_le(&min).unwrap() { 
+	if n.partial_cmp(&min).unwrap() != Ordering::Greater { 
 		Ok(min)
-	} else if n.num_ge(&max).unwrap() {
+	} else if n.partial_cmp(&max).unwrap() != Ordering::Less {
 		Ok(max)
 	} else {
 		Ok(n)
@@ -357,43 +368,47 @@ fn bitsar(arg: i32, shift: u32) -> i32 {
 fn num_eq(args: &[Val]) -> GResult<bool> {
 	ensure!(args.len() >= 2, "expected at least 2 args, but received {}", args.len());
 	ensure!(args.iter().all(|val| val.is_int() || val.is_flo() || val.is_char()),
-	        "non-number passed to =");
-	Ok((0 .. args.len()-1).all(|i| args[i].num_eq(&args[i+1]).unwrap()))
+	        "non-number passed to ==");
+	Ok((0 .. args.len()-1).all(|i| args[i].partial_cmp(&args[i+1]).unwrap() == Ordering::Equal))
 }
 
 fn lt(args: &[Val]) -> GResult<bool> {
 	ensure!(args.len() >= 2, "expected at least 2 args, but received {}", args.len());
 	ensure!(args.iter().all(|val| val.is_int() || val.is_flo() || val.is_char()),
 	        "non-number passed to <");
-	Ok((0 .. args.len()-1).all(|i| args[i].num_lt(&args[i+1]).unwrap()))
+	Ok((0 .. args.len()-1).all(|i| args[i].partial_cmp(&args[i+1]).unwrap() == Ordering::Less))
 }
 
 fn lte(args: &[Val]) -> GResult<bool> {
 	ensure!(args.len() >= 2, "expected at least 2 args, but received {}", args.len());
 	ensure!(args.iter().all(|val| val.is_int() || val.is_flo() || val.is_char()),
 	        "non-number passed to <=");
-	Ok((0 .. args.len()-1).all(|i| args[i].num_le(&args[i+1]).unwrap()))
+	Ok((0 .. args.len()-1).all(|i| args[i].partial_cmp(&args[i+1]).unwrap() != Ordering::Greater))
 }
 
 fn gt(args: &[Val]) -> GResult<bool> {
 	ensure!(args.len() >= 2, "expected at least 2 args, but received {}", args.len());
 	ensure!(args.iter().all(|val| val.is_int() || val.is_flo() || val.is_char()),
 	        "non-number passed to >");
-	Ok((0 .. args.len()-1).all(|i| args[i].num_gt(&args[i+1]).unwrap()))
+	Ok((0 .. args.len()-1).all(|i| args[i].partial_cmp(&args[i+1]).unwrap() == Ordering::Greater))
 }
 
 fn gte(args: &[Val]) -> GResult<bool> {
 	ensure!(args.len() >= 2, "expected at least 2 args, but received {}", args.len());
 	ensure!(args.iter().all(|val| val.is_int() || val.is_flo() || val.is_char()),
 	        "non-number passed to >=");
-	Ok((0 .. args.len()-1).all(|i| args[i].num_ge(&args[i+1]).unwrap()))
+	Ok((0 .. args.len()-1).all(|i| args[i].partial_cmp(&args[i+1]).unwrap() != Ordering::Less))
 }
 
 fn ord(arg0: Val, arg1: Val) -> GResult<Ordering> {
-	ensure!((arg0.is_int() || arg0.is_flo() || arg0.is_char()) &&
-	        (arg1.is_int() || arg1.is_flo() || arg1.is_char()),
-	        "non-number passed to ord");
-	Ok(arg0.num_cmp(&arg1).unwrap())
+	match arg0.partial_cmp(&arg1) {
+		Some(ordering) => Ok(ordering),
+		None => bail!(
+			"invalid arguments passed to ord: {} and {}",
+			arg0.a_type_name(),
+			arg1.a_type_name()
+		)
+	}
 }
 
 fn rand(arg0: Num, arg1: Option<Num>) -> Num {
