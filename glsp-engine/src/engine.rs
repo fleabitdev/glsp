@@ -834,6 +834,22 @@ macro_rules! syms {
 	);
 }
 
+/**
+Constructs a symbol.
+
+`sym!(arg)` is shorthand for [`glsp::sym(arg).unwrap()`](fn.sym.html).
+
+This macro is convenient, but not necessarily efficient. To cache a large number of symbols
+so that they don't have to be repeatedly recreated, use the [`syms!` macro](macro.syms.html).
+*/
+
+#[macro_export]
+macro_rules! sym {
+	($arg:expr,) => (sym!($arg));
+	($arg:expr) => (
+		$crate::sym($arg).unwrap()
+	)
+}
 
 //-------------------------------------------------------------------------------------------------
 // Lib, RData, RRoot

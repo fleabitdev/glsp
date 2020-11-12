@@ -31,7 +31,7 @@ pub mod prelude {
 	pub use crate::{
 		arr, backquote, bail, bail_at, ensure, ensure_at, 
 		epr, eprn, error, lib, macro_no_op, pr, prn, quote,
-		rdata, rdata_impls, rfn, str, syms, tab, try_arr, 
+		rdata, rdata_impls, rfn, str, sym, syms, tab, try_arr, 
 		try_backquote, try_tab,
 
 		Arr, 

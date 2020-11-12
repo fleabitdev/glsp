@@ -5,6 +5,7 @@
 ### Added
 
 - The `rdata!` and `lib!` macros now support `enum` declarations as well as `struct` declarations
+- Added the `sym!` macro, as a convenient alternative to `glsp::sym(x).unwrap()`
 
 ### Changed
 
