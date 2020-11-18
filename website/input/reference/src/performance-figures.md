@@ -46,7 +46,7 @@ language implementations, like LuaJIT, PyPy, V8, and SpiderMonkey, would be sign
 The "GameLisp (SI)" column was compiled with the [default feature flags](feature-flags.md), and the 
 "GameLisp (UI)" column was compiled with the `"unsafe-internals"` flag enabled.
 
-The `primitive_x` benchmarks perform a basic operation (like addition or array indexing)
+The `primitive-x` benchmarks perform a basic operation (like addition or array indexing)
 in an unrolled loop, while the remaining benchmarks try to imitate actual game code.
 
 |Benchmark|Lua 5.3|GameLisp (UI)|Python 3.7.7|GameLisp (SI)|
@@ -60,7 +60,7 @@ in an unrolled loop, while the remaining benchmarks try to imitate actual game c
 |`primitive-field`|82.9ms|217.6ms|333.2ms|633.6ms|
 |`primitive-method`|489.1ms|1275.1ms|838.7ms|2093.0ms|
 |`rects`|384.0ms|1142.5ms|1234.7ms|2664.8ms|
-|`flood_fill`|400.1ms|632.2ms|664.3ms|976.9ms|
+|`flood-fill`|400.1ms|632.2ms|664.3ms|976.9ms|
 |`rotation`|657.4ms|1015.3ms|1325.6ms|1843.9ms|
 
 By default, GameLisp's performance is inferior to Python. If you've benchmarked your
@@ -90,7 +90,7 @@ integrated with Rust. Here's the punchline to those benchmark figures above:
 |`primitive-field`|10.3ms|217.6ms|633.6ms|
 |`primitive-method`|10.4ms|1275.1ms|2093.0ms|
 |`rects`|9.6ms|1142.5ms|2664.8ms|
-|`flood_fill`|2.7ms|632.2ms|976.9ms|
+|`flood-fill`|2.7ms|632.2ms|976.9ms|
 |`rotation`|59.4ms|1015.3ms|1843.9ms|
 
 Idiomatic Rust code will often be more than a hundred times faster than idiomatic GameLisp code. 
