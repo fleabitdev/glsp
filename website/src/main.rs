@@ -1,5 +1,3 @@
-#![feature(proc_macro_hygiene)]
-
 use image::{self, DynamicImage, GenericImageView, imageops, Rgba};
 use maud::{DOCTYPE, html, PreEscaped};
 use mdbook::{MDBook};

@@ -3,10 +3,6 @@
 The `glsp` crate defines a handful of procedural macros. In general, their purpose is to blur the 
 line between GameLisp code and Rust code.
 
-At the time of writing, nightly Rust requires `#![feature(proc_macro_hygiene)]` in order for
-procedural macros to be used in expression position. This restriction will be lifted in 
-the [very near future](https://github.com/rust-lang/rust/pull/68717).
-
 
 ## `eval`
 

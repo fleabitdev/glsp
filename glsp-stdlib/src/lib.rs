@@ -1,7 +1,5 @@
 #![forbid(unsafe_code)]
 
-#![feature(proc_macro_hygiene)]
-
 use glsp::{bail, Engine, EngineBuilder, Expander, GResult, GSend, lib, Lib, RFn, Sym};
 use std::{i32, thread};
 use std::collections::{hash_map::DefaultHasher, HashMap};
