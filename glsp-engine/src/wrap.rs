@@ -702,6 +702,7 @@ pub trait IntoResult {
 //once specialization is enabled, we'll need to provide specialized impls for tuples, arrays, etc.
 //we can't currently return collections of things which are passed by value, like RData.
 impl<T> IntoResult for T where T: ToVal {
+	#[inline(always)]
 	fn into_result(self) -> GResult<Slot> {
 		self.to_slot()
 	}
@@ -709,6 +710,7 @@ impl<T> IntoResult for T where T: ToVal {
 
 //once specialization is enabled, we should add a generic impl for Result<T, E: Error>
 impl<T> IntoResult for GResult<T> where T: IntoResult {
+	#[inline(always)]
 	fn into_result(self) -> GResult<Slot> {
 		match self {
 			Ok(payload) => payload.into_result(),
@@ -1438,7 +1440,7 @@ macro_rules! rfn {
 			$crate::WrappedFn::new(
 				|vals: std::cell::Ref<[$crate::Slot]>| 
 				 -> $crate::GResult<$crate::Slot> { 
-				 	let mut temps = $crate::make_temps($fn_expr, &*vals)?;
+					let mut temps = $crate::make_temps($fn_expr, &*vals)?;
 				 	drop(vals);
 					$crate::forwarder($fn_expr, &mut temps)
 				},
@@ -2391,6 +2393,7 @@ macro_rules! rdata_impls {
 		}
 
 		impl $crate::IntoResult for $rdata {
+			#[inline(always)]
 			fn into_result(self) -> GResult<$crate::Slot> {
 				Ok($crate::Slot::RData($crate::rdata(self)?.into_gc()))
 			}
