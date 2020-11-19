@@ -13,6 +13,9 @@ use syn::{LitStr, parse::Parser, punctuated::Punctuated, Token};
 /**
 Pre-compiles GameLisp code and embeds it into the executable as a byte slice.
 
+This macro is only available when the ["compiler" feature 
+flag](https://gamelisp.rs/reference/feature-flags.html#compiler) is enabled.
+
 The input must be a comma-separated list of filepaths, which are looked up relative to the 
 [`CARGO_MANIFEST_DIR`](https://doc.rust-lang.org/cargo/reference/environment-variables.html).
 	
@@ -60,6 +63,9 @@ pub fn compile(input: TokenStream) -> TokenStream {
 /**
 
 A convenient way to evaluate simple GameLisp code.
+
+This macro is only available when the ["compiler" feature 
+flag](https://gamelisp.rs/reference/feature-flags.html#compiler) is enabled.
 
 The input must be a single string literal which represents zero or more valid GameLisp forms. 
 Those forms are evaluated in order, and the final form's result is returned. The return type is 
