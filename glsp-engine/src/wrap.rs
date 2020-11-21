@@ -1851,8 +1851,7 @@ impl<'a, T> MakeArg<'a> for OrNil<T> where T: MakeArg<'a> {
 
 impl<'r, T> MakeTemp for &'r [T]
 where
-	T: 'static + for<'a> MakeArg<'a, Temp = Slot>,
-	[T; 8]: smallvec::Array<Item = T>
+	T: 'static + for<'a> MakeArg<'a, Temp = Slot>
 {
 	const ARG_TYPE: ArgType = ArgType::Rest;
 	type Temp = SmallVec<[T; 8]>;
@@ -1871,8 +1870,7 @@ where
 
 impl<'a: 'r, 'r, T> MakeArg<'a> for &'r [T]
 where
-	T: 'static + for<'a2> MakeArg<'a2, Temp = Slot>,
-	[T; 8]: smallvec::Array<Item = T>
+	T: 'static + for<'a2> MakeArg<'a2, Temp = Slot>
 {
 	#[inline(always)]
 	fn make_arg(
@@ -1887,8 +1885,7 @@ where
 
 impl<'r, T> MakeTemp for &'r mut [T]
 where
-	T: 'static + for<'a> MakeArg<'a, Temp = Slot>,
-	[T; 8]: smallvec::Array<Item = T>
+	T: 'static + for<'a> MakeArg<'a, Temp = Slot>
 {
 	const ARG_TYPE: ArgType = ArgType::Rest;
 	type Temp = SmallVec<[T; 8]>;
@@ -1907,8 +1904,7 @@ where
 
 impl<'a: 'r, 'r, T> MakeArg<'a> for &'r mut [T]
 where
-	T: 'static + for<'a2> MakeArg<'a2, Temp = Slot>,
-	[T; 8]: smallvec::Array<Item = T>
+	T: 'static + for<'a2> MakeArg<'a2, Temp = Slot>
 {
 	#[inline(always)]
 	fn make_arg(
