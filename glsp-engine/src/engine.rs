@@ -1728,7 +1728,7 @@ pub mod glsp {
 	/** Equivalent to [`(sym name)`](https://gamelisp.rs/std/sym). */
 
 	pub fn sym(name: &str) -> GResult<Sym> {
-		ensure!(glsp::is_valid_sym_str(name), "invalid sym '{}'", name);
+		ensure!(glsp::is_valid_sym(name), "invalid sym '{}'", name);
 		glsp::sym_impl(name, SymKind::Normal)
 	}
 
@@ -1763,7 +1763,7 @@ pub mod glsp {
 
 	/** Equivalent to [`(valid-sym-str? st)`](https://gamelisp.rs/std/valid-sym-str-p). */
 
-	pub fn is_valid_sym_str(st: &str) -> bool {
+	pub fn is_valid_sym(st: &str) -> bool {
 		//one or more of the valid sym chars, optionally with a '#' suffix
 		let mut rev_iter = st.chars().rev();
 		match rev_iter.next() {
@@ -1783,6 +1783,18 @@ pub mod glsp {
 		lex::is_valid_sym_char(ch)
 	}
 
+	/** 
+	Equivalent to [`(representable-sym-str? st)`](https://gamelisp.rs/std/representable-sym-str-p).
+	*/
+
+	pub fn is_representable_sym(st: &str) -> bool {
+		if !is_valid_sym(st) {
+			false
+		} else {
+			sym(st).unwrap().is_representable()
+		}
+	}
+
 	/** Equivalent to [`(gensym)`](https://gamelisp.rs/std/gensym). */
 
 	pub fn gensym() -> Sym {
@@ -1792,7 +1804,7 @@ pub mod glsp {
 	/** Equivalent to [`(gensym tag)`](https://gamelisp.rs/std/gensym). */
 
 	pub fn gensym_with_tag(tag: &str) -> GResult<Sym> {
-		ensure!(glsp::is_valid_sym_str(tag) && !tag.ends_with("#"),
+		ensure!(glsp::is_valid_sym(tag) && !tag.ends_with("#"),
 		        "invalid gensym tag '{}': tags should be a valid sym without a trailing '#'",
 		        tag);
 		Ok(glsp::gensym_impl(Some(tag)))

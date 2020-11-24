@@ -56,8 +56,9 @@ pub fn init(sandboxed: bool) -> GResult<()> {
 
 	glsp::bind_rfn("int->str", rfn!(int_to_str))?;
 	glsp::bind_rfn("flo->str", rfn!(flo_to_str))?;
-	glsp::bind_rfn("valid-sym-char?", rfn!(is_valid_sym_char))?;
-	glsp::bind_rfn("valid-sym-str?", rfn!(is_valid_sym_str))?;
+	glsp::bind_rfn("valid-sym-char?", rfn!(valid_sym_charp))?;
+	glsp::bind_rfn("valid-sym-str?", rfn!(valid_sym_strp))?;
+	glsp::bind_rfn("representable-sym-str?", rfn!(representable_sym_strp))?;
 
 	glsp::bind_rfn("global", rfn!(global))?;
 	glsp::bind_rfn("global=", rfn!(set_global))?;
@@ -279,12 +280,16 @@ fn flo_to_str(arg: f32, decimal_places: Option<usize>) -> Root<Str> {
 	glsp::str_from_rust_str(str::from_utf8(&buf[..]).unwrap())
 }
 
-fn is_valid_sym_char(ch: char) -> bool {
+fn valid_sym_charp(ch: char) -> bool {
 	glsp::is_valid_sym_char(ch)
 }
 
-fn is_valid_sym_str(st: &str) -> bool {
-	glsp::is_valid_sym_str(st)
+fn valid_sym_strp(st: &str) -> bool {
+	glsp::is_valid_sym(st)
+}
+
+fn representable_sym_strp(st: &str) -> bool {
+	glsp::is_representable_sym(st)
 }
 
 fn samep(args: &[Val]) -> GResult<bool> {

@@ -166,6 +166,20 @@ text = ""
 	"""
 
 [[apis]]
+	filename = "representable-sym-str-p"
+	kinds = ["fn"]
+	args = ["st str"]
+	see-also = ["sym", "unparse"]
+	returns = "bool"
+	text = """
+		Returns `#t` if its argument would be a valid, representable symbol.
+
+		A symbol is non-representable if, when printed, the resulting text would be parsed as
+		a number or abbreviation. For example, `(sym "100")` will return a non-representable
+		symbol.
+	"""
+
+[[apis]]
 	filename = "parse"
 	starts-subcategory = "Parsing"
 	kinds = ["fn"]

@@ -9,6 +9,8 @@
 - Defined a total ordering for floats: NaNs now compare equal to other NaNs, and compare greater 
   than all non-NaN numbers
 - Added `sort` and `sort_by` methods to the `DequeOps` trait
+- Added `is_representable` and `is_serializable` methods to `Arr`, `Tab`, `Sym` and `Val`
+- Added the `glsp::is_representable_sym` function
 
 ### Changed
 
@@ -22,6 +24,7 @@
 - Removed the `free!` function. `RData::free` can still be called from Rust code
 - The `rand-select` and `chance` functions have been renamed to `rand-pick` and `chance?`
 - The `coin-flip` function has been removed
+- `glsp::is_valid_sym_str` has been renamed to `glsp::is_valid_sym`
 
 ### Fixed
 

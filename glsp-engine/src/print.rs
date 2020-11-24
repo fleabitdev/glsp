@@ -67,13 +67,28 @@ compiler needs to serialize literals. instead, we provide a similar method check
 */
 
 impl Val {
+	///Returns `true` if this value can be losslessly converted to text.
+	pub fn is_representable(&self) -> bool {
+		self.check_representability().is_ok()
+	}
+
 	///Returns `Ok` if this value can be losslessly converted to text.
 	pub fn check_representability(&self) -> Result<(), &'static str> {
 		let mut stack = SmallVec::new();
 		self.repr_test(&mut stack, false)
 	}
 
+	///Returns `true` if this value can be serialized and deserialized using Serde.
+	///
+	///This method is only present when the `"serde"` feature is enabled.
+	#[cfg(feature = "serde")]
+	pub fn is_serializable(&self) -> bool {
+		self.check_serializability().is_ok()
+	}
+
 	///Returns `Ok` if this value can be serialized and deserialized using Serde.
+	///
+	///This method is only present when the `"serde"` feature is enabled.
 	#[cfg(feature = "serde")]
 	pub fn check_serializability(&self) -> Result<(), &'static str> {
 		let mut stack = SmallVec::new();
@@ -122,13 +137,28 @@ impl Slot {
 }
 
 impl Arr {
+	///Returns `true` if this array can be losslessly converted to text.
+	pub fn is_representable(&self) -> bool {
+		self.check_representability().is_ok()
+	}
+
 	///Returns `Ok` if this array can be losslessly converted to text.
 	pub fn check_representability(&self) -> Result<(), &'static str> {
 		let mut stack = SmallVec::new();
 		self.repr_test(&mut stack, false)
 	}
 
+	///Returns `true` if this array can be serialized and deserialized using Serde.
+	///
+	///This method is only present when the `"serde"` feature is enabled.
+	#[cfg(feature = "serde")]
+	pub fn is_serializable(&self) -> bool {
+		self.check_serializability().is_ok()
+	}
+
 	///Returns `Ok` if this array can be serialized and deserialized using Serde.
+	///
+	///This method is only present when the `"serde"` feature is enabled.
 	#[cfg(feature = "serde")]
 	pub fn check_serializability(&self) -> Result<(), &'static str> {
 		let mut stack = SmallVec::new();
@@ -157,13 +187,28 @@ impl Arr {
 }
 
 impl Tab {
+	///Returns `true` if this table can be losslessly converted to text.
+	pub fn is_representable(&self) -> bool {
+		self.check_representability().is_ok()
+	}
+
 	///Returns `Ok` if this table can be losslessly converted to text.
 	pub fn check_representability(&self) -> Result<(), &'static str> {
 		let mut stack = SmallVec::new();
 		self.repr_test(&mut stack, true)
 	}
 
+	///Returns `true` if this table can be serialized and deserialized using Serde.
+	///
+	///This method is only present when the `"serde"` feature is enabled.
+	#[cfg(feature = "serde")]
+	pub fn is_serializable(&self) -> bool {
+		self.check_serializability().is_ok()
+	}
+
 	///Returns `Ok` if this table can be serialized and deserialized using Serde.
+	///
+	///This method is only present when the `"serde"` feature is enabled.
 	#[cfg(feature = "serde")]
 	pub fn check_serializability(&self) -> Result<(), &'static str> {
 		let mut stack = SmallVec::new();
@@ -193,6 +238,11 @@ impl Tab {
 }
 
 impl Sym {
+	///Returns `true` if this symbol can be losslessly converted to text.
+	pub fn is_representable(&self) -> bool {
+		self.check_representability().is_ok()
+	}
+
 	///Returns `Ok` if this symbol can be losslessly converted to text.
 	pub fn check_representability(&self) -> Result<(), &'static str> {
 		if self.is_gensym() {
@@ -207,7 +257,17 @@ impl Sym {
 		}
 	}
 
+	///Returns `true` if this symbol can be serialized and deserialized using Serde.
+	///
+	///This method is only present when the `"serde"` feature is enabled.
+	#[cfg(feature = "serde")]
+	pub fn is_serializable(&self) -> bool {
+		self.check_serializability().is_ok()
+	}
+
 	///Returns `Ok` if this symbol can be serialized and deserialized using Serde.
+	///
+	///This method is only present when the `"serde"` feature is enabled.
 	#[cfg(feature = "serde")]
 	pub fn check_serializability(&self) -> Result<(), &'static str> {
 		Ok(())
