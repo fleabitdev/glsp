@@ -38,7 +38,8 @@ second option also causes fewer lifetime problems in practice, since `borrow()` 
 scoped for a longer lifetime than necessary.
 
 The only methods which aren't completely atomic are those which [create a Rust iterator](#iteration) 
-over a collection. If a collection is mutated while being iterated in Rust, an error will occur.
+over a collection. If a collection is mutated while Rust code is iterating over it, an error will 
+occur.
 
 Because we don't allow the caller to create direct references into a collection's storage, none of
 our collections can be indexed using Rust's `[]` syntax. You'll need to use the `get()` and

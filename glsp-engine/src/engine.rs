@@ -271,69 +271,6 @@ macro_rules! eprn {
 // EngineStorage, EngineBuilder and Engine
 //-------------------------------------------------------------------------------------------------
 
-//GSend is for data which can be moved from one engine to another. GStore is for data which
-//can be stored on an engine's gc heap (i.e., anything except a Root<T> or a borrowed Lib/RData)
-
-//these are not unsafe traits, even in "unsafe-internals" mode, because the Heap contains
-//dynamic checks (in the write barrier) to ensure that a Root is never assigned to a Heap
-//other than its originating Heap.
-
-/**
-An auto trait for types which can be moved between one [`Runtime`](struct.Runtime.html) and
-another.
-
-This is enforced with a `GSend` bound on the closure and return value for
-[`Runtime::run`](struct.Runtime.html#method.run). For example, it's not possible for `run()` 
-to capture a [`Root<Arr>`](struct.Root.html) or return a [`Val`](enum.Val.html).
-
-This enforcement is slightly leaky. For example, it's possible to sneak a [`Val`](enum.Val.html) 
-into the global scope by using 
-[`thread_local!`](https://doc.rust-lang.org/std/macro.thread_local.html), or by implementing
-`GSend` for one of your own types. GameLisp contains dynamic checks to detect this 
-situation, in which case the process will abort.
-*/
-
-pub auto trait GSend { }
-
-impl !GSend for Sym { }
-impl !GSend for RFn { }
-impl<T> !GSend for Gc<T> { }
-impl<T> !GSend for Root<T> { }
-impl<T> !GSend for LibRef<T> { }
-impl<T> !GSend for LibRefMut<T> { }
-impl<T> !GSend for RRef<T> { }
-impl<T> !GSend for RRefMut<T> { }
-
-/**
-An auto trait for types which can be stored on the garbage-collected heap.
-
-This is enforced with a `GStore` bound on the [`RStore` trait](trait.RStore.html), so that all
-types stored in an [`RData`](struct.RData.html) must implement `GStore`.
-
-This trait is automatically implemented for most types. The main counterexample is 
-[`Root`](struct.Root.html) (and any type which transitively contains a `Root`, like
-[`Val`](enum.Val.html)), because storing a `Root` on the garbage-collected heap would 
-be too likely to cause memory leaks.
-
-Note that [libraries](trait.Lib.html) are not stored on the garbage-collected heap, so 
-library types don't need to implement `GStore`, and it's fine for libraries to contain
-`Root`s.
-*/
-
-pub auto trait GStore { }
-
-impl GStore for RData { }
-impl<T> !GStore for Root<T> { }
-impl<T> !GStore for LibRef<T> { }
-impl<T> !GStore for LibRefMut<T> { }
-impl<T> !GStore for RRef<T> { }
-impl<T> !GStore for RRefMut<T> { }
-
-impl<T> !Send for Gc<T> { }
-impl<T> !Send for Root<T> { }
-impl !Send for Sym { }
-impl !Send for RFn { }
-
 #[doc(hidden)]
 pub struct EngineBuilder;
 
@@ -550,9 +487,7 @@ impl Engine {
 	//have the error-reporting behaviour when the return type is GResult<_>.
 	pub fn run<F, R>(&self, f: F) -> Option<R> 
 	where
-		F: FnOnce() -> GResult<R>,
-		F: GSend,
-		R: GSend
+		F: FnOnce() -> GResult<R>
 	{
 		let old_active_engine = ACTIVE_ENGINE.with(|ref_cell| {
 			ref_cell.replace(Some(self.0.clone()))
@@ -972,7 +907,7 @@ impl<T: Lib> DerefMut for LibRefMut<T> {
 	}
 }
 
-trait RAllocate: GStore + 'static {
+trait RAllocate: 'static {
 	fn type_name(&self) -> &'static str;
 	fn size_of(&self) -> usize;
 	fn as_any(&self) -> &dyn Any;
@@ -1005,7 +940,7 @@ is strongly encouraged. Among other things, that macro will automatically implem
 [`MakeArg`](trait.MakeArg.html) and [`IntoResult`](trait.IntoResult.html) for your type.
 */
 
-pub trait RStore: GStore + 'static {
+pub trait RStore: 'static {
 	fn type_name() -> &'static str;
 
 	//ideally we would provide a `fn owned_memory_usage(&self)` for this trait, but it's not clear

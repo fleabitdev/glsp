@@ -14,6 +14,10 @@
 
 ### Changed
 
+- The `GSend` and `GStore` auto traits have been removed
+    - The `optin_builtin_traits` and `negative_impls` nightly features are no longer required
+    - There is no longer any restriction on variables captured or returned by `Runtime::run`
+    - `Root`, `LibRef`, `LibRefMut`, `RRef` and `RRefMut` can now be stored in an `RData`
 - `meth`, `has-meth?`, `meth-name` and `call-meth` have been renamed to `met`, `has-met?`,
   `met-name` and `call-met` respectively
 - Improved error message when glsp functions are called with no active `Runtime`

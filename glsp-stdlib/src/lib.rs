@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use glsp::{bail, Engine, EngineBuilder, Expander, GResult, GSend, lib, Lib, RFn, Sym};
+use glsp::{bail, Engine, EngineBuilder, Expander, GResult, lib, Lib, RFn, Sym};
 use std::{i32, thread};
 use std::collections::{hash_map::DefaultHasher, HashMap};
 use std::hash::{Hash, Hasher};
@@ -173,21 +173,44 @@ pub fn rand_reseed(seed: i32) {
 /**
 The GameLisp interpreter.
 
-`Runtime` owns all of the data required to run GameLisp code: a set of global variables,
+`Runtime` owns all of the data required to interpret GameLisp code: a set of global variables,
 a symbol table, a set of registered Rust functions, and much more.
 
-To manipulate the GameLisp runtime, you don't call methods on the `Runtime` type directly.
+To manipulate a GameLisp runtime, you don't call methods on the `Runtime` type directly.
 Instead, use the [`run` method](#method.run) to establish a particular `Runtime` as the
-"active runtime", then use this crate's global functions and methods to interact with the
-active runtime.
+"active runtime", and then manipulate it using free functions like [`glsp::sym`](fn.sym.html)
+and [`glsp::load`](fn.load.html).
 
 If you attempt to execute any GameLisp-related code without an active runtime, it will
 almost always panic.
 
 It's possible for multiple `Runtimes` to coexist. Each runtime is strictly isolated from the 
 others - they don't share global variables, symbols, and so on. This means that it's possible
-to run GameLisp code in isolated `Runtimes` on multiple threads without needing any 
+to run GameLisp code in isolated `Runtimes` on multiple threads without requiring any 
 synchronization.
+
+Most GameLisp programs should create a single `Runtime` at the top of their `main()` function,
+immediately call `Runtime::run()`, and keep the same runtime active for the entire duration
+of the program.
+
+```
+use glsp::prelude::*;
+
+fn main() {
+	let runtime = Runtime::new();
+	runtime.run(|| {
+		glsp::load("main.glsp")?;
+
+		//call the (main) function which was defined by main.glsp,
+		//discarding its return value
+		let main_gfn: Root<GFn> = glsp::global("main")?;
+		let _: Val = glsp::call(&main_gfn, &())?;
+
+		//the closure's return value must be a Result
+		Ok(())
+	});
+}
+```
 */
 
 //a Runtime is just a thin wrapper for an Engine which has been initialized with the stdlib. we 
@@ -230,14 +253,24 @@ impl Runtime {
 	Establish this `Runtime` as the active runtime.
 
 	For the duration of the `f` closure, any calls to global functions like 
-	[`glsp::sym`](fn.sym.html) or [`glsp::set_global`](fn.set_global.html) will manipulate 
-	this `Runtime`.
+	[`glsp::sym`](fn.sym.html) or [`glsp::set_global`](fn.set_global.html) will 
+	manipulate this `Runtime`.
+
+	The closure must return a `GResult`. If the closure returns `Ok(x)`, this method will 
+	return `Some(x)`. If the closure returns `Err(err)`, this method will print a stack trace 
+	and then return `None`.
+
+	It's possible to use `Runtime::run` to transfer GameLisp data, such as [`Syms`] and [`Roots`],
+	from one `Runtime` to another. This is memory-safe, but it should always be avoided. It may 
+	cause unexpected behaviour, trigger a panic, or even cause the process to [abort].
+
+	[`Syms`]: struct.Sym.html
+	[`Roots`]: struct.Root.html
+	[abort]: https://doc.rust-lang.org/std/process/fn.abort.html
 	*/
 	pub fn run<F, R>(&self, f: F) -> Option<R> 
 	where
-		F: FnOnce() -> GResult<R>,
-		F: GSend,
-		R: GSend
+		F: FnOnce() -> GResult<R>
 	{
 		self.0.run(f)
 	}

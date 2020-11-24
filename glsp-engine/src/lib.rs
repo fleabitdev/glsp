@@ -2,8 +2,6 @@
 
 #![doc(html_root_url = "https://docs.rs/glsp/0.1")]
 
-#![feature(optin_builtin_traits)]
-#![feature(negative_impls)]
 #![feature(drain_filter)]
 
 #[macro_use]
@@ -45,7 +43,7 @@ pub use self::{
 	},
 	class::{Class, Obj},
 	engine::{
-		GSend, GStore, PrWriter, EprWriter, Lib, LibRef, LibRefMut, RClass, RData, RFn,
+		PrWriter, EprWriter, Lib, LibRef, LibRefMut, RClass, RData, RFn,
 		RRef, RRefMut, RRoot, RStore, Sym, ToSym, with_lazy_val
 	},
 	error::{GError, GResult},
