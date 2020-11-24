@@ -58,9 +58,8 @@ pub fn init(_sandboxed: bool) -> GResult<()> {
 	glsp::bind_rfn("bitsar", rfn!(bitsar))?;
 
 	glsp::bind_rfn("rand", rfn!(rand))?;
-	glsp::bind_rfn("coin-flip", rfn!(coin_flip))?;
-	glsp::bind_rfn("chance", rfn!(chance))?;
-	glsp::bind_rfn("rand-select", rfn!(rand_select))?;
+	glsp::bind_rfn("chance?", rfn!(chancep))?;
+	glsp::bind_rfn("rand-pick", rfn!(rand_pick))?;
 	glsp::bind_rfn("rand-weighted", rfn!(rand_weighted))?;
 	glsp::bind_rfn("rand-reseed", rfn!(rand_reseed))?;
 
@@ -439,12 +438,7 @@ fn rand(arg0: Num, arg1: Option<Num>) -> Num {
 		Num::Flo(f0 + super::rand_f32() * (f1 - f0))
 	}
 }
-
-fn coin_flip() -> bool {
-	super::rand_bool()
-}
-
-fn chance(chance: f32) -> bool {
+fn chancep(chance: f32) -> bool {
 	if chance <= 0.0 {
 		false
 	} else if chance >= 1.0 {
@@ -454,7 +448,7 @@ fn chance(chance: f32) -> bool {
 	}
 }
 
-fn rand_select(args: &[Val]) -> GResult<Val> {
+fn rand_pick(args: &[Val]) -> GResult<Val> {
 	ensure!(args.len() > 0, "expected at least one argument");
 
 	let i = (super::rand_i32().abs() as usize) % args.len();

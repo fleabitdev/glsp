@@ -709,23 +709,14 @@ text = """
 	"""
 
 [[apis]]
-	filename = "coin-flip"
-	kinds = ["fn"]
-	args = []
-	returns = "bool"
-	text = """
-		Equal chance of returning either `#t` or `#f`.
-	"""
-
-[[apis]]
-	filename = "chance"
+	filename = "chance-p"
 	kinds = ["fn"]
 	args = ["ratio flo"]
 	returns = "bool"
 	text = """
 		Returns `#t` or `#f` in the given ratio.
 
-		For example, `(chance 0.3)` will return `#t` three times out of ten, and return `#f` 
+		For example, `(chance? 0.3)` will return `#t` three times out of ten, and return `#f` 
 		seven times out of ten.
 
 		When `(<= ratio 0.0)`, the result will always be `#f`, and when `(>= ratio 1.0)`, the
@@ -733,14 +724,14 @@ text = """
 	"""
 
 [[apis]]
-	filename = "rand-select"
+	filename = "rand-pick"
 	kinds = ["fn"]
 	args = ["args val +"]
 	returns = "val"
 	text = """
 		Randomly selects one of its arguments.
 
-		For example, `(rand-select 'a 10 #t)` has a one-in-three chance of returning `'a`, a
+		For example, `(rand-pick 'a 10 #t)` has a one-in-three chance of returning `'a`, a
 		one-in-three chance of returning `10`, and a one-in-three chance of returning `#t`.
 	"""
 

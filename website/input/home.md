@@ -78,8 +78,8 @@ more information.
   ; update the ball
   (<b>when</b> (and (== ball-dx ball-dy 0)
              (any? play:pressed? '(w s up down)))
-    (= ball-dx (* (rand-select -1 1) (rand 170 210)))
-    (= ball-dy (* (rand-select -1 1) (rand 50 100))))
+    (= ball-dx (* (rand-pick -1 1) (rand 170 210)))
+    (= ball-dy (* (rand-pick -1 1) (rand 50 100))))
 
   (inc! [ball 'x] (* dt ball-dx))
   (inc! [ball 'y] (* dt ball-dy))

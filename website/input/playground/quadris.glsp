@@ -22,7 +22,7 @@
 ))
 
 (defn rand-piece-type ()
-	(rand-select ..(keys :pieces)))
+	(rand-pick ..(keys :pieces)))
 
 ; the time between ticks for each level, measured in seconds
 (def :tick-intervals '(0.89 0.82 0.75 0.69 0.62 0.55 0.47 0.37 0.28 0.18 0.17 

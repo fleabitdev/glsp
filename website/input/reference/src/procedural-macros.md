@@ -94,7 +94,7 @@ fn test_numbers_macro(attempt: Val) -> Val {
 		  ((eq? ~attempt '(~..numbers))
 		    (prn "I have a bad feeling about this..."))
 		  (else
-		    (prn "Hint: one of the numbers is " (rand-select ~..numbers))))
+		    (prn "Hint: one of the numbers is " (rand-pick ~..numbers))))
 	"#)
 }
 ```
