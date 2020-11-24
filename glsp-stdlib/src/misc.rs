@@ -110,7 +110,6 @@ pub fn init(sandboxed: bool) -> GResult<()> {
 
 	glsp::bind_rfn("not", rfn!(not))?;
 	glsp::bind_rfn("gensym", rfn!(gensym))?;
-	glsp::bind_rfn("free!", rfn!(free))?;
 	glsp::bind_rfn("freed?", rfn!(freedp))?;
 	glsp::bind_rfn("clone", rfn!(clone))?;
 	glsp::bind_rfn("deep-clone", rfn!(deep_clone))?;
@@ -603,10 +602,6 @@ fn gensym(tag: Option<Val>) -> GResult<Sym> {
 		Some(val) => bail!("expected a string or symbol, received {}", val.a_type_name()),
 		None => Ok(glsp::gensym())
 	}
-}
-
-fn free(rdata: Root<RData>) -> GResult<()> {
-	rdata.free()
 }
 
 fn freedp(rdata: Root<RData>) -> bool {

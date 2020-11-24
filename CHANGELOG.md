@@ -19,6 +19,7 @@
 - `sort`'s comparison function now defaults to `ord`
 - `PartialOrd`, `Ord` and `Eq` are now implemented, where appropriate, for `Val`, `Num`, `Root`,
   `Arr`, `Str`, `Tab` and `Sym`
+- Removed the `free!` function. `RData::free` can still be called from Rust code
 - The `rand-select` and `chance` functions have been renamed to `rand-pick` and `chance?`
 - The `coin-flip` function has been removed
 
