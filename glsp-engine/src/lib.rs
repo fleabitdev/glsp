@@ -2,8 +2,6 @@
 
 #![doc(html_root_url = "https://docs.rs/glsp/0.1")]
 
-#![feature(drain_filter)]
-
 #[macro_use]
 mod error;
 
