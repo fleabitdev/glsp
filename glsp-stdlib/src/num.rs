@@ -438,6 +438,7 @@ fn rand(arg0: Num, arg1: Option<Num>) -> Num {
 		Num::Flo(f0 + super::rand_f32() * (f1 - f0))
 	}
 }
+
 fn chancep(chance: f32) -> bool {
 	if chance <= 0.0 {
 		false
