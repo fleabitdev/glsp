@@ -229,7 +229,7 @@ fn sym(rest: &[Val]) -> GResult<Sym> {
 	//construct the sym's name string on the stack
 	let mut bytes = SmallVec::<[u8; 128]>::new();
 
-	for arg in rest.into_iter() {
+	for arg in rest.iter() {
 		write!(&mut bytes, "{}", arg).unwrap();
 	}
 

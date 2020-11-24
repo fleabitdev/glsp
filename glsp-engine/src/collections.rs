@@ -1079,7 +1079,7 @@ impl DequeOps for Arr {
 		match error {
 			Some(error) => Err(error),
 			None => {
-				for (i, val) in vec.into_iter().enumerate() {
+				for (i, val) in vec.drain(..).enumerate() {
 					self.set(i, val).unwrap();
 				}
 
@@ -2158,7 +2158,7 @@ impl DequeOps for Str {
 		match error {
 			Some(error) => Err(error),
 			None => {
-				for (i, ch) in vec.into_iter().enumerate() {
+				for (i, ch) in vec.drain(..).enumerate() {
 					self.set(i, ch).unwrap();
 				}
 
