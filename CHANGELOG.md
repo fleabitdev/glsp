@@ -29,6 +29,7 @@
 - The `rand-select` and `chance` functions have been renamed to `rand-pick` and `chance?`
 - The `coin-flip` function has been removed
 - `glsp::is_valid_sym_str` has been renamed to `glsp::is_valid_sym`
+- `ToVal`, `FromVal` and `ToCallArgs` are now implemented for arrays of any length
 
 ### Fixed
 

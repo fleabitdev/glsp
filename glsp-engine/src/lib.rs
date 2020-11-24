@@ -1,5 +1,7 @@
 #![cfg_attr(not(feature = "unsafe-internals"), forbid(unsafe_code))]
 
+#![feature(min_const_generics)]
+
 #![doc(html_root_url = "https://docs.rs/glsp/0.1")]
 
 #[macro_use]
