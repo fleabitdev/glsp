@@ -586,7 +586,7 @@ type SpecialInfo = (
 );
 
 const SPECIAL_COUNT: usize = 13;
-static SPECIAL_INFO: [SpecialInfo; SPECIAL_COUNT] = [
+const SPECIAL_INFO: [SpecialInfo; SPECIAL_COUNT] = [
 	(ASSIGNMENT_SYM, set_to_node, 2, Some(2)),
 	(DO_SYM, do_to_node, 0, None),
 	(IF_SYM, if_to_node, 3, Some(3)),

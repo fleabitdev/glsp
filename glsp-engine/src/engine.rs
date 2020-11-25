@@ -425,7 +425,7 @@ impl Engine {
 		}));
 		
 		let syms_map = HashMap::from_iter(syms.iter().enumerate().map(|(i, sym_entry)| {
-			(Rc::clone(&sym_entry.name), Sym(i as u32))
+			(Rc::clone(&sym_entry.name), Sym(i as u32, PhantomData))
 		}));
 
 		//the initial spans database just contains "Generated", so that it's always Span(0)
@@ -555,8 +555,10 @@ Symbols are represented by a small `Copy` type (a 32-bit integer id).
 To convert a string into a symbol, you should usually call [`glsp::sym`](fn.sym.html).
 */
 
+//the PhantomData is used to ensure that Syms are !Send and !Sync
+
 #[derive(PartialEq, Eq, Hash, Copy, Clone)]
-pub struct Sym(pub(crate) u32);
+pub struct Sym(pub(crate) u32, pub(crate) PhantomData<*mut ()>);
 
 const MAX_SYM: u32 = 0xffffff;
 
@@ -606,7 +608,7 @@ impl Sym {
 	#[doc(hidden)]
 	pub fn from_u32(id: u32) -> Sym {
 		assert!(id <= MAX_SYM);
-		Sym(id)
+		Sym(id, PhantomData)
 	}
 
 	//only public so that it can be used internally by the backquote!() macro
@@ -702,8 +704,10 @@ To convert a function pointer or a closure into an `RFn`, you should usually cal
 [`glsp::bind_rfn`](fn.bind_rfn.html) or [`glsp::rfn`](fn.rfn.html).
 */
 
+//the PhantomData is used to ensure that RFns are !Send and !Sync
+
 #[derive(PartialEq, Eq, Hash, Copy, Clone)]
-pub struct RFn(NonZeroU32);
+pub struct RFn(NonZeroU32, PhantomData<*mut ()>);
 
 impl RFn {
 	pub(crate) fn set_name(&self, new_name: Option<Sym>) {
@@ -1688,7 +1692,7 @@ pub mod glsp {
 				assert!(syms.len() - 1 <= MAX_SYM as usize,
 				        "program requires more than {} unique symbols", MAX_SYM + 1);
 				
-				let sym = Sym((syms.len() - 1) as u32);
+				let sym = Sym((syms.len() - 1) as u32, PhantomData);
 				syms_map.insert(name, sym);
 				
 				Ok(sym)
@@ -2352,7 +2356,7 @@ pub mod glsp {
 				});
 
 				let id = u32::try_from(rfns.len() - 1).unwrap();
-				let rfn = RFn(NonZeroU32::new(id).unwrap());
+				let rfn = RFn(NonZeroU32::new(id).unwrap(), PhantomData);
 				rfns_map.insert(address, rfn);
 
 				rfn
@@ -3654,20 +3658,22 @@ macro_rules! define_stock_syms(
 			STOCK_SYM_COUNT
 		}
 
-		static STOCK_SYMS: [(&str, SymKind); StockSym::STOCK_SYM_COUNT as usize] = [
+		const STOCK_SYMS: [(&str, SymKind); StockSym::STOCK_SYM_COUNT as usize] = [
 			$($(($sym_str, SymKind::$kind)),+),+
 		];
 
 
-		static STOCK_SYMS_BY_KIND: [&[Sym]; 3] = [
-			$(&[$(Sym(StockSym::$sym_name as u32)),+]),+
+		const STOCK_SYMS_BY_KIND: [&[Sym]; 3] = [
+			$(&[$(Sym(StockSym::$sym_name as u32, PhantomData)),+]),+
 		];
 
 		#[doc(hidden)]
 		pub mod stock_syms {
+			use std::marker::{PhantomData};
 			use super::{StockSym, Sym};
+
 			$($(
-				pub const $sym_name: Sym = Sym(StockSym::$sym_name as u32);
+				pub const $sym_name: Sym = Sym(StockSym::$sym_name as u32, PhantomData);
 			)+)+
 		}
 	);
