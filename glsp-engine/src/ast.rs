@@ -428,7 +428,7 @@ pub(crate) enum Alias {
 fn vals_to_nodes(ast: &mut Ast, vals: &[Val], span: Span) -> GResult<Range<Node>> {
 	let mut vec = SmallVec::<[GResult<Node>; 8]>::with_capacity(vals.len());
 	vec.extend(vals.iter().map(|val| val_to_node(ast, val, span)));
-	ast.nodes(vec.into_iter())
+	ast.nodes(vec.drain(..))
 }
 
 fn val_to_node(ast: &mut Ast, val: &Val, span: Span) -> GResult<Node> {
@@ -586,7 +586,7 @@ type SpecialInfo = (
 );
 
 const SPECIAL_COUNT: usize = 13;
-static SPECIAL_INFO: [SpecialInfo; SPECIAL_COUNT] = [
+const SPECIAL_INFO: [SpecialInfo; SPECIAL_COUNT] = [
 	(ASSIGNMENT_SYM, set_to_node, 2, Some(2)),
 	(DO_SYM, do_to_node, 0, None),
 	(IF_SYM, if_to_node, 3, Some(3)),
@@ -891,8 +891,8 @@ impl ParamList {
 		}
 
 		let result = ParamList {
-			basic_params: ast.bindings(basic_params.into_iter().map(GResult::Ok))?,
-			opt_params: ast.bindings(opt_params.into_iter().map(GResult::Ok))?,
+			basic_params: ast.bindings(basic_params.drain(..).map(GResult::Ok))?,
+			opt_params: ast.bindings(opt_params.drain(..).map(GResult::Ok))?,
 			rest_param: match rest_param {
 				Some(Some(rest_param)) => Some(Some(ast.binding(rest_param))),
 				Some(None) => Some(None),

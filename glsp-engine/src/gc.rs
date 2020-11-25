@@ -1,7 +1,7 @@
 use super::code::{Bytecode, Coro, GFn, Lambda, Stay};
 use super::collections::{Arr, DequeOps, Str, Tab};
 use super::class::{Class, Obj};
-use super::engine::{ACTIVE_ENGINE_ID, glsp, GStore, RData, RFn, Span, Sym, with_heap};
+use super::engine::{ACTIVE_ENGINE_ID, glsp, RData, RFn, Span, Sym, with_heap};
 use super::error::{GResult};
 use super::iter::{GIter, GIterState};
 use super::val::{Hashable, Val};
@@ -709,7 +709,7 @@ impl<'a, 'b> Visitor for MarkingVisitor<'a, 'b> {
 }
 
 #[doc(hidden)]
-pub trait Allocate: Sized + GStore + Erase {
+pub trait Allocate: Sized + Erase {
 	fn visit_gcs<V: Visitor>(&self, visitor: &mut V);
 
 	fn clear_gcs(&self);

@@ -27,51 +27,47 @@ each individual GameLisp runtime is entirely single-threaded.
 
 ## The Active Runtime
 
-Unusually for a Rust library, the `glsp` crate uses [`thread_local!` variables][0] internally. 
-This means that there's no need to pass around a context object (aka "God object"), which would
-make the crate much less convenient to use.
+Unusually for a Rust library, the `glsp` crate uses [`thread_local` variables][0] internally. 
+This means that there's no need to pass around a context object (aka "God object"), because that 
+would make the crate much less convenient to use.
 
 [0]: https://doc.rust-lang.org/std/macro.thread_local.html
 
-Each thread has a private `thread_local!` variable which refers to its active `Runtime`. The 
-`rt.run(...)` method sets `rt` to be the active `Runtime`, executes an arbitrary closure, and then 
-restores the `Runtime` which was previously active, if any.
-
-The closure's captures, arguments and return value must all implement the [`GSend`] [auto trait]. 
-Because most of the types in the `glsp` crate `impl !GSend`, it's very difficult for any data 
-from a `Runtime` to be smuggled into a scope where that `Runtime` is no longer active. (Rest 
-assured that if this does happen, the library has dynamic checks which still guarantee 
-memory&#8209;safety.)
-
-[`GSend`]: https://docs.rs/glsp/*/glsp/trait.GSend.html
-[auto trait]: https://doc.rust-lang.org/unstable-book/language-features/optin-builtin-traits.html
-
-```rust
-//error: Sym does not implement GSend
-let sym: Sym = runtime.run(|| {
-	let sym = glsp::sym("hello")?;
-	Ok(sym)
-}).unwrap();
-
-//no problem: LenWrapper automatically implements GSend
-struct LenWrapper(usize);
-let len: LenWrapper = runtime.run(|| {
-	let sym = glsp::sym("hello")?;
-	let len = sym.name().len();
-	Ok(LenWrapper(len))
-}).unwrap();
-```
+Instead, each thread has a hidden `thread_local` variable which points to its active `Runtime`. 
+The `rt.run(...)` method sets `rt` to be the active `Runtime`, executes an arbitrary closure, 
+and then restores the `Runtime` which was previously active, if any.
 
 The `glsp` crate contains a large number of free functions, like [`glsp::sym`], which 
-manipulate the active `Runtime` in some way. If called when there is no `Runtime` active, they
-panic.
+manipulate the active `Runtime` via that `thread_local` pointer. If these functions are called 
+when no `Runtime` is active, they panic.
 
-Most of those functions closely imitate an equivalent function which is built in to GameLisp.
+Most of the functions closely imitate an equivalent function which is built in to GameLisp.
 For example, [`glsp::sym`] is equivalent to the [`sym` function](../std/sym), and [`glsp::load`] 
 is equivalent to [`load`](../std/load).
 
 [`glsp::sym`]: https://docs.rs/glsp/*/glsp/fn.sym.html
 [`glsp::load`]: https://docs.rs/glsp/*/glsp/fn.load.html
+
+Most games will have no need for multiple `Runtimes`. The simplest way to use GameLisp is to 
+create a single `Runtime` at program start, and immediately make it active by calling its 
+[`run()` method], passing in a closure which lasts for the entire duration of your program's
+`main` function.
+
+[`run()` method]: https://docs.rs/glsp/*/glsp/struct.Runtime.html#method.run
+
+```rust
+use glsp::prelude::*;
+
+fn main() {
+	let runtime = Runtime::new();
+	runtime.run(|| {
+		
+		//...your entire program executes within this scope...
+
+		Ok(())
+	});
+}
+```
 
 
 ## Types
@@ -86,7 +82,8 @@ To introduce a few of the crate's most important types:
 
 - [`Root`] is a smart pointer which refers to something stored on the garbage-collected 
   heap. It points to a struct which represents one of GameLisp's primitive types, such as 
-  [`Root<Arr>`] for an array or [`Root<Coro>`] for a coroutine.
+  [`Root<Arr>`] for an array or [`Root<Coro>`] for a coroutine. Such types can only be accessed
+  using a `Root`; your program will never take direct ownership of an [`Arr`] or a [`Coro`].
 
 - [`GFn`] is the name for GameLisp's `fn` primitive type, to avoid confusion with Rust's
   `Fn` trait. Similarly, the GameLisp type `iter` is represented by the Rust type [`GIter`].
@@ -95,9 +92,28 @@ To introduce a few of the crate's most important types:
 [`Sym`]: https://docs.rs/glsp/*/glsp/struct.Sym.html
 [`Root`]: https://docs.rs/glsp/*/glsp/struct.Root.html
 [`Root<Arr>`]: https://docs.rs/glsp/*/glsp/struct.Arr.html
+[`Arr`]: https://docs.rs/glsp/*/glsp/struct.Arr.html
 [`Root<Coro>`]: https://docs.rs/glsp/*/glsp/struct.Coro.html
+[`Coro`]: https://docs.rs/glsp/*/glsp/struct.Coro.html
 [`GFn`]: https://docs.rs/glsp/*/glsp/struct.GFn.html
 [`GIter`]: https://docs.rs/glsp/*/glsp/struct.GIter.html
+
+### Moving Data Between Runtimes
+
+Types which represent GameLisp data, like `Root`, `Val` and `Sym`, are closely linked to the
+specific `Runtime` in which they were constructed. You shouldn't attempt to manipulate GameLisp 
+data when there's no active `Runtime`, and you should never move GameLisp data from one `Runtime` 
+to another.
+
+For example, if you return a `Val` from `Runtime::run`, and then attempt to print it, your
+program will panic. If you construct a symbol in one `Runtime`, and then attempt to print it
+while a different `Runtime` is active, your program is likely to print an incorrect name.
+
+Moving data between `Runtimes` is always memory-safe, but the results are otherwise undefined.
+Under some circumstances, in order to preserve memory safety, GameLisp may be forced to 
+[abort the process]!
+
+[abort the process]: https://doc.rust-lang.org/std/process/fn.abort.html
 
 
 ## Generic Conversions

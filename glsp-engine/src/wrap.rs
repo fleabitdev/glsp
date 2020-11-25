@@ -4,7 +4,7 @@ use std::any::{type_name};
 use std::cell::{Ref};
 use std::cmp::{Ordering};
 use std::collections::{BTreeMap, HashMap, VecDeque};
-use std::convert::{TryInto};
+use std::convert::{TryFrom, TryInto};
 use std::hash::{BuildHasher, Hash};
 use std::io::{Write};
 use std::iter::{Extend, FromIterator};
@@ -535,27 +535,16 @@ impl<'a, T: ToVal> ToVal for &'a [T] {
 	}
 }
 
-macro_rules! impl_to_val_array {
-	($($len:literal),+) => (
-		$(
-			impl<T> ToVal for [T; $len] where for<'a> &'a T: ToVal {
-				fn to_val(&self) -> GResult<Val> {
-					let arr = glsp::arr_with_capacity($len);
-					for t in self.iter() {
-						arr.push(t)?
-					}
+impl<T: ToVal, const N: usize> ToVal for [T; N] {
+	fn to_val(&self) -> GResult<Val> {
+		let arr = glsp::arr_with_capacity(N);
+		for t in self.iter() {
+			arr.push(t)?
+		}
 
-					Ok(Val::Arr(arr))
-				}
-			}
-		)+
-	);
+		Ok(Val::Arr(arr))
+	}
 }
-
-impl_to_val_array!(
-	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 
-	17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32
-);
 
 macro_rules! impl_to_val_tuple {
 	($len:literal: $($t:ident $i:tt),+) => (
@@ -1214,50 +1203,29 @@ where
 // [T; n] where T: FromVal
 //-----------------------------------------------------------------------------
 
-macro_rules! impl_from_val_array {
-	($($len:literal [$($n:literal),*]),+) => (
-		$(
-			impl<T> FromVal for [T; $len] where T: FromVal {
-				fn from_val(val: &Val) -> GResult<[T; $len]> {
-					match *val {
-						Val::Arr(ref arr) => {
-							ensure!(arr.len() == $len, 
-							        "expected a [T; {}], received an arr of length {}",
-							        $len, arr.len());
+impl<T: FromVal, const N: usize> FromVal for [T; N] {
+	fn from_val(val: &Val) -> GResult<[T; N]> {
+		match *val {
+			Val::Arr(ref arr) => {
+				ensure!(arr.len() == N, 
+				        "expected a [T; {}], received an array of length {}",
+				        N, arr.len());
 
-							Ok([$(
-								arr.get::<T>($n)?,
-							)*])
-						}
-						ref val => {
-							bail!("expected a [T; {}], received {}", $len, val.a_type_name())
-						}
-					}
+				//todo: this is wildly inefficient; improve it once better ways to construct
+				//non-Copy const generic arrays are available. maybe SmallVec?
+				let mut vals = Vec::<T>::with_capacity(N);
+				for i in 0 .. N {
+					vals.push(arr.get::<T>(i)?);
 				}
-			}
-		)+
-	);
-}
 
-impl_from_val_array!(
-	0 [],
-	1 [0], 
-	2 [0, 1], 
-	3 [0, 1, 2], 
-	4 [0, 1, 2, 3], 
-	5 [0, 1, 2, 3, 4], 
-	6 [0, 1, 2, 3, 4, 5], 
-	7 [0, 1, 2, 3, 4, 5, 6], 
-	8 [0, 1, 2, 3, 4, 5, 6, 7], 
-	9 [0, 1, 2, 3, 4, 5, 6, 7, 8], 
-	10 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 
-	11 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 
-	12 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], 
-	13 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 
-	14 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], 
-	15 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], 
-	16 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-);
+				Ok(TryFrom::try_from(vals).ok().unwrap())
+			}
+			ref val => {
+				bail!("expected a [T; {}], received {}", N, val.a_type_name())
+			}
+		}
+	}
+}
 
 // (T0, T1, ...) where T0: FromVal, T1: FromVal...
 //-----------------------------------------------------------------------------
@@ -2489,8 +2457,8 @@ impl CallableOps for Callable {
 /**
 A type which can be converted into the arguments to a function call.
 
-It's not possible to implement this trait for your own types, but it's implemented for tuples
-and vectors of various sizes, when their elements all implement [`ToVal`](trait.ToVal.html).
+It's not possible to implement this trait for your own types, but it's implemented for tuples,
+slices and arrays, when their elements all implement [`ToVal`](trait.ToVal.html).
 
 Functions like [`glsp:call`](fn.call.html) and [`Obj::call`](struct.Obj.html#method.call) are
 generic over this trait. They usually define their arguments as `&T where T: ToCallArgs`,
@@ -2498,6 +2466,9 @@ so tuples of arguments will need to be passed by reference:
 	
 	let push_rfn: RFn = glsp::global("push!");
 	glsp::call(&push_rfn, &(my_arr, 100i32))?;
+
+Because it fails Rust's type inference, it's not possible to pass in `&[]` to represent an
+empty argument list. You should use `&()` instead.
 */
 
 pub trait ToCallArgs: to_call_args_private::Sealed {
@@ -2511,7 +2482,7 @@ mod to_call_args_private {
 	pub trait Sealed { }
 
 	impl<T: ToVal> Sealed for [T] { }
-	impl<T> Sealed for [T; 0] { }
+	impl<T: ToVal, const N: usize> Sealed for [T; N] { }
 	impl Sealed for () { }
 }
 
@@ -2535,54 +2506,30 @@ impl<T: ToVal> ToCallArgs for [T] {
 	}
 }
 
-impl<T> ToCallArgs for [T; 0] {
+impl<T: ToVal, const N: usize> ToCallArgs for [T; N] {
 	fn arg_count(&self) -> usize {
-		0
+		N
 	}
-	
-	fn to_call_args<E: Extend<Slot>>(&self, _dst: &mut E) -> GResult<()> {
-		Ok(())
-	}
-}
 
-macro_rules! impl_to_call_args_array {
-	($len:literal) => (
-		impl<T: ToVal> to_call_args_private::Sealed for [T; $len] { }
+	fn to_call_args<E: Extend<Slot>>(&self, dst: &mut E) -> GResult<()> {
+		let mut result = Ok(());
 
-		impl<T: ToVal> ToCallArgs for [T; $len] {
-			fn arg_count(&self) -> usize {
-				$len
-			}
-			
-			fn to_call_args<E: Extend<Slot>>(&self, dst: &mut E) -> GResult<()> {
-				let mut result = Ok(());
-				dst.extend(self.iter().map(|item| {
-					match item.to_slot() {
-						Ok(slot) => slot,
-						Err(err) => {
-							result = Err(err);
-							Slot::Nil
-						}
+		dst.extend(self.iter().map(|item| {
+			match item.to_slot() {
+				Ok(slot) => slot,
+				Err(err) => {
+					if result.is_ok() {
+						result = Err(err);
 					}
-				}));
-				result
-			}
-		}
-	)
-}
 
-impl_to_call_args_array!(1);
-impl_to_call_args_array!(2);
-impl_to_call_args_array!(3);
-impl_to_call_args_array!(4);
-impl_to_call_args_array!(5);
-impl_to_call_args_array!(6);
-impl_to_call_args_array!(7);
-impl_to_call_args_array!(8);
-impl_to_call_args_array!(9);
-impl_to_call_args_array!(10);
-impl_to_call_args_array!(11);
-impl_to_call_args_array!(12);
+					Slot::Nil
+				}
+			}
+		}));
+
+		result
+	}
+}
 
 impl ToCallArgs for () {
 	fn arg_count(&self) -> usize {

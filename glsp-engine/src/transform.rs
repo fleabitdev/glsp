@@ -476,7 +476,7 @@ pub(crate) enum Predicate {
 	Expander
 }
 
-static KNOWN_OPS: [(Sym, KnownOp); 54] = {
+const KNOWN_OPS: [(Sym, KnownOp); 54] = {
 	use KnownOp::*;
 
 	[

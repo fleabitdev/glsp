@@ -267,24 +267,10 @@ text = ""
 	"""
 
 [[apis]]
-	filename = "free-mut"
-	starts-subcategory = "RData"
-	kinds = ["fn"]
-	args = ["rdata rdata"]
-	returns = "nil"
-	text = """
-		Deallocates an RData.
-
-		Replaces an `RData` with `None`. Its destructor will be called, and any future attempts to
-		access the `RData` will trigger an error.
-	"""
-
-[[apis]]
 	filename = "freed-p"
 	kinds = ["fn"]
 	args = ["rdata rdata"]
 	returns = "bool"
-	see-also = ["free-mut"]
 	text = """
 		Returns `#t` if an `RData` has been freed.
 	"""

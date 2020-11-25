@@ -220,7 +220,7 @@ arguments are the same arguments which were passed to `enab!` or `@enab!`.
 	  (fsm
 	    (state* Immobile
 	      (met on-activate ()
-	        (@enab! 'Mobile (rand-select -1 1))))
+	        (@enab! 'Mobile (rand-pick -1 1))))
 
 	    (state Mobile
 	      (field direction)

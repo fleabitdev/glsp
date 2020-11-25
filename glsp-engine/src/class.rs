@@ -326,6 +326,9 @@ impl Class {
 
 	/**
 	Invokes a callable value stored in a constant.
+
+	Note that the `args` are passed by reference. They should be a reference to `()`, a tuple, 
+	a slice, or a fixed-size array.
 	
 	Equivalent to [`(call-met key cls ..args)`](https://gamelisp.rs/std/call-met).
 	*/
@@ -346,6 +349,9 @@ impl Class {
 	/**
 	If a constant with the given name is defined, and if it stores a callable value,
 	invokes it as a function and returns its result. Otherwise, returns `None`.
+
+	Note that the `args` are passed by reference. They should be a reference to `()`, a tuple, 
+	a slice, or a fixed-size array.
 	
 	Equivalent to [`(call-met (? key) cls ..args)`](https://gamelisp.rs/std/call-met).
 	*/
@@ -981,6 +987,9 @@ impl Obj {
 
 	/**
 	Invokes a method.
+
+	Note that the `args` are passed by reference. They should be a reference to `()`, a tuple, 
+	a slice, or a fixed-size array.
 	
 	Equivalent to [`(call-met ob key ..args)`](https://gamelisp.rs/std/call-met).
 	*/
@@ -999,6 +1008,9 @@ impl Obj {
 
 	/**
 	Invokes a method, if it exists.
+
+	Note that the `args` are passed by reference. They should be a reference to `()`, a tuple, 
+	a slice, or a fixed-size array.
 	
 	Equivalent to [`(call-met ob (? key) ..args)`](https://gamelisp.rs/std/call-met).
 	*/
@@ -2311,10 +2323,15 @@ impl ClassBuilder {
 		let mut dst = Vec::<RawBinding>::with_capacity(src.len());
 
 		//drain all of the mets from src and put them at the start of dst. set the `excludes`
-		//flag for any two states which both share a met.
-		dst.extend(src.drain_filter(|rb| {
-			matches!(rb.bindee, RawBindee::Met(_) | RawBindee::Prop(..))
-		}));
+		//flag for any two states which both share a met. (todo: switch back to drain_filter)
+		let mut filtered_src = Vec::with_capacity(src.len());
+		for rb in src {
+			match rb.bindee {
+				RawBindee::Met(_) | RawBindee::Prop(..) => dst.push(rb),
+				_ => filtered_src.push(rb)
+			}
+		}
+		src = filtered_src;
 
 		for i in 0 .. dst.len() {
 			for j in i + 1 .. dst.len() {
@@ -2342,7 +2359,9 @@ impl ClassBuilder {
 			let starting_len = dst.len();
 
 			//this is O(n^2) but n will usually be very small
-			dst.extend(src.drain_filter(|src_rb| {
+			//todo: switch back to drain_filter once it's stabilized
+			let mut filtered_src = Vec::with_capacity(src.len());
+			for src_rb in src {
 				match src_rb.bindee {
 					RawBindee::Met(_) | RawBindee::Prop(..) => unreachable!(),
 					RawBindee::Wrap(target_qualified, _) |
@@ -2358,15 +2377,18 @@ impl ClassBuilder {
 									.unwrap().required_by |= 1 << (src_state_i as u32);
 							}
 
-							true
+							dst.push(src_rb);
 						} else {
-							false
+							filtered_src.push(src_rb);
 						}
 					}
-					RawBindee::WildcardWrap(_) | RawBindee::WildcardWrapProp(..) => false,
+					RawBindee::WildcardWrap(_) | RawBindee::WildcardWrapProp(..) => {
+						filtered_src.push(src_rb);
+					}
 					_ => unreachable!()
 				}
-			}));
+			}
+			src = filtered_src;
 
 			//all entries in `dst` from `starting_len` onwards wrap the same name, so they all
 			//need to exclude one another

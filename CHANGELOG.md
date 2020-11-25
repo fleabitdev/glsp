@@ -9,9 +9,15 @@
 - Defined a total ordering for floats: NaNs now compare equal to other NaNs, and compare greater 
   than all non-NaN numbers
 - Added `sort` and `sort_by` methods to the `DequeOps` trait
+- Added `is_representable` and `is_serializable` methods to `Arr`, `Tab`, `Sym` and `Val`
+- Added the `glsp::is_representable_sym` function
 
 ### Changed
 
+- The `GSend` and `GStore` auto traits have been removed
+    - The `optin_builtin_traits` and `negative_impls` nightly features are no longer required
+    - There is no longer any restriction on variables captured or returned by `Runtime::run`
+    - `Root`, `LibRef`, `LibRefMut`, `RRef` and `RRefMut` can now be stored in an `RData`
 - `meth`, `has-meth?`, `meth-name` and `call-meth` have been renamed to `met`, `has-met?`,
   `met-name` and `call-met` respectively
 - Improved error message when glsp functions are called with no active `Runtime`
@@ -19,6 +25,11 @@
 - `sort`'s comparison function now defaults to `ord`
 - `PartialOrd`, `Ord` and `Eq` are now implemented, where appropriate, for `Val`, `Num`, `Root`,
   `Arr`, `Str`, `Tab` and `Sym`
+- Removed the `free!` function. `RData::free` can still be called from Rust code
+- The `rand-select` and `chance` functions have been renamed to `rand-pick` and `chance?`
+- The `coin-flip` function has been removed
+- `glsp::is_valid_sym_str` has been renamed to `glsp::is_valid_sym`
+- `ToVal`, `FromVal` and `ToCallArgs` are now implemented for arrays of any length
 
 ### Fixed
 

@@ -49,7 +49,7 @@ pub fn quote(input: TokenStream) -> TokenStream {
 
 	//spin up a glsp Engine
 	let engine = Engine::new();
-	engine.run(|| {
+	let output: String = engine.run(|| {
 
 		//parse the input string
 		let val = glsp::parse_1(&text, None).expect("quote!() received invalid glsp syntax");
@@ -72,8 +72,10 @@ pub fn quote(input: TokenStream) -> TokenStream {
 
 		"#, builder);
 
-		Ok(TokenStream::from_str(&output).unwrap())
-	}).unwrap()
+		Ok(output)
+	}).unwrap();
+
+	TokenStream::from_str(&output).unwrap()
 }
 
 /**
@@ -139,7 +141,7 @@ pub fn try_backquote(input: TokenStream) -> TokenStream {
 
 	//spin up a glsp Engine
 	let engine = Engine::new();
-	engine.run(|| {
+	let output: String = engine.run(|| {
 
 		//parse the input string
 		let val = glsp::parse_1(&text, None).expect("backquote!() received invalid glsp syntax");
@@ -189,8 +191,10 @@ pub fn try_backquote(input: TokenStream) -> TokenStream {
 			}}
 		"#, gen_vars, builder);
 
-		Ok(TokenStream::from_str(&output).unwrap())
-	}).unwrap()
+		Ok(output)
+	}).unwrap();
+
+	TokenStream::from_str(&output).unwrap()
 }
 
 fn emit_val_for_quote<T: Write>(dst: &mut T, val: &Val) {

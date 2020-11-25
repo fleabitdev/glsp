@@ -2,6 +2,7 @@ use std::{isize};
 use std::cell::{Cell, RefCell};
 use std::convert::{TryFrom};
 use std::fmt::{self, Debug, Formatter};
+use std::marker::{PhantomData};
 use std::mem::{size_of};
 use super::ast::{ParamList};
 use super::engine::{glsp, Span, Sym, with_heap};
@@ -655,7 +656,7 @@ impl From<SymBytes> for Sym {
 	#[inline]
 	fn from(src: SymBytes) -> Sym {
 		let bytes = src.0;
-		Sym(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], 0x00]))
+		Sym(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], 0x00]), PhantomData)
 	}
 }
 

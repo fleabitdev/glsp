@@ -271,69 +271,6 @@ macro_rules! eprn {
 // EngineStorage, EngineBuilder and Engine
 //-------------------------------------------------------------------------------------------------
 
-//GSend is for data which can be moved from one engine to another. GStore is for data which
-//can be stored on an engine's gc heap (i.e., anything except a Root<T> or a borrowed Lib/RData)
-
-//these are not unsafe traits, even in "unsafe-internals" mode, because the Heap contains
-//dynamic checks (in the write barrier) to ensure that a Root is never assigned to a Heap
-//other than its originating Heap.
-
-/**
-An auto trait for types which can be moved between one [`Runtime`](struct.Runtime.html) and
-another.
-
-This is enforced with a `GSend` bound on the closure and return value for
-[`Runtime::run`](struct.Runtime.html#method.run). For example, it's not possible for `run()` 
-to capture a [`Root<Arr>`](struct.Root.html) or return a [`Val`](enum.Val.html).
-
-This enforcement is slightly leaky. For example, it's possible to sneak a [`Val`](enum.Val.html) 
-into the global scope by using 
-[`thread_local!`](https://doc.rust-lang.org/std/macro.thread_local.html), or by implementing
-`GSend` for one of your own types. GameLisp contains dynamic checks to detect this 
-situation, in which case the process will abort.
-*/
-
-pub auto trait GSend { }
-
-impl !GSend for Sym { }
-impl !GSend for RFn { }
-impl<T> !GSend for Gc<T> { }
-impl<T> !GSend for Root<T> { }
-impl<T> !GSend for LibRef<T> { }
-impl<T> !GSend for LibRefMut<T> { }
-impl<T> !GSend for RRef<T> { }
-impl<T> !GSend for RRefMut<T> { }
-
-/**
-An auto trait for types which can be stored on the garbage-collected heap.
-
-This is enforced with a `GStore` bound on the [`RStore` trait](trait.RStore.html), so that all
-types stored in an [`RData`](struct.RData.html) must implement `GStore`.
-
-This trait is automatically implemented for most types. The main counterexample is 
-[`Root`](struct.Root.html) (and any type which transitively contains a `Root`, like
-[`Val`](enum.Val.html)), because storing a `Root` on the garbage-collected heap would 
-be too likely to cause memory leaks.
-
-Note that [libraries](trait.Lib.html) are not stored on the garbage-collected heap, so 
-library types don't need to implement `GStore`, and it's fine for libraries to contain
-`Root`s.
-*/
-
-pub auto trait GStore { }
-
-impl GStore for RData { }
-impl<T> !GStore for Root<T> { }
-impl<T> !GStore for LibRef<T> { }
-impl<T> !GStore for LibRefMut<T> { }
-impl<T> !GStore for RRef<T> { }
-impl<T> !GStore for RRefMut<T> { }
-
-impl<T> !Send for Gc<T> { }
-impl<T> !Send for Root<T> { }
-impl !Send for Sym { }
-impl !Send for RFn { }
-
 #[doc(hidden)]
 pub struct EngineBuilder;
 
@@ -488,7 +425,7 @@ impl Engine {
 		}));
 		
 		let syms_map = HashMap::from_iter(syms.iter().enumerate().map(|(i, sym_entry)| {
-			(Rc::clone(&sym_entry.name), Sym(i as u32))
+			(Rc::clone(&sym_entry.name), Sym(i as u32, PhantomData))
 		}));
 
 		//the initial spans database just contains "Generated", so that it's always Span(0)
@@ -550,9 +487,7 @@ impl Engine {
 	//have the error-reporting behaviour when the return type is GResult<_>.
 	pub fn run<F, R>(&self, f: F) -> Option<R> 
 	where
-		F: FnOnce() -> GResult<R>,
-		F: GSend,
-		R: GSend
+		F: FnOnce() -> GResult<R>
 	{
 		let old_active_engine = ACTIVE_ENGINE.with(|ref_cell| {
 			ref_cell.replace(Some(self.0.clone()))
@@ -620,8 +555,10 @@ Symbols are represented by a small `Copy` type (a 32-bit integer id).
 To convert a string into a symbol, you should usually call [`glsp::sym`](fn.sym.html).
 */
 
+//the PhantomData is used to ensure that Syms are !Send and !Sync
+
 #[derive(PartialEq, Eq, Hash, Copy, Clone)]
-pub struct Sym(pub(crate) u32);
+pub struct Sym(pub(crate) u32, pub(crate) PhantomData<*mut ()>);
 
 const MAX_SYM: u32 = 0xffffff;
 
@@ -671,7 +608,7 @@ impl Sym {
 	#[doc(hidden)]
 	pub fn from_u32(id: u32) -> Sym {
 		assert!(id <= MAX_SYM);
-		Sym(id)
+		Sym(id, PhantomData)
 	}
 
 	//only public so that it can be used internally by the backquote!() macro
@@ -767,8 +704,10 @@ To convert a function pointer or a closure into an `RFn`, you should usually cal
 [`glsp::bind_rfn`](fn.bind_rfn.html) or [`glsp::rfn`](fn.rfn.html).
 */
 
+//the PhantomData is used to ensure that RFns are !Send and !Sync
+
 #[derive(PartialEq, Eq, Hash, Copy, Clone)]
-pub struct RFn(NonZeroU32);
+pub struct RFn(NonZeroU32, PhantomData<*mut ()>);
 
 impl RFn {
 	pub(crate) fn set_name(&self, new_name: Option<Sym>) {
@@ -972,7 +911,7 @@ impl<T: Lib> DerefMut for LibRefMut<T> {
 	}
 }
 
-trait RAllocate: GStore + 'static {
+trait RAllocate: 'static {
 	fn type_name(&self) -> &'static str;
 	fn size_of(&self) -> usize;
 	fn as_any(&self) -> &dyn Any;
@@ -1005,7 +944,7 @@ is strongly encouraged. Among other things, that macro will automatically implem
 [`MakeArg`](trait.MakeArg.html) and [`IntoResult`](trait.IntoResult.html) for your type.
 */
 
-pub trait RStore: GStore + 'static {
+pub trait RStore: 'static {
 	fn type_name() -> &'static str;
 
 	//ideally we would provide a `fn owned_memory_usage(&self)` for this trait, but it's not clear
@@ -1470,6 +1409,9 @@ impl RData {
 
 	/**
 	Invokes a method.
+
+	Note that the `args` are passed by reference. They should be a reference to `()`, a tuple, 
+	a slice, or a fixed-size array.
 	
 	Equivalent to [`(call-met rdata key ..args)`](https://gamelisp.rs/std/call-met).
 	*/
@@ -1488,6 +1430,9 @@ impl RData {
 
 	/**
 	Invokes a method, if it exists.
+
+	Note that the `args` are passed by reference. They should be a reference to `()`, a tuple, 
+	a slice, or a fixed-size array.
 	
 	Equivalent to [`(call-met rdata (? key) ..args)`](https://gamelisp.rs/std/call-met).
 	*/
@@ -1728,7 +1673,7 @@ pub mod glsp {
 	/** Equivalent to [`(sym name)`](https://gamelisp.rs/std/sym). */
 
 	pub fn sym(name: &str) -> GResult<Sym> {
-		ensure!(glsp::is_valid_sym_str(name), "invalid sym '{}'", name);
+		ensure!(glsp::is_valid_sym(name), "invalid sym '{}'", name);
 		glsp::sym_impl(name, SymKind::Normal)
 	}
 
@@ -1753,7 +1698,7 @@ pub mod glsp {
 				assert!(syms.len() - 1 <= MAX_SYM as usize,
 				        "program requires more than {} unique symbols", MAX_SYM + 1);
 				
-				let sym = Sym((syms.len() - 1) as u32);
+				let sym = Sym((syms.len() - 1) as u32, PhantomData);
 				syms_map.insert(name, sym);
 				
 				Ok(sym)
@@ -1763,7 +1708,7 @@ pub mod glsp {
 
 	/** Equivalent to [`(valid-sym-str? st)`](https://gamelisp.rs/std/valid-sym-str-p). */
 
-	pub fn is_valid_sym_str(st: &str) -> bool {
+	pub fn is_valid_sym(st: &str) -> bool {
 		//one or more of the valid sym chars, optionally with a '#' suffix
 		let mut rev_iter = st.chars().rev();
 		match rev_iter.next() {
@@ -1783,6 +1728,18 @@ pub mod glsp {
 		lex::is_valid_sym_char(ch)
 	}
 
+	/** 
+	Equivalent to [`(representable-sym-str? st)`](https://gamelisp.rs/std/representable-sym-str-p).
+	*/
+
+	pub fn is_representable_sym(st: &str) -> bool {
+		if !is_valid_sym(st) {
+			false
+		} else {
+			sym(st).unwrap().is_representable()
+		}
+	}
+
 	/** Equivalent to [`(gensym)`](https://gamelisp.rs/std/gensym). */
 
 	pub fn gensym() -> Sym {
@@ -1792,7 +1749,7 @@ pub mod glsp {
 	/** Equivalent to [`(gensym tag)`](https://gamelisp.rs/std/gensym). */
 
 	pub fn gensym_with_tag(tag: &str) -> GResult<Sym> {
-		ensure!(glsp::is_valid_sym_str(tag) && !tag.ends_with("#"),
+		ensure!(glsp::is_valid_sym(tag) && !tag.ends_with("#"),
 		        "invalid gensym tag '{}': tags should be a valid sym without a trailing '#'",
 		        tag);
 		Ok(glsp::gensym_impl(Some(tag)))
@@ -2405,7 +2362,7 @@ pub mod glsp {
 				});
 
 				let id = u32::try_from(rfns.len() - 1).unwrap();
-				let rfn = RFn(NonZeroU32::new(id).unwrap());
+				let rfn = RFn(NonZeroU32::new(id).unwrap(), PhantomData);
 				rfns_map.insert(address, rfn);
 
 				rfn
@@ -3707,20 +3664,22 @@ macro_rules! define_stock_syms(
 			STOCK_SYM_COUNT
 		}
 
-		static STOCK_SYMS: [(&str, SymKind); StockSym::STOCK_SYM_COUNT as usize] = [
+		const STOCK_SYMS: [(&str, SymKind); StockSym::STOCK_SYM_COUNT as usize] = [
 			$($(($sym_str, SymKind::$kind)),+),+
 		];
 
 
-		static STOCK_SYMS_BY_KIND: [&[Sym]; 3] = [
-			$(&[$(Sym(StockSym::$sym_name as u32)),+]),+
+		const STOCK_SYMS_BY_KIND: [&[Sym]; 3] = [
+			$(&[$(Sym(StockSym::$sym_name as u32, PhantomData)),+]),+
 		];
 
 		#[doc(hidden)]
 		pub mod stock_syms {
+			use std::marker::{PhantomData};
 			use super::{StockSym, Sym};
+
 			$($(
-				pub const $sym_name: Sym = Sym(StockSym::$sym_name as u32);
+				pub const $sym_name: Sym = Sym(StockSym::$sym_name as u32, PhantomData);
 			)+)+
 		}
 	);
