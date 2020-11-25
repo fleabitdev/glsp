@@ -1409,6 +1409,9 @@ impl RData {
 
 	/**
 	Invokes a method.
+
+	Note that the `args` are passed by reference. They should be a reference to `()`, a tuple, 
+	a slice, or a fixed-size array.
 	
 	Equivalent to [`(call-met rdata key ..args)`](https://gamelisp.rs/std/call-met).
 	*/
@@ -1427,6 +1430,9 @@ impl RData {
 
 	/**
 	Invokes a method, if it exists.
+
+	Note that the `args` are passed by reference. They should be a reference to `()`, a tuple, 
+	a slice, or a fixed-size array.
 	
 	Equivalent to [`(call-met rdata (? key) ..args)`](https://gamelisp.rs/std/call-met).
 	*/

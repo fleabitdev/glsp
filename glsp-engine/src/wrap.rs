@@ -2458,8 +2458,8 @@ impl CallableOps for Callable {
 /**
 A type which can be converted into the arguments to a function call.
 
-It's not possible to implement this trait for your own types, but it's implemented for tuples
-and vectors of various sizes, when their elements all implement [`ToVal`](trait.ToVal.html).
+It's not possible to implement this trait for your own types, but it's implemented for tuples,
+slices and arrays, when their elements all implement [`ToVal`](trait.ToVal.html).
 
 Functions like [`glsp:call`](fn.call.html) and [`Obj::call`](struct.Obj.html#method.call) are
 generic over this trait. They usually define their arguments as `&T where T: ToCallArgs`,
@@ -2467,6 +2467,9 @@ so tuples of arguments will need to be passed by reference:
 	
 	let push_rfn: RFn = glsp::global("push!");
 	glsp::call(&push_rfn, &(my_arr, 100i32))?;
+
+Because it fails Rust's type inference, it's not possible to pass in `&[]` to represent an
+empty argument list. You should use `&()` instead.
 */
 
 pub trait ToCallArgs: to_call_args_private::Sealed {

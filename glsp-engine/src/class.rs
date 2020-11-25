@@ -326,6 +326,9 @@ impl Class {
 
 	/**
 	Invokes a callable value stored in a constant.
+
+	Note that the `args` are passed by reference. They should be a reference to `()`, a tuple, 
+	a slice, or a fixed-size array.
 	
 	Equivalent to [`(call-met key cls ..args)`](https://gamelisp.rs/std/call-met).
 	*/
@@ -346,6 +349,9 @@ impl Class {
 	/**
 	If a constant with the given name is defined, and if it stores a callable value,
 	invokes it as a function and returns its result. Otherwise, returns `None`.
+
+	Note that the `args` are passed by reference. They should be a reference to `()`, a tuple, 
+	a slice, or a fixed-size array.
 	
 	Equivalent to [`(call-met (? key) cls ..args)`](https://gamelisp.rs/std/call-met).
 	*/
@@ -981,6 +987,9 @@ impl Obj {
 
 	/**
 	Invokes a method.
+
+	Note that the `args` are passed by reference. They should be a reference to `()`, a tuple, 
+	a slice, or a fixed-size array.
 	
 	Equivalent to [`(call-met ob key ..args)`](https://gamelisp.rs/std/call-met).
 	*/
@@ -999,6 +1008,9 @@ impl Obj {
 
 	/**
 	Invokes a method, if it exists.
+
+	Note that the `args` are passed by reference. They should be a reference to `()`, a tuple, 
+	a slice, or a fixed-size array.
 	
 	Equivalent to [`(call-met ob (? key) ..args)`](https://gamelisp.rs/std/call-met).
 	*/
