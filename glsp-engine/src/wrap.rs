@@ -163,13 +163,13 @@ Because this default implementation applies to all `'static` types, including th
 external crates, it's possible to move most foreign types onto the GameLisp heap. For example, 
 to construct a standard Rust `File` and transfer its ownership to GameLisp, you can simply call:
 	
-	fs::open("my_file.png").into_val()
+	File::open("my_file.png").into_val()?
 
 If you'd like one of your own types to be represented in GameLisp by something other than an
-`rdata` (for example, a GameLisp array, number or table), you can implement `IntoVal` for that 
-type. This will enable automatic conversions when your type is passed to a generic function like 
-[`glsp::set_global`](fn.set_global.html). It will also automatically convert your type when
-it's used as an `RFn` return value.
+`rdata` (for example, converting an enum to a GameLisp symbol, or a tuple struct to a GameLisp
+array), you can implement `IntoVal` for your type. This will enable automatic conversions when 
+your type is passed to a generic function like [`glsp::set_global`](fn.set_global.html). It will 
+also automatically convert your type into GameLisp data when it's used as an `RFn` return value.
 
 **Implementing `IntoVal` for your own types currently requires the `min_specialization` nightly
 feature. Enable it by writing `#![feature(min_specialization)]` at the top of your crate's 
@@ -191,8 +191,8 @@ feature. Enable it by writing `#![feature(min_specialization)]` at the top of yo
 	glsp::bind_rfn("light-sea-green", &light_sea_green)?;
 
 	//calling (light-sea-green) from a GameLisp script will 
-	//automatically call into_val(), converting the function's
-	//Rgb return value into an array of three integers
+	//automatically call Rgb::into_val(), converting the function's
+	//Rgb return value into an array of three integers, (32 178 178)
 
 When implementing `IntoVal` for your own types, it's generally a good idea to also provide 
 implementations for shared and mutable references to your type. It makes the borrow checker
@@ -266,7 +266,7 @@ integer and floating-point types; primitive Rust types like `bool`; most standar
 including arrays, slices and tuples; `Root` and `RRoot`; type-erased enums like `Deque` and 
 `Callable`; and owned string types, including `PathBuf`, `OsString` and `CString`.
 
-You can implement `FromVal` for your own types, which will enable them to take advantage of 
+You can also implement `FromVal` for your own types, which will enable them to take advantage of 
 automatic conversions when they're [bound as an `RFn` parameter](fn.rfn.html).
 
 **Implementing `FromVal` for your own types currently requires the `min_specialization` nightly
@@ -288,6 +288,10 @@ feature. Enable it by writing `#![feature(min_specialization)]` at the top of yo
 	}
 
 	glsp::bind_rfn("describe-rgb", &describe_rgb)?;
+
+	//calling (describe-rgb '(32 178 178)) from a GameLisp script will
+	//automatically invoke Rgb::from_val, converting the array of three
+	//integers into an Rgb struct
 */
 
 #[rustc_specialization_trait]
@@ -2199,7 +2203,7 @@ impl<T: FromArg> FromArg for Option<T> {
 An adapter type which collects any number of trailing function arguments.
 
 When [binding a Rust function](fn.rfn.html) so that it can be called from GameLisp, if `Rest<T>` 
-appears in the function's parameter list, it will collect all of the function's trailing 
+appears at the end of the function's parameter list, it will collect all of the function's trailing 
 arguments, converting them into a temporary array of `T` which is usually stored on the stack.
 
 `Rest<T>` can be dereferenced to a mutable slice, `[T]`. It's also iterable, yielding `T`, `&T` 
@@ -2215,7 +2219,7 @@ or `&mut T` as appropriate.
 		accumulator
 	}
 
-	//bind this function
+	//bind this function to a global variable
 	glsp::bind_rfn("add-integers", &add_integers)?;
 
 	//the function can now be called from GameLisp
@@ -2229,10 +2233,10 @@ or `&mut T` as appropriate.
 		add_integers(10, rest);
 	});
 
-It's possible to construct a custom `Rest<T>` yourself (by calling 
-[`Rest::with`](method.with.html)), but it's usually not elegant. Instead, consider defining
-a Rust function which receives a slice or a generic `IntoIterator`, and a wrapper which 
-receives a `Rest<T>` and forwards it to the original function.
+It's possible to construct a custom `Rest<T>` yourself by calling [`Rest::with`](#method.with), 
+but it's usually not elegant. Instead, consider defining a Rust function which receives a slice 
+or a generic `IntoIterator`, and a wrapper which receives a `Rest<T>` and forwards it to the 
+original function.
 	
 	fn add_integers(first: i32, rest: &[i32]) -> i32 {
 		rest.iter().fold(first, |a, b| a + *b)

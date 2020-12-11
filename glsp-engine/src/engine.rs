@@ -1081,9 +1081,9 @@ impl<T: 'static> RClassBuilder<T> {
 	can't both be named `Clip`.
 
 	`RClassBuilder::new()` will attempt to auto-generate an unprefixed name by processing the 
-	result of [`std::mem::type_name::<T>()`](https://doc.rust-lang.org/std/any/fn.type_name.html). 
-	This will fail for generic types, references, and types with lifetime parameters; for
-	those types, you must provide a name manually.
+	result of [`type_name::<T>()`](https://doc.rust-lang.org/std/any/fn.type_name.html). 
+	This will silently fail for generic types, references, arrays, and types with lifetime 
+	parameters; for those types, you must provide a name manually.
 
 	This method panics if `name` is not a valid symbol.
 	*/
@@ -1245,7 +1245,7 @@ and returns a [`Root<RData>`](struct.Root.html).
   (If this is undesirable, consider using [`RRoot`](struct.RRoot.html) instead.)
 
 By default, `rdata` are opaque; GameLisp scripts can't access their fields or call their methods.
-Optionally, you can use [`RClassBuilder`](struct.RClassBuilder.html) to configure an `RData`
+Optionally, you can use [`RClassBuilder`](struct.RClassBuilder.html) to configure an `rdata`
 so that it behaves more like a GameLisp `obj`, with properties and methods which can be invoked
 by GameLisp scripts.
 */
@@ -1537,7 +1537,7 @@ impl RData {
 	}
 
 	/**
-	Accesses the value of a field or property.
+	Accesses the value of a property.
 	
 	Equivalent to [`[rdata key]`](https://gamelisp.rs/std/access).
 	*/
@@ -1554,7 +1554,7 @@ impl RData {
 	}
 
 	/**
-	Accesses the value of a field or property, if it exists.
+	Accesses the value of a property, if it exists.
 	
 	Equivalent to [`[rdata (? key)]`](https://gamelisp.rs/std/access).
 	*/
@@ -1577,7 +1577,7 @@ impl RData {
 	}
 
 	/**
-	Mutates the field or property bound to the given name.
+	Mutates the property bound to the given name.
 	
 	Equivalent to [`(= [rdata key] val)`](https://gamelisp.rs/std/set-access).
 	*/
@@ -1593,8 +1593,8 @@ impl RData {
 	}
 
 	/**
-	Mutates the field or property bound to the given name, if any. Returns `true` if the
-	field or property exists.
+	Mutates the property bound to the given name, if any. Returns `true` if the
+	property exists.
 	
 	Equivalent to [`(= [rdata (? key)] val)`](https://gamelisp.rs/std/set-access).
 	*/
@@ -2432,8 +2432,8 @@ pub mod glsp {
 
 	Once registered, it's possible to remove a global from the `Runtime` by calling
 	[`glsp::take_rglobal`](fn.take_rglobal.html), or borrow it by calling the
-	associated functions [`T::borrow`](trait.RGlobal#method.borrow) and
-	[`T::borrow_mut`](trait.RGlobal#method.borrow_mut).
+	associated functions [`T::borrow`](trait.RGlobal.html#method.borrow) and
+	[`T::borrow_mut`](trait.RGlobal.html#method.borrow_mut).
 	*/
 	pub fn add_rglobal<T: RGlobal>(rglobal: T) {
 		with_engine(|engine| {
@@ -2582,10 +2582,11 @@ pub mod glsp {
 		  If you need finer control over the borrow, you could accept a 
 		  [`Root<RData>`](struct.RData.html) or an [`RRoot<T>`](struct.RRoot.html) instead.
 
-			- As a special exception, when `T` implements `RGlobal`, arguments of type `&T` and 
-			  `&mut T` will *not* consume any values from the argument list. Instead, the 
-			  references will be borrowed from the current `Runtime`'s global storage, for 
-			  the duration of the function call, by calling `T::borrow()` or `T::borrow_mut()`.
+			- As a special exception, when `T` implements [`RGlobal`](trait.RGlobal.html), 
+			  arguments of type `&T` and  `&mut T` will *not* consume any values from the 
+			  argument list. Instead, the references will be borrowed from the current 
+			  `Runtime`'s global storage, for the duration of the function call, by calling 
+			  `T::borrow()` or `T::borrow_mut()`.
 
 		- References to unsized types will be constructed on the stack and then borrowed. 
 		  `&[T]` is converted from an array. `&str`, `&OsStr`, `&CStr` and `&Path` are 
@@ -2653,7 +2654,7 @@ pub mod glsp {
 	value. See [`glsp::rfn`](fn.rfn.html) and [`glsp::named_rfn`](fn.named_rfn.html)
 	for the details.
 
-	`glsp::bind_rfn(name, &f)?` is equivalent to:
+	`glsp::bind_rfn(name, &f)` is equivalent to:
 
 		let sym = name.to_sym()?
 		let rfn = glsp::named_rfn(sym, &f);
@@ -2677,7 +2678,7 @@ pub mod glsp {
 	GameLisp will perform automatic conversions for the function's parameters and return
 	value. See [`glsp::rfn`](fn.rfn.html) for the details.
 
-	`glsp::bind_rfn_macro(name, &f)?` is equivalent to:
+	`glsp::bind_rfn_macro(name, &f)` is equivalent to:
 
 		let sym = name.to_sym()?
 		let rfn = glsp::named_rfn(sym, &f);
