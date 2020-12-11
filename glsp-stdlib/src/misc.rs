@@ -1,7 +1,7 @@
 use glsp::{
 	arr, Arr, bail, Callable, CallableOps, Coro, CoroState, DequeOps, ensure, 
 	EnvMode, eprn, Expander, Expansion, FromVal, GC_DEFAULT_RATIO, GC_MIN_RATIO, GFn, 
-	GResult, macro_no_op, Num, rfn, RData, Root, stock_syms::*, str, Str, Sym, Val
+	GResult, macro_no_op, Num, RData, Rest, Root, stock_syms::*, str, Str, Sym, Val
 };
 use smallvec::SmallVec;
 use std::{i32, str};
@@ -13,113 +13,113 @@ use std::time::UNIX_EPOCH;
 
 pub fn init(sandboxed: bool) -> GResult<()> {
 	if !sandboxed {
-		glsp::bind_rfn("load", rfn!(load))?;
-		glsp::bind_rfn("require", rfn!(require))?;
+		glsp::bind_rfn("load", &load)?;
+		glsp::bind_rfn("require", &require)?;
 	}
 
-	glsp::bind_rfn("type-of", rfn!(type_of))?;
-	glsp::bind_rfn("nil?", rfn!(nilp))?;
-	glsp::bind_rfn("num?", rfn!(nump))?;
-	glsp::bind_rfn("int?", rfn!(intp))?;
-	glsp::bind_rfn("flo?", rfn!(flop))?;
-	glsp::bind_rfn("char?", rfn!(charp))?;
-	glsp::bind_rfn("bool?", rfn!(boolp))?;
-	glsp::bind_rfn("sym?", rfn!(symp))?;
-	glsp::bind_rfn("deque?", rfn!(dequep))?;
-	glsp::bind_rfn("arr?", rfn!(arrp))?;
-	glsp::bind_rfn("str?", rfn!(strp))?;
-	glsp::bind_rfn("tab?", rfn!(tabp))?;
-	glsp::bind_rfn("iter?", rfn!(iterp))?;
-	glsp::bind_rfn("iterable?", rfn!(iterablep))?;
-	glsp::bind_rfn("obj?", rfn!(objp))?;
-	glsp::bind_rfn("class?", rfn!(classp))?;
-	glsp::bind_rfn("fn?", rfn!(fnp))?;
-	glsp::bind_rfn("rfn?", rfn!(rfnp))?;
-	glsp::bind_rfn("coro?", rfn!(corop))?;
-	glsp::bind_rfn("rdata?", rfn!(rdatap))?;
-	glsp::bind_rfn("callable?", rfn!(callablep))?;
-	glsp::bind_rfn("expander?", rfn!(expanderp))?;
+	glsp::bind_rfn("type-of", &type_of)?;
+	glsp::bind_rfn("nil?", &nilp)?;
+	glsp::bind_rfn("num?", &nump)?;
+	glsp::bind_rfn("int?", &intp)?;
+	glsp::bind_rfn("flo?", &flop)?;
+	glsp::bind_rfn("char?", &charp)?;
+	glsp::bind_rfn("bool?", &boolp)?;
+	glsp::bind_rfn("sym?", &symp)?;
+	glsp::bind_rfn("deque?", &dequep)?;
+	glsp::bind_rfn("arr?", &arrp)?;
+	glsp::bind_rfn("str?", &strp)?;
+	glsp::bind_rfn("tab?", &tabp)?;
+	glsp::bind_rfn("iter?", &iterp)?;
+	glsp::bind_rfn("iterable?", &iterablep)?;
+	glsp::bind_rfn("obj?", &objp)?;
+	glsp::bind_rfn("class?", &classp)?;
+	glsp::bind_rfn("fn?", &fnp)?;
+	glsp::bind_rfn("rfn?", &rfnp)?;
+	glsp::bind_rfn("coro?", &corop)?;
+	glsp::bind_rfn("rdata?", &rdatap)?;
+	glsp::bind_rfn("callable?", &callablep)?;
+	glsp::bind_rfn("expander?", &expanderp)?;
 
-	glsp::bind_rfn("same?", rfn!(samep))?;
-	glsp::bind_rfn("eq?", rfn!(eqp))?;
-	glsp::bind_rfn("keys-eqv?", rfn!(keys_eqvp))?;
+	glsp::bind_rfn("same?", &samep)?;
+	glsp::bind_rfn("eq?", &eqp)?;
+	glsp::bind_rfn("keys-eqv?", &keys_eqvp)?;
 
-	glsp::bind_rfn("==any?", rfn!(num_eq_anyp))?;
-	glsp::bind_rfn("same-any?", rfn!(same_anyp))?;
-	glsp::bind_rfn("eq-any?", rfn!(eq_anyp))?;
+	glsp::bind_rfn("==any?", &num_eq_anyp)?;
+	glsp::bind_rfn("same-any?", &same_anyp)?;
+	glsp::bind_rfn("eq-any?", &eq_anyp)?;
 
-	glsp::bind_rfn("int", rfn!(int))?;
-	glsp::bind_rfn("flo", rfn!(flo))?;
-	glsp::bind_rfn("char", rfn!(char))?;
-	glsp::bind_rfn("bool", rfn!(bool))?;
-	glsp::bind_rfn("sym", rfn!(sym))?;
+	glsp::bind_rfn("int", &int)?;
+	glsp::bind_rfn("flo", &flo)?;
+	glsp::bind_rfn("char", &char)?;
+	glsp::bind_rfn("bool", &bool)?;
+	glsp::bind_rfn("sym", &sym)?;
 
-	glsp::bind_rfn("int->str", rfn!(int_to_str))?;
-	glsp::bind_rfn("flo->str", rfn!(flo_to_str))?;
-	glsp::bind_rfn("valid-sym-char?", rfn!(valid_sym_charp))?;
-	glsp::bind_rfn("valid-sym-str?", rfn!(valid_sym_strp))?;
-	glsp::bind_rfn("representable-sym-str?", rfn!(representable_sym_strp))?;
+	glsp::bind_rfn("int->str", &int_to_str)?;
+	glsp::bind_rfn("flo->str", &flo_to_str)?;
+	glsp::bind_rfn("valid-sym-char?", &valid_sym_charp)?;
+	glsp::bind_rfn("valid-sym-str?", &valid_sym_strp)?;
+	glsp::bind_rfn("representable-sym-str?", &representable_sym_strp)?;
 
-	glsp::bind_rfn("global", rfn!(global))?;
-	glsp::bind_rfn("global=", rfn!(set_global))?;
-	glsp::bind_rfn("global-opt", rfn!(global_opt))?;
-	glsp::bind_rfn("global-opt=", rfn!(set_global_opt))?;
-	glsp::bind_rfn("freeze-global!", rfn!(freeze_global))?;
-	glsp::bind_rfn("has-global?", rfn!(has_global))?;
-	glsp::bind_rfn("bind-global!", rfn!(bind_global))?;
-	glsp::bind_rfn("del-global!", rfn!(del_global))?;
+	glsp::bind_rfn("global", &global)?;
+	glsp::bind_rfn("global=", &set_global)?;
+	glsp::bind_rfn("global-opt", &global_opt)?;
+	glsp::bind_rfn("global-opt=", &set_global_opt)?;
+	glsp::bind_rfn("freeze-global!", &freeze_global)?;
+	glsp::bind_rfn("has-global?", &has_global)?;
+	glsp::bind_rfn("bind-global!", &bind_global)?;
+	glsp::bind_rfn("del-global!", &del_global)?;
 	
-	glsp::bind_rfn("macro", rfn!(get_macro))?;
-	glsp::bind_rfn("macro=", rfn!(set_macro))?;
-	glsp::bind_rfn("macro-opt", rfn!(macro_opt))?;
-	glsp::bind_rfn("macro-opt=", rfn!(set_macro_opt))?;
-	glsp::bind_rfn("has-macro?", rfn!(has_macro))?;
-	glsp::bind_rfn("bind-macro!", rfn!(bind_macro))?;
-	glsp::bind_rfn("del-macro!", rfn!(del_macro))?;
-	glsp::bind_rfn("expand", rfn!(expand))?;
-	glsp::bind_rfn("expand-multi", rfn!(expand_multi))?;
-	glsp::bind_rfn("expand-1", rfn!(expand_1))?;
-	glsp::bind_rfn("macro-no-op", rfn!(macro_no_op))?;
+	glsp::bind_rfn("macro", &get_macro)?;
+	glsp::bind_rfn("macro=", &set_macro)?;
+	glsp::bind_rfn("macro-opt", &macro_opt)?;
+	glsp::bind_rfn("macro-opt=", &set_macro_opt)?;
+	glsp::bind_rfn("has-macro?", &has_macro)?;
+	glsp::bind_rfn("bind-macro!", &bind_macro)?;
+	glsp::bind_rfn("del-macro!", &del_macro)?;
+	glsp::bind_rfn("expand", &expand)?;
+	glsp::bind_rfn("expand-multi", &expand_multi)?;
+	glsp::bind_rfn("expand-1", &expand_1)?;
+	glsp::bind_rfn("macro-no-op", &macro_no_op)?;
 	
-	glsp::bind_rfn("fn-name", rfn!(fn_name))?;
-	glsp::bind_rfn("fn-yields?", rfn!(fn_yieldsp))?;
-	glsp::bind_rfn("arg-limits", rfn!(arg_limits))?;
-	glsp::bind_rfn("min-args", rfn!(min_args))?;
-	glsp::bind_rfn("max-args", rfn!(max_args))?;
+	glsp::bind_rfn("fn-name", &fn_name)?;
+	glsp::bind_rfn("fn-yields?", &fn_yieldsp)?;
+	glsp::bind_rfn("arg-limits", &arg_limits)?;
+	glsp::bind_rfn("min-args", &min_args)?;
+	glsp::bind_rfn("max-args", &max_args)?;
 	
-	glsp::bind_rfn("coro-state", rfn!(coro_state))?;
-	glsp::bind_rfn("coro-run", rfn!(coro_run))?;
-	glsp::bind_rfn("coro-finish!", rfn!(coro_finish))?;
+	glsp::bind_rfn("coro-state", &coro_state)?;
+	glsp::bind_rfn("coro-run", &coro_run)?;
+	glsp::bind_rfn("coro-finish!", &coro_finish)?;
 
-	glsp::bind_rfn("gc", rfn!(gc))?;
-	glsp::bind_rfn("gc-value", rfn!(gc_value))?;
-	glsp::bind_rfn("gc-value=", rfn!(set_gc_value))?;
+	glsp::bind_rfn("gc", &gc)?;
+	glsp::bind_rfn("gc-value", &gc_value)?;
+	glsp::bind_rfn("gc-value=", &set_gc_value)?;
 
 	#[cfg(not(target_arch = "wasm32"))]
-	glsp::bind_rfn("time", rfn!(time))?;
-	glsp::bind_rfn("unix-time", rfn!(unix_time))?;
-	glsp::bind_rfn("sleep", rfn!(sleep))?;
+	glsp::bind_rfn("time", &time)?;
+	glsp::bind_rfn("unix-time", &unix_time)?;
+	glsp::bind_rfn("sleep", &sleep)?;
 
-	glsp::bind_rfn("bail", rfn!(bail))?;
-	glsp::bind_rfn("try-call", rfn!(try_call))?;
-	glsp::bind_rfn("stack-trace", rfn!(stack_trace))?;
-	glsp::bind_rfn("file-location", rfn!(file_location))?;
+	glsp::bind_rfn("bail", &bail)?;
+	glsp::bind_rfn("try-call", &try_call)?;
+	glsp::bind_rfn("stack-trace", &stack_trace)?;
+	glsp::bind_rfn("file-location", &file_location)?;
 
-	glsp::bind_rfn("dump-form", rfn!(dump_form))?;
-	glsp::bind_rfn("dump-fn", rfn!(dump_fn))?;
-	glsp::bind_rfn("dump-macro", rfn!(dump_macro))?;
+	glsp::bind_rfn("dump-form", &dump_form)?;
+	glsp::bind_rfn("dump-fn", &dump_fn)?;
+	glsp::bind_rfn("dump-macro", &dump_macro)?;
 
-	glsp::bind_rfn("not", rfn!(not))?;
-	glsp::bind_rfn("gensym", rfn!(gensym))?;
-	glsp::bind_rfn("freed?", rfn!(freedp))?;
-	glsp::bind_rfn("clone", rfn!(clone))?;
-	glsp::bind_rfn("deep-clone", rfn!(deep_clone))?;
-	glsp::bind_rfn("freeze!", rfn!(freeze))?;
-	glsp::bind_rfn("deep-freeze!", rfn!(deep_freeze))?;
-	glsp::bind_rfn("eval", rfn!(eval))?;
-	glsp::bind_rfn("eval-multi", rfn!(eval_multi))?;
-	glsp::bind_rfn("no-op", rfn!(no_op))?;
-	glsp::bind_rfn("identity", rfn!(identity))?;
+	glsp::bind_rfn("not", &not)?;
+	glsp::bind_rfn("gensym", &gensym)?;
+	glsp::bind_rfn("freed?", &freedp)?;
+	glsp::bind_rfn("clone", &clone)?;
+	glsp::bind_rfn("deep-clone", &deep_clone)?;
+	glsp::bind_rfn("freeze!", &freeze)?;
+	glsp::bind_rfn("deep-freeze!", &deep_freeze)?;
+	glsp::bind_rfn("eval", &eval)?;
+	glsp::bind_rfn("eval-multi", &eval_multi)?;
+	glsp::bind_rfn("no-op", &no_op)?;
+	glsp::bind_rfn("identity", &identity)?;
 
 	Ok(())
 }
@@ -225,7 +225,7 @@ fn bool(arg: Val) -> bool {
 	}
 }
 
-fn sym(rest: &[Val]) -> GResult<Sym> {
+fn sym(rest: Rest<Val>) -> GResult<Sym> {
 	//construct the sym's name string on the stack
 	let mut bytes = SmallVec::<[u8; 128]>::new();
 
@@ -292,12 +292,12 @@ fn representable_sym_strp(st: &str) -> bool {
 	glsp::is_representable_sym(st)
 }
 
-fn samep(args: &[Val]) -> GResult<bool> {
+fn samep(args: Rest<Val>) -> GResult<bool> {
 	ensure!(args.len() >= 2, "expected at least 2 args, but received {}", args.len());
 	Ok((0 .. args.len()-1).all(|i| args[i].same(&args[i+1])))
 }
 
-fn eqp(args: &[Val]) -> GResult<bool> {
+fn eqp(args: Rest<Val>) -> GResult<bool> {
 	ensure!(args.len() >= 2, "expected at least 2 args, but received {}", args.len());
 	
 	for i in 0 .. args.len() - 1 {
@@ -309,24 +309,24 @@ fn eqp(args: &[Val]) -> GResult<bool> {
 	Ok(true)
 }
 
-fn keys_eqvp(args: &[Val]) -> GResult<bool> {
+fn keys_eqvp(args: Rest<Val>) -> GResult<bool> {
 	ensure!(args.len() >= 2, "expected at least 2 args, but received {}", args.len());
 	Ok((0 .. args.len()-1).all(|i| args[i].keys_eqv(&args[i+1])))
 }
 
-fn num_eq_anyp(first: Val, rest: &[Val]) -> GResult<bool> {
+fn num_eq_anyp(first: Val, rest: Rest<Val>) -> GResult<bool> {
 	ensure!(rest.iter().chain(once(&first)).all(|val| {
 	            val.is_int() || val.is_flo() || val.is_char()
 	        }), "non-number passed to ==any?");
 	Ok(rest.iter().any(|rest_val| first.num_eq(rest_val).unwrap()))
 }
 
-fn same_anyp(first: Val, rest: &[Val]) -> bool {
+fn same_anyp(first: Val, rest: Rest<Val>) -> bool {
 	rest.iter().any(|rest_val| first.same(rest_val))
 }
 
-fn eq_anyp(first: Val, rest: &[Val]) -> GResult<bool> {
-	for rest_val in rest {
+fn eq_anyp(first: Val, rest: Rest<Val>) -> GResult<bool> {
+	for rest_val in &rest {
 		if first.try_eq(rest_val)? {
 			return Ok(true)
 		}
@@ -437,7 +437,7 @@ fn macro_no_op() -> GResult<()> {
 fn fn_name(arg: Val) -> GResult<Option<Sym>> {
 	match arg {
 		Val::GFn(ref gfn) => Ok(gfn.name()),
-		Val::RFn(rfn) => Ok(rfn.name()),
+		Val::RFn(ref rfn) => Ok(rfn.name()),
 		_ => bail!("expected a function, received {}", arg.a_type_name())
 	}
 }
@@ -517,7 +517,7 @@ fn sleep(secs: Num) -> GResult<()> {
 	super::sleep(secs.into_f32())
 }
 
-fn bail(args: &[Val]) -> GResult<()> {
+fn bail(args: Rest<Val>) -> GResult<()> {
 	match args.len() {
 		0 => bail!("(bail) was invoked"),
 		1 => bail!(args[0].clone()),
@@ -529,7 +529,7 @@ fn bail(args: &[Val]) -> GResult<()> {
 	}
 }
 
-fn try_call(mode: Val, callee: Val, args: &[Val]) -> GResult<Root<Arr>> {
+fn try_call(mode: Val, callee: Val, args: Rest<Val>) -> GResult<Root<Arr>> {
 	let is_verbose = match mode {
 		Val::Sym(BRIEF_SYM) => false,
 		Val::Sym(VERBOSE_SYM) => true,
@@ -547,7 +547,7 @@ fn try_call(mode: Val, callee: Val, args: &[Val]) -> GResult<Root<Arr>> {
 		}
 	};
 
-	match glsp::try_call(is_verbose, &callable, args) {
+	match glsp::try_call(is_verbose, &callable, &args) {
 		Ok(result) => Ok(arr![OK_SYM, result]),
 		Err(err) => {
 			//we allow (macro-no-op) errors to bubble through (try) and (try-verbose)
@@ -669,7 +669,7 @@ fn require(filename: String) -> GResult<Val> {
 	glsp::require(&filename)
 }
 
-fn no_op(_: &[Val]) {
+fn no_op(_: Rest<Val>) {
 	()
 }
 

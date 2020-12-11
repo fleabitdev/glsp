@@ -4,20 +4,33 @@
 
 ### Added
 
-- The `rdata!` and `lib!` macros now support `enum` declarations as well as `struct` declarations
 - Added the `sym!` macro, as a convenient alternative to `glsp::sym(x).unwrap()`
 - Defined a total ordering for floats: NaNs now compare equal to other NaNs, and compare greater 
   than all non-NaN numbers
 - Added `sort` and `sort_by` methods to the `DequeOps` trait
 - Added `is_representable` and `is_serializable` methods to `Arr`, `Tab`, `Sym` and `Val`
 - Added the `glsp::is_representable_sym` function
+- The `backquote!` macro can now unquote local variables by reference, `~&var_name`
 
 ### Changed
 
 - The `GSend` and `GStore` auto traits have been removed
     - The `optin_builtin_traits` and `negative_impls` nightly features are no longer required
     - There is no longer any restriction on variables captured or returned by `Runtime::run`
-    - `Root`, `LibRef`, `LibRefMut`, `RRef` and `RRefMut` can now be stored in an `RData`
+    - `Root`, `RGlobalRef`, `RGlobalRefMut`, `RRef` and `RRefMut` can now be stored in an `RData`
+- `RFn`, `RData`, Rust globals, and the function-wrapping code have been overhauled
+	- The `min_const_generics`, `min_specialization` and `rustc_attrs` nightly features 
+	  are now required
+	- The `RStore` trait and `rdata!` macro have been removed. `RData` may now store any
+	  `'static` Rust type
+	- Associating an `RClass` with a Rust type is now a dynamic operation, using `RClassBuilder`
+	- The `Lib` trait has been renamed to `RGlobal`, and the `lib!` macro has been removed
+	- `RFn`s are now stored on the garbage-collected heap, as `Root<RFn>`
+	- The `rfn!` macro has been removed. Function pointers and closures can now be passed directly
+	  to `glsp::rfn` and similar functions
+	- Capturing closures can now be passed to `glsp::rfn`, as long as they're `'static`
+	- Rest parameters are now captured using a wrapper type `Rest<T>`, rather than a slice `&[T]`
+	- Optional parameters will now be set to `None` when their argument is `#n`
 - `meth`, `has-meth?`, `meth-name` and `call-meth` have been renamed to `met`, `has-met?`,
   `met-name` and `call-met` respectively
 - Improved error message when glsp functions are called with no active `Runtime`
@@ -29,15 +42,16 @@
 - The `rand-select` and `chance` functions have been renamed to `rand-pick` and `chance?`
 - The `coin-flip` function has been removed
 - `glsp::is_valid_sym_str` has been renamed to `glsp::is_valid_sym`
-- `ToVal`, `FromVal` and `ToCallArgs` are now implemented for arrays of any length
+- `IntoVal`, `FromVal` and `IntoCallArgs` are now implemented for arrays of any length
 
 ### Fixed
 
 - `(int)` and `(flo)` would not accept characters when called as an operator
 - `RData` destructors triggered panics every time they interacted with the runtime
 - The `syms!` macro required some names to be in scope, and emitted an incorrect struct name
-- `Lib::borrow` and `Lib::borrow_mut` had incorrect error messages under some circumstances
-- Calling `glsp::take_lib` would cause a panic in `Heap`'s destructor
+- `RGlobal::borrow` and `RGlobal::borrow_mut` had incorrect error messages under some 
+  circumstances
+- Calling `glsp::take_rglobal` would cause a panic in `Heap`'s destructor
 
 ## Version 0.1 
 

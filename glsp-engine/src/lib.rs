@@ -1,6 +1,9 @@
 #![cfg_attr(not(feature = "unsafe-internals"), forbid(unsafe_code))]
 
 #![feature(min_const_generics)]
+#![feature(min_specialization)]
+#![feature(rustc_attrs)]
+#![feature(unboxed_closures)]
 
 #![doc(html_root_url = "https://docs.rs/glsp/0.1")]
 
@@ -43,8 +46,9 @@ pub use self::{
 	},
 	class::{Class, Obj},
 	engine::{
-		PrWriter, EprWriter, Lib, LibRef, LibRefMut, RClass, RData, RFn,
-		RRef, RRefMut, RRoot, RStore, Sym, ToSym, with_lazy_val
+		PrWriter, EprWriter, RClass, RClassBuilder, RData,
+		RFn, RGlobal, RGlobalRef, RGlobalRefMut, 
+		RRef, RRefMut, RRoot, Sym, ToSym, with_lazy_val
 	},
 	error::{GError, GResult},
 	eval::{EnvMode, Expander, Expansion},
@@ -52,8 +56,8 @@ pub use self::{
 	iter::{GIter, GIterLen, Iterable, IterableOps},
 	val::{Hashable, Num, Val},
 	wrap::{
-		ArgType, Callable, CallableOps, forwarder, FromVal, IntoResult, MakeArg, MakeTemp,
-		make_temps, OrNil, ToCallArgs, ToVal, WrappedFn, wrapped_arg_limits
+		ArgType, Callable, CallableOps, FromVal, IntoCallArgs, IntoVal,
+		Rest, WrappedCall, Wrapper
 	}
 };
 

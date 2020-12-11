@@ -800,7 +800,7 @@ text = ""
 		Returns `#t` if an object or RData belongs to the specified class.
 
 		For an object, its class is identified using a reference to a `class` object. For an
-		RData, its class is identified using a symbol.
+		RData, its RClass (if any) is identified using a symbol.
 
 			(is? obj Rect)
 			(is? rdata 'Sprite)
@@ -813,12 +813,12 @@ text = ""
 	filename = "class-of"
 	kinds = ["fn"]
 	args = ["ob obj|rdata"]
-	returns = "class|sym"
+	returns = "class|sym|nil"
 	text = """
 		Returns the class of an object or RData.
 
 		For an object, its class is identified using a reference to a `class` object. For an
-		RData, its class is identified using a symbol.
+		RData, its RClass is identified using a symbol, or nil if it has no RClass.
 
 			(prn (class-of obj)) ; prints #<class:Rect>
 			(prn (class-of rdata)) ; prints Sprite

@@ -73,7 +73,7 @@ same spirit as Rust's [`vec![]` macro](https://doc.rust-lang.org/stable/std/macr
 ```rust
 arr![];
 arr![elem; n]; //elem, repeated n times
-arr![100i32, 20u8, "hello", arr![]]; //types are converted using the ToVal trait
+arr![100i32, 20u8, "hello", arr![]]; //types are converted using the IntoVal trait
 arr![a, ..src, b]; //splays the contents of src using the Splay trait
 ```
 

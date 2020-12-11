@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use glsp::{bail, Engine, EngineBuilder, Expander, GResult, lib, Lib, RFn, Sym};
+use glsp::{bail, Engine, EngineBuilder, Expander, GResult, RFn, RGlobal, Root, Sym};
 use std::{i32, thread};
 use std::collections::{hash_map::DefaultHasher, HashMap};
 use std::hash::{Hash, Hasher};
@@ -17,18 +17,18 @@ mod misc;
 mod num;
 mod pat;
 
-lib! {
-	pub(crate) struct Std {
-		setters: HashMap<Sym, (Sym, bool)>,
-		opt_setters: HashMap<Sym, (Sym, bool)>,
-		classmacros: HashMap<Sym, Expander>,
-		rng: Rng,
-		ord_rfn: Option<RFn>,
+pub(crate) struct Std {
+	setters: HashMap<Sym, (Sym, bool)>,
+	opt_setters: HashMap<Sym, (Sym, bool)>,
+	classmacros: HashMap<Sym, Expander>,
+	rng: Rng,
+	ord_rfn: Option<Root<RFn>>,
 
-		#[cfg(not(target_arch = "wasm32"))]
-		start_time: Instant
-	}
+	#[cfg(not(target_arch = "wasm32"))]
+	start_time: Instant
 }
+
+impl RGlobal for Std { }
 
 impl Std {
 	fn new() -> GResult<Std> {
@@ -233,7 +233,7 @@ impl Runtime {
 		//init_stdlib. we could potentially get this down to the sub-0.1ms range by caching the
 		//initial syms and rfns databases globally so that they can be clone()d. (todo?)
 
-		//an obstacle in the way of that plan: Sym, Rc<str> and RFn are all !Send. the only way
+		//an obstacle in the way of that plan: Sym and Rc<str> are both !Send. the only way
 		//to store them globally would be thread_local!{}, which would eliminate any performance
 		//savings when creating the first Runtime of a thread... which is the main use-case for
 		//making Runtime::new() fast in the first place! postponing this for now.
@@ -316,7 +316,7 @@ impl RuntimeBuilder {
 }
 
 fn init_stdlib(sandboxed: bool) -> GResult<()> {
-	glsp::add_lib(Std::new()?);
+	glsp::add_rglobal(Std::new()?);
 
 	class::init(sandboxed)?;
 	collections::init(sandboxed)?;

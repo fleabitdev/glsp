@@ -113,11 +113,11 @@ freeing over the entire following cycle.
 
 ## Root Soundness
 
-We make it very difficult to pass certain types (`Root`, `Sym`, `RFn`) from one `Runtime` to 
-another. However, there's no way to forbid it entirely. `Box::leak`, and the `thread_local!` macro, 
+We discourage the user from passing certain types (`Root`, `Sym`) from one `Runtime` to another. 
+However, there's no way to forbid it entirely. `Box::leak`, and the `thread_local!` macro, 
 both permit any `'static` type (like `Root`!) to be given an indefinite lifetime.
 
-`Syms` and `RFns` will just cause harmless undefined behaviour or out-of-bounds panics when moved 
+`Syms` will just cause harmless undefined behaviour or out-of-bounds panics when moved 
 between `Runtimes`, but if a `Root` (or a `Gc` derived from it) is stored in a foreign `Heap`, 
 that would cause use-after-free bugs in `"unsafe-internals"` mode. For example...
 	

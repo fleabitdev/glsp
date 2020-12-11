@@ -61,7 +61,6 @@ pub fn compile(input: TokenStream) -> TokenStream {
 }
 
 /**
-
 A convenient way to evaluate simple GameLisp code.
 
 This macro is only available when the ["compiler" feature 
@@ -80,7 +79,7 @@ an explicit type.
 
 Rust's local variables can be captured, and/or mutated, using the 
 [`unquote`](https://gamelisp.rs/std/unquote) form (abbreviated as `~`).
-They are copied into the form using the [`ToVal` trait](trait.ToVal.html). 
+They are copied into the form using the [`IntoVal` trait](trait.IntoVal.html). 
 If they're mutated using the [`=` form](https://gamelisp.rs/std/set), then
 the local variables' values are updated when `eval!()` returns, using the 
 [`FromVal` trait](trait.FromVal.html).

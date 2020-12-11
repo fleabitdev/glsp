@@ -460,7 +460,6 @@ pub(crate) enum Predicate {
 	Inf,
 	Bool,
 	Sym,
-	RFn,
 	Deque,
 	Arr,
 	Str,
@@ -472,6 +471,7 @@ pub(crate) enum Predicate {
 	GFn,
 	Coro,
 	RData,
+	RFn,
 	Callable,
 	Expander
 }
@@ -508,9 +508,9 @@ const KNOWN_OPS: [(Sym, KnownOp); 54] = {
 		(OBJP_SYM, TypeCheck(Predicate::Obj)),
 		(CLASSP_SYM, TypeCheck(Predicate::Class)),
 		(FNP_SYM, TypeCheck(Predicate::GFn)),
-		(RFNP_SYM, TypeCheck(Predicate::RFn)),
 		(COROP_SYM, TypeCheck(Predicate::Coro)),
 		(RDATAP_SYM, TypeCheck(Predicate::RData)),
+		(RFNP_SYM, TypeCheck(Predicate::RFn)),
 		(CALLABLEP_SYM, TypeCheck(Predicate::Callable)),
 		(EXPANDERP_SYM, TypeCheck(Predicate::Expander)),
 

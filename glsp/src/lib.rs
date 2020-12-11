@@ -29,10 +29,8 @@ pub mod prelude {
 
 	#[doc(no_inline)]
 	pub use crate::{
-		arr, backquote, bail, bail_at, ensure, ensure_at, 
-		epr, eprn, error, lib, macro_no_op, pr, prn, quote,
-		rdata, rdata_impls, rfn, str, sym, syms, tab, try_arr, 
-		try_backquote, try_tab,
+		arr, backquote, bail, bail_at, ensure, ensure_at, epr, eprn, error, macro_no_op, 
+		pr, prn, quote, str, sym, syms, tab, try_arr, try_backquote, try_tab,
 
 		Arr, 
 		Callable, CallableOps, Class, Coro, CoroState, 
@@ -41,13 +39,13 @@ pub mod prelude {
 		FromVal, 
 		GError, GFn, GIter, GIterLen, GResult,
 		Hashable, 
-		Iterable, IterableOps,
-		Lib, LibRef, LibRefMut, 
+		IntoVal, Iterable, IterableOps,
 		Num, 
-		Obj, OrNil,
-		RData, RFn, Root, RRoot, RRef, RRefMut, Runtime, RuntimeBuilder,
+		Obj,
+		RClass, RClassBuilder, RData, Rest, RFn, RGlobal, RGlobalRef, RGlobalRefMut,
+		Root, RRoot, RRef, RRefMut, Runtime, RuntimeBuilder,
 		Splay, Str, Sym,
-		Tab, ToSym, ToVal, 
+		Tab, ToSym,
 		Val,
 	};
 

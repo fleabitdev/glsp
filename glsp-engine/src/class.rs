@@ -7,7 +7,7 @@ use super::error::{GResult};
 use super::gc::{Allocate, Gc, GcHeader, Slot, Root, Visitor};
 use super::iter::{GIter, GIterState};
 use super::val::{Val};
-use super::wrap::{CallableOps, FromVal, ToCallArgs, ToVal};
+use super::wrap::{CallableOps, FromVal, IntoCallArgs, IntoVal};
 use std::{u16, str};
 use std::cell::{RefCell, RefMut};
 use std::cmp::{Ord};
@@ -332,10 +332,10 @@ impl Class {
 	
 	Equivalent to [`(call-met key cls ..args)`](https://gamelisp.rs/std/call-met).
 	*/
-	pub fn call<S, A, R>(&self, key: S, args: &A) -> GResult<R> 
+	pub fn call<S, A, R>(&self, key: S, args: A) -> GResult<R> 
 	where
 		S: ToSym,
-		A: ToCallArgs + ?Sized, 
+		A: IntoCallArgs, 
 		R: FromVal
 	{
 		let sym = key.to_sym()?;
@@ -355,10 +355,10 @@ impl Class {
 	
 	Equivalent to [`(call-met (? key) cls ..args)`](https://gamelisp.rs/std/call-met).
 	*/
-	pub fn call_if_present<S, A, R>(&self, key: S, args: &A) -> GResult<Option<R>> 
+	pub fn call_if_present<S, A, R>(&self, key: S, args: A) -> GResult<Option<R>> 
 	where
 		S: ToSym,
-		A: ToCallArgs + ?Sized, 
+		A: IntoCallArgs, 
 		R: FromVal
 	{
 		let sym = key.to_sym()?;
@@ -532,9 +532,9 @@ pub(crate) struct MetLookup {
 }
 
 impl Obj {
-	pub(crate) fn new<A>(class: &Root<Class>, args: &A) -> GResult<Root<Obj>> 
+	pub(crate) fn new<A>(class: &Root<Class>, args: A) -> GResult<Root<Obj>> 
 	where
-		A: ToCallArgs + ?Sized
+		A: Clone + IntoCallArgs
 	{
 		ensure!(!class.is_mixin, "{} is a mixin; mixins cannot be instantiated", 
 		        class.name.unwrap());
@@ -975,9 +975,9 @@ impl Obj {
 
 	//used by the undocumented call-base-raw function in glsp-stdlib
 	#[doc(hidden)]
-	pub fn raw_call<A>(&self, index: usize, args: &A) -> GResult<Val> 
+	pub fn raw_call<A>(&self, index: usize, args: A) -> GResult<Val> 
 	where
-		A: ToCallArgs + ?Sized
+		A: IntoCallArgs
 	{
 		match self.get_base_raw_method(index) {
 			Some(met_lookup) => self.invoke_method(&met_lookup, args),
@@ -993,10 +993,10 @@ impl Obj {
 	
 	Equivalent to [`(call-met ob key ..args)`](https://gamelisp.rs/std/call-met).
 	*/
-	pub fn call<S, A, R>(&self, key: S, args: &A) -> GResult<R> 
+	pub fn call<S, A, R>(&self, key: S, args: A) -> GResult<R> 
 	where
 		S: ToSym,
-		A: ToCallArgs + ?Sized, 
+		A: IntoCallArgs, 
 		R: FromVal
 	{
 		let sym = key.to_sym()?;
@@ -1014,10 +1014,10 @@ impl Obj {
 	
 	Equivalent to [`(call-met ob (? key) ..args)`](https://gamelisp.rs/std/call-met).
 	*/
-	pub fn call_if_present<S, A, R>(&self, key: S, args: &A) -> GResult<Option<R>> 
+	pub fn call_if_present<S, A, R>(&self, key: S, args: A) -> GResult<Option<R>> 
 	where
 		S: ToSym,
-		A: ToCallArgs + ?Sized, 
+		A: IntoCallArgs, 
 		R: FromVal
 	{
 		let sym = key.to_sym()?;
@@ -1044,9 +1044,9 @@ impl Obj {
 	}
 
 	//invoke a method represented by a MetLookup. the `self` and `next_index` args are implicit.
-	fn invoke_method<A, R>(&self, met_lookup: &MetLookup, args: &A) -> GResult<R> 
+	fn invoke_method<A, R>(&self, met_lookup: &MetLookup, args: A) -> GResult<R> 
 	where
-		A: ToCallArgs + ?Sized, 
+		A: IntoCallArgs, 
 		R: FromVal
 	{
 		with_vm(|vm| {
@@ -1063,7 +1063,7 @@ impl Obj {
 				stacks.regs.push(next_index_slot);
 			}
 
-			args.to_call_args(&mut stacks.regs)?;
+			args.into_call_args(&mut stacks.regs)?;
 
 			let arg_count = stacks.regs.len() - starting_len;
 			drop(stacks);
@@ -1073,20 +1073,20 @@ impl Obj {
 		})
 	}
 
-	fn set_impl<S: ToSym, V: ToVal>(&self, key: S, value: V) -> GResult<Option<&'static str>> {
+	fn set_impl<S: ToSym, V: IntoVal>(&self, key: S, value: V) -> GResult<Option<&'static str>> {
 		ensure!(!self.header.frozen(), "attempted to mutate a frozen obj");
 		ensure!(self.storage.borrow().is_some(), "attempted to mutate a field on a killed obj");
 
 		let sym = key.to_sym()?;
 		match self.lookup_mut(sym) {
 			LookupMut::Field(mut field) => {
-				let slot = value.to_slot()?;
+				let slot = value.into_slot()?;
 				with_heap(|heap| heap.write_barrier_slot(self, &slot));
 				*field = slot;
 				Ok(None)
 			}
 			LookupMut::PropSetter(setter) => {
-				let _: Slot = self.invoke_method(&setter, &[value])?;
+				let _: Slot = self.invoke_method(&setter, (value,))?;
 				Ok(None)
 			}
 			LookupMut::Error(msg) => Ok(Some(msg))
@@ -1098,7 +1098,7 @@ impl Obj {
 	
 	Equivalent to [`(= [ob key] value)`](https://gamelisp.rs/std/set-access).
 	*/
-	pub fn set<S: ToSym, V: ToVal>(&self, key: S, value: V) -> GResult<()> {
+	pub fn set<S: ToSym, V: IntoVal>(&self, key: S, value: V) -> GResult<()> {
 		let key_sym = key.to_sym()?;
 
 		match self.set_impl(key_sym, value)? {
@@ -1113,7 +1113,7 @@ impl Obj {
 	
 	Equivalent to [`(= [ob (? key)] value)`](https://gamelisp.rs/std/set-access).
 	*/
-	pub fn set_if_present<S: ToSym, V: ToVal>(&self, key: S, value: V) -> GResult<bool> {
+	pub fn set_if_present<S: ToSym, V: IntoVal>(&self, key: S, value: V) -> GResult<bool> {
 		Ok(self.set_impl(key, value)?.is_none())
 	}
 
@@ -1152,10 +1152,10 @@ impl Obj {
 	
 	Equivalent to [`(enab! ob state-name)`](https://gamelisp.rs/std/enab-mut).
 	*/
-	pub fn enab<S, A>(&self, state_name: S, args: &A) -> GResult<()>
+	pub fn enab<S, A>(&self, state_name: S, args: A) -> GResult<()>
 	where
 		S: ToSym,
-		A: ToCallArgs + ?Sized
+		A: Clone + IntoCallArgs
 	{
 		let sym = state_name.to_sym()?;
 
@@ -1171,10 +1171,10 @@ impl Obj {
 
 	//enables/disables this state's parent, children and fsm-siblings as appropriate, and also
 	//enables the state itself
-	fn recursively_enable_state<A: ToCallArgs + ?Sized>(
+	fn recursively_enable_state<A: Clone + IntoCallArgs>(
 		&self,
 		state_name: Sym,
-		args: &A
+		args: A
 	) -> GResult<()> {
 
 		//the sequence is:
@@ -1200,7 +1200,7 @@ impl Obj {
 		if let Some(parent_name) = state_ref.parent {
 			let parent_ref = self.class.states.get(&parent_name).unwrap();
 			if states_enabled & (1 << parent_ref.index as u32) == 0 {
-				self.recursively_enable_state(parent_name, args)?;
+				self.recursively_enable_state(parent_name, args.clone())?;
 
 				states_enabled = self.storage.borrow().as_ref().unwrap().states_enabled;
 
@@ -1242,10 +1242,10 @@ impl Obj {
 
 	//enables a state and calls its `init` method, but does not propagate to the state's children, 
 	//parent or fsm-siblings
-	fn enable_state<A: ToCallArgs + ?Sized>(
+	fn enable_state<A: IntoCallArgs>(
 		&self, 
 		state_name: Sym, 
-		args: &A
+		args: A
 	) -> GResult<()> {
 
 		let mut storage_ref = self.storage.borrow_mut();
@@ -1388,7 +1388,7 @@ impl Obj {
 			return Ok(false)
 		}
 
-		let val: Option<Val> = self.call_if_present(OP_EQP_SYM, &[other])?;
+		let val: Option<Val> = self.call_if_present(OP_EQP_SYM, (other,))?;
 		match val {
 			Some(val) => Ok(val.is_truthy()),
 			None => Ok(false)

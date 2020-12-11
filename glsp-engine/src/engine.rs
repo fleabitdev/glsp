@@ -2,7 +2,7 @@ use fnv::{FnvHashMap};
 use owning_ref::{OwningHandle};
 use self::stock_syms::*;
 use smallvec::{SmallVec};
-use std::{fmt, fs, str, u32};
+use std::{fmt, fs, mem, str, u32};
 use std::any::{Any, TypeId, type_name};
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::cmp::{Ordering};
@@ -30,7 +30,10 @@ use super::parse::{Parser};
 use super::transform::{KnownOp, known_ops};
 use super::val::{Num, Val};
 use super::vm::{Frame, GlspApiName, Vm};
-use super::wrap::{FromVal, ToCallArgs, Callable, CallableOps, ToVal, WrappedFn};
+use super::wrap::{
+	Callable, CallableOps, FromVal, IntoVal, IntoCallArgs, wrap, 
+	WrappedCall, Wrapper
+};
 
 #[cfg(feature = "compiler")]
 use std::mem::forget;
@@ -291,13 +294,14 @@ impl Drop for Engine {
 	fn drop(&mut self) {
 		/*
 		we begin by freeing all RData which haven't already been freed, in an arbitrary order.
-		freeing RData before we drop any Libs makes RData destructors more ergonomic to write
-		(for example, this makes it possible for a Sprite rdata to deregister itself from 
-		the Graphics lib when it's dropped).
+		freeing RData before we drop any RGlobals makes RData destructors more ergonomic to 
+		write (for example, this makes it possible for a Sprite rdata to deregister itself 
+		from the Graphics rglobal when it's dropped).
 
-		we then drop all of the Libs in the reverse order that they were registered.
-		we allow take_lib() and add_lib() to be called in a Lib destructor by leaving 
-		engine.libs and engine.libs_ordering unborrowed while the destructor runs.
+		we then drop all of the RGlobals in the reverse order that they were registered.
+		we allow take_rglobal() and add_rglobal() to be called in a RGlobal destructor by 
+		leaving engine.rglobals and engine.rglobals_ordering unborrowed while the 
+		destructor is running.
 
 		finally, we clean up the Heap, make this Engine inactive, and then assert that the 
 		EngineStorage will be dropped when this Engine is dropped.
@@ -306,30 +310,39 @@ impl Drop for Engine {
 		self.run(|| {
 			with_engine(|engine| {
 
-				//free rdata. (todo: should probably find a more efficient way to handle the
-				//corner case where an RData destructor allocates another RData)
+				//free rdata. (todo: we should find a more efficient way to handle the
+				//corner case where a destructor allocates another RData)
 				loop {
-					let to_free = engine.heap.all_unfreed_rdata();
-					if to_free.len() == 0 {
-						break
-					}
+					let mut any_freed = false;
 
-					for rdata in to_free {
+					for rdata in engine.heap.all_unfreed_rdata() {
 						if !rdata.is_freed() {
 
 							//free() will return an Err if the RData is currently borrowed. in
 							//that case, we panic, because a Root should not exist while its Heap
 							//is being dropped. (todo: should we check this invariant explicitly?)
 							rdata.free().unwrap();
+
+							any_freed = true;
 						}
+					}
+
+					//todo: we should also drop RFns here, because they could have captured 
+					//arbitrary data, so they could run arbitrary destructors
+
+					if !any_freed {
+						break
 					}
 				}
 
-				//drop libraries
-				while let Some(type_id) = engine.libs_ordering.borrow_mut().pop() {
-					let lib = engine.libs.borrow_mut().remove(&type_id).unwrap();
-					drop(lib);
+				//drop rglobals
+				while let Some(type_id) = engine.rglobals_ordering.borrow_mut().pop() {
+					let rglobal = engine.rglobals.borrow_mut().remove(&type_id).unwrap();
+					drop(rglobal);
 				}
+
+				//todo: we need to handle the case where an rglobal's destructor allocates
+				//an RData or RFn
 
 				/*
 				we need to clean up the Heap because otherwise it will leak memory if the 
@@ -340,7 +353,7 @@ impl Drop for Engine {
 
 				engine.lazy_storage.borrow_mut().clear();
 				engine.syms.borrow_mut().clear();
-				engine.rfns.borrow_mut().clear();
+				engine.rclasses.borrow_mut().clear();
 				engine.vm.clear();
 				engine.heap.clear();
 			});
@@ -352,7 +365,7 @@ impl Drop for Engine {
 
 		//this should be guaranteed, i think, since engine.run() borrows the Engine so that it
 		//can't be dropped, and there should be no other source for an Rc<EngineStorage>.
-		debug_assert!(Rc::strong_count(&self.0) == 1);
+		assert!(Rc::strong_count(&self.0) == 1);
 	}
 }
 
@@ -376,16 +389,14 @@ struct EngineStorage {
 	filenames_map: RefCell<HashMap<Rc<str>, Filename>>,
 	required: RefCell<HashSet<PathBuf>>,
 
-	rfns: RefCell<Vec<RFnEntry>>, 
-	rfns_map: RefCell<HashMap<usize, RFn>>,
 	rclasses: RefCell<HashMap<TypeId, Rc<RClass>>>,
-	rclass_names: RefCell<HashSet<&'static str>>,
+	rclass_names: RefCell<HashSet<Sym>>,
 
 	in_expander: RefCell<Option<(Option<Sym>, Span, Rc<Env>)>>,
 	errors_verbose: Cell<bool>,
 
-	libs: RefCell<HashMap<TypeId, Rc<dyn Any>>>,
-	libs_ordering: RefCell<Vec<TypeId>>,
+	rglobals: RefCell<HashMap<TypeId, Rc<dyn Any>>>,
+	rglobals_ordering: RefCell<Vec<TypeId>>,
 
 	#[cfg(feature = "compiler")] recording: RefCell<Option<Recording>>,
 	#[cfg(feature = "compiler")] playing_back: RefCell<Option<Recording>>,
@@ -405,11 +416,6 @@ struct SymEntry {
 struct GlobalEntry {
 	val: Val,
 	frozen: bool
-}
-
-struct RFnEntry {
-	name: Option<Sym>,
-	wrapped_fn: WrappedFn
 }
 
 impl Engine {
@@ -433,12 +439,8 @@ impl Engine {
 		let mut spans_map = HashMap::new();
 		spans_map.insert(SpanStorage::Generated, Span(0));
 
-		//Filenames and RFns store a NonZeroU32 to enable some layout optimizations. therefore,
-		//we need to insert dummy entries for Filename(0) and RFn(0).
-		let rfns = vec![RFnEntry {
-			name: None,
-			wrapped_fn: rfn!(|| panic!())
-		}];
+		//Filenames store a NonZeroU32 to enable some layout optimizations. therefore,
+		//we need to insert a dummy entry for Filename(0)
 		let filenames = vec!["".into()];
 
 		let engine = Engine(Rc::new(EngineStorage {
@@ -461,16 +463,14 @@ impl Engine {
 			filenames_map: RefCell::new(HashMap::new()),
 			required: RefCell::new(HashSet::new()),
 
-			rfns: RefCell::new(rfns),
-			rfns_map: RefCell::new(HashMap::new()),
 			rclasses: RefCell::new(HashMap::new()),
 			rclass_names: RefCell::new(HashSet::new()),
 
 			in_expander: RefCell::new(None),
 			errors_verbose: Cell::new(true),
 
-			libs: RefCell::new(HashMap::new()),
-			libs_ordering: RefCell::new(Vec::new()),
+			rglobals: RefCell::new(HashMap::new()),
+			rglobals_ordering: RefCell::new(Vec::new()),
 
 			#[cfg(feature = "compiler")] recording: RefCell::new(None),
 			#[cfg(feature = "compiler")] playing_back: RefCell::new(None),
@@ -645,7 +645,7 @@ This is mostly used to make APIs more ergonomic. For example, the argument to
 [`glsp::global`](fn.global.html) is a generic `S: ToSym`, which means that it can 
 receive either a symbol or a string:
 	
-	glsp::global(my_lib.my_sym)?;
+	glsp::global(my_rglobalrary.my_sym)?;
 	glsp::global("sym-name")?;
 */
 
@@ -694,44 +694,77 @@ pub enum SymKind {
 /**
 The `rfn` primitive type.
 
-Rust functions are represented by a small `Copy` type (a 32-bit integer id).
+To convert a Rust function pointer or a closure into an `RFn`, call 
+[`glsp::bind_rfn`](fn.bind_rfn.html) or [`glsp::rfn`](fn.rfn.html).
 
 Most of this type's methods belong to the `callable` abstract type, so they can be found in
 the [`CallableOps`](trait.CallableOps.html) trait. To invoke an `RFn`, use
 [`glsp::call`](fn.call.html).
 
-To convert a function pointer or a closure into an `RFn`, you should usually call 
-[`glsp::bind_rfn`](fn.bind_rfn.html) or [`glsp::rfn`](fn.rfn.html).
+`RFn`s are always stored on the garbage-collected heap, so they're normally represented by 
+the type [`Root<RFn>`](struct.Root.html).
 */
 
-//the PhantomData is used to ensure that RFns are !Send and !Sync
+pub struct RFn {
+	header: GcHeader,
 
-#[derive(PartialEq, Eq, Hash, Copy, Clone)]
-pub struct RFn(NonZeroU32, PhantomData<*mut ()>);
+	pub(crate) name: Cell<Option<Sym>>,
+	wrapped_fn: Box<dyn WrappedCall>
+}
 
-impl RFn {
-	pub(crate) fn set_name(&self, new_name: Option<Sym>) {
-		with_engine(|engine| {
-			engine.rfns.borrow_mut()[self.0.get() as usize].name = new_name;
-		})
+impl Allocate for RFn {
+	fn header(&self) -> &GcHeader {
+		&self.header
+	}
+
+	fn visit_gcs<V: Visitor>(&self, _visitor: &mut V) {
+		//deliberate no-op
+	}
+
+	fn clear_gcs(&self) {
+		//deliberate no-op
+	}
+
+	fn owned_memory_usage(&self) -> usize {
+		mem::size_of_val::<dyn WrappedCall>(&*self.wrapped_fn)
 	}
 }
 
-impl CallableOps for RFn {
+impl RFn {
+	pub(crate) fn set_name(&self, new_name: Option<Sym>) {
+		self.name.set(new_name)
+	}
+}
+
+impl CallableOps for Root<RFn> {
+	#[inline(always)]
 	fn receive_call(&self, arg_count: usize) -> GResult<Val> {
-		glsp::call_rfn(*self, arg_count).map(|slot| slot.root())
+		Ok(glsp::call_rfn(self, arg_count)?.root())
 	}
 
 	fn name(&self) -> Option<Sym> {
-		with_engine(|engine| {
-			engine.rfns.borrow()[self.0.get() as usize].name
-		})
+		self.name.get()
 	}
 
 	fn arg_limits(&self) -> (usize, Option<usize>) {
-		with_engine(|engine| {
-			engine.rfns.borrow()[self.0.get() as usize].wrapped_fn.arg_limits
-		})
+		let (min, max) = self.wrapped_fn.arg_limits();
+		(min, if max == usize::MAX { None } else { Some(max) })
+	}
+}
+
+impl CallableOps for Gc<RFn> {
+	#[inline(always)]
+	fn receive_call(&self, arg_count: usize) -> GResult<Val> {
+		Ok(glsp::call_rfn(&self.root(), arg_count)?.root())
+	}
+
+	fn name(&self) -> Option<Sym> {
+		self.name.get()
+	}
+
+	fn arg_limits(&self) -> (usize, Option<usize>) {
+		let (min, max) = self.wrapped_fn.arg_limits();
+		(min, if max == usize::MAX { None } else { Some(max) })
 	}
 }
 
@@ -812,76 +845,116 @@ macro_rules! sym {
 }
 
 //-------------------------------------------------------------------------------------------------
-// Lib, RData, RRoot
+// RGlobal, RData, RRoot
 //-------------------------------------------------------------------------------------------------
 
 /**
-A type which can be passed to [`glsp::add_lib`](fn.add_lib.html).
+A marker trait for global data.
 
-It's possible to implement this trait manually, but using the [`lib!` macro](macro.lib.html) is
-strongly encouraged. Among other things, that macro will automatically implement 
-[`MakeArg`](trait.MakeArg.html) for the library type.
+You can implement this type for any `'static + Sized` type, by writing:
+
+	impl RGlobal for MyType { }
+
+This has three effects.
+
+Firstly, it permits a single instance of `MyType` to be passed to 
+[`glsp::add_rglobal`](fn.add_rglobal.html), transferring ownership of that instance to the
+GameLisp runtime.
+
+Secondly, it permits you to temporarily borrow that global instance of the type,
+by calling [`MyType::borrow()`](#method.borrow) or [`MyType::borrow_mut()`](#method.borrow_mut).
+
+Finally, it means that when you [register a Rust function](fn.rfn.html), parameters of type
+`&T` and `&mut T` will automatically borrow the global instance of `MyType` for the duration of 
+the function. This makes it straightforward for you to define methods which can be called from
+both Rust and GameLisp.
+
+	struct Graphics {
+		//...
+	}
+
+	impl RGlobal for Graphics { }
+
+	impl Graphics {
+		fn draw_rect(&self, x: f32, y: f32, w: f32, h: f32, rgb: u32) -> GResult<()> {	
+			/*
+			the type of the &self parameter is &Graphics, so when this function is invoked
+			from GameLisp, it will automatically call Graphics::borrow() to construct its
+			&self argument.
+			*/
+		}
+	}
+
+	fn at_startup() {
+		glsp::add_rglobal(Graphics::new())?;
+
+		//there's no need for any manual conversions; we can just bind the method directly
+		glsp::bind_rfn("draw-rect", &Graphics::draw_rect)?;
+
+		//the method can now be called globally from GameLisp code
+		eval!(
+			"(draw-rect 10.0 10.0 64.0 64.0 0xff0000)"
+		);
+	}
 */
 
-pub trait Lib: 'static + Sized {
-	fn type_name() -> &'static str;
-
+pub trait RGlobal: 'static + Sized {
 	/**
-	Returns a shared reference to the instance of this type owned by the active
+	Returns a shared reference to the global instance of this type owned by the active
 	[`Runtime`](struct.Runtime.html).
 
-	Panics if a library of this type has not been registered with the active `Runtime`, or if 
-	the library is currently mutably borrowed.
+	Panics if a global of this type has not been registered with the active `Runtime`, or if 
+	the global is currently mutably borrowed.
 	*/
-	fn borrow() -> LibRef<Self> {
-		glsp::lib::<Self>()
+	fn borrow() -> RGlobalRef<Self> {
+		glsp::rglobal::<Self>()
 	}
 
 	/**
-	Returns a mutable reference to the instance of this type owned by the active
+	Returns a mutable reference to the global instance of this type owned by the active
 	[`Runtime`](struct.Runtime.html).
 
-	Panics if a library of this type has not been registered with the active `Runtime`, or if 
-	the library is currently borrowed.
+	Panics if a global of this type has not been registered with the active `Runtime`, or if 
+	the global is currently borrowed.
 	*/
-	fn borrow_mut() -> LibRefMut<Self> {
-		glsp::lib_mut::<Self>()
+	fn borrow_mut() -> RGlobalRefMut<Self> {
+		glsp::rglobal_mut::<Self>()
 	}
 	
 	/**
-	Returns a shared reference to the instance of this type owned by the active
+	Returns a shared reference to the global instance of this type owned by the active
 	[`Runtime`](struct.Runtime.html).
 
-	Returns an `Err` if a library of this type has not been registered with the active `Runtime`, 
-	or if the library is currently mutably borrowed.
+	Returns an `Err` if a global of this type has not been registered with the active `Runtime`, 
+	or if the global is currently mutably borrowed.
 	*/
-	fn try_borrow() -> GResult<LibRef<Self>> {
-		glsp::try_lib::<Self>()
+	fn try_borrow() -> GResult<RGlobalRef<Self>> {
+		glsp::try_rglobal::<Self>()
 	}
 
 	/**
-	Returns a mutable reference to the instance of this type owned by the active
+	Returns a mutable reference to the global instance of this type owned by the active
 	[`Runtime`](struct.Runtime.html).
 
-	Returns an `Err` if a library of this type has not been registered with the active `Runtime`, 
-	or if the library is currently borrowed.
+	Returns an `Err` if a global of this type has not been registered with the active `Runtime`, 
+	or if the global is currently borrowed.
 	*/
-	fn try_borrow_mut() -> GResult<LibRefMut<Self>> {
-		glsp::try_lib_mut::<Self>()
+	fn try_borrow_mut() -> GResult<RGlobalRefMut<Self>> {
+		glsp::try_rglobal_mut::<Self>()
 	}
 }
 
 /**
-A reference to a [library](trait.Lib.html).
+A reference to [global data](trait.RGlobal.html).
 
-Created using [`Lib::borrow`](trait.Lib.html#method.borrow) or
-[`Lib::try_borrow`](trait.Lib.html#method.try_borrow).
+Created using [`RGlobal::borrow`](trait.RGlobal.html#method.borrow) or
+[`RGlobal::try_borrow`](trait.RGlobal.html#method.try_borrow).
 */
-pub struct LibRef<T: Lib> {
+pub struct RGlobalRef<T: 'static> {
 	handle: OwningHandle<Rc<RefCell<T>>, Ref<'static, T>>
 }
 
-impl<T: Lib> Deref for LibRef<T> {
+impl<T> Deref for RGlobalRef<T> {
 	type Target = T;
 	fn deref(&self) -> &T {
 		&*self.handle
@@ -889,75 +962,32 @@ impl<T: Lib> Deref for LibRef<T> {
 }
 
 /**
-A mutable reference to a [library](trait.Lib.html).
+A mutable reference to [global data](trait.RGlobal.html).
 
-Created using [`Lib::borrow_mut`](trait.Lib.html#method.borrow_mut) or
-[`Lib::try_borrow_mut`](trait.Lib.html#method.try_borrow_mut).
+Created using [`RGlobal::borrow_mut`](trait.RGlobal.html#method.borrow_mut) or
+[`RGlobal::try_borrow_mut`](trait.RGlobal.html#method.try_borrow_mut).
 */
-pub struct LibRefMut<T: Lib> {
+pub struct RGlobalRefMut<T: 'static> {
 	handle: OwningHandle<Rc<RefCell<T>>, RefMut<'static, T>>
 }
 
-impl<T: Lib> Deref for LibRefMut<T> {
+impl<T> Deref for RGlobalRefMut<T> {
 	type Target = T;
 	fn deref(&self) -> &T {
 		&*self.handle
 	}
 }
 
-impl<T: Lib> DerefMut for LibRefMut<T> {
+impl<T> DerefMut for RGlobalRefMut<T> {
 	fn deref_mut(&mut self) -> &mut T {
 		&mut *self.handle
 	}
 }
 
-trait RAllocate: 'static {
-	fn type_name(&self) -> &'static str;
-	fn size_of(&self) -> usize;
-	fn as_any(&self) -> &dyn Any;
-	fn as_rc_any(self: Rc<Self>) -> Rc<dyn Any>;
-}
-
-impl<T: RStore> RAllocate for RefCell<T> {
-	fn type_name(&self) -> &'static str {
-		T::type_name()
-	}
-
-	fn size_of(&self) -> usize {
-		T::size_of()
-	}
-
-	fn as_any(&self) -> &dyn Any {
-		self
-	}
-
-	fn as_rc_any(self: Rc<Self>) -> Rc<dyn Any> {
-		self
-	}
-}
-
 /**
-A type which can be moved onto the garbage-collected heap as an [`RData`](struct.RData.html).
+GameLisp bindings for a particular Rust type.
 
-It's possible to implement this trait manually, but using the [`rdata!` macro](macro.rdata.html) 
-is strongly encouraged. Among other things, that macro will automatically implement 
-[`MakeArg`](trait.MakeArg.html) and [`IntoResult`](trait.IntoResult.html) for your type.
-*/
-
-pub trait RStore: 'static {
-	fn type_name() -> &'static str;
-
-	//ideally we would provide a `fn owned_memory_usage(&self)` for this trait, but it's not clear
-	//what the syntax would be for implementing it, or how we would document it. for now we just
-	//report the size of the stored struct itself.
-	fn size_of() -> usize;
-
-	fn rclass() -> GResult<RClass>;
-}
-
-/**
-An implementation detail of the [`RStore` trait](trait.RStore.html) and the
-[`rdata!` macro](macro.rdata.html).
+See [`RClassBuilder`](struct.RClassBuilder.html) for more details.
 */
 
 pub struct RClass {
@@ -966,71 +996,243 @@ pub struct RClass {
 }
 
 enum RBinding {
-	Met(RFn),
-	Prop(Option<RFn>, Option<RFn>)
+	Met(Root<RFn>),
+	Prop(Option<Root<RFn>>, Option<Root<RFn>>)
 }
 
 impl RClass {
-	pub fn from_vec(
-		class_name: &'static str,
-		raw_bindings: Vec<(&'static str, &'static str, WrappedFn)>
-	) -> GResult<RClass> {
-		let class_name = glsp::sym(class_name)?;
+	/**
+	Returns the name which GameLisp uses to refer to this type.
 
-		let mut bindings = FnvHashMap::with_capacity_and_hasher(
-			raw_bindings.len(),
-			Default::default()
-		);
+	Specified using [`RClassBuilder::name`](struct.RClassBuilder.html#method.name).
+	*/
+	pub fn name(&self) -> Sym {
+		self.name
+	}
+}
 
-		for (kind, key, wrapped_fn) in raw_bindings {
-			let name = glsp::sym(key)?;
-			let rfn = glsp::rfn(wrapped_fn);
-			if rfn.name().is_none() {
-				rfn.set_name(Some(name));
-			}
+/**
+Builder used to define GameLisp bindings for a particular Rust type.
 
-			match (kind, bindings.entry(name)) {
-				("", Vacant(entry)) => { entry.insert(RBinding::Met(rfn)); }
-				("get", Vacant(entry)) => { entry.insert(RBinding::Prop(Some(rfn), None)); }
-				("set", Vacant(entry)) => { entry.insert(RBinding::Prop(None, Some(rfn))); }
-				("", Occupied(_)) => bail!("duplicate method name {}", name),
-				("get", Occupied(mut entry)) => {
-					match entry.get_mut() {
-						RBinding::Met(_) => {
-							bail!("{} is bound to both a method and a property", name)
-						}
-						RBinding::Prop(Some(_), _) => bail!("duplicate getter {}", name),
-						RBinding::Prop(ref mut none, _) => *none = Some(rfn)
-					}
-				}
-				("set", Occupied(mut entry)) => {
-					match entry.get_mut() {
-						RBinding::Met(_) => {
-							bail!("{} is bound to both a method and a property", name)
-						}
-						RBinding::Prop(_, Some(_)) => bail!("duplicate setter {}", name),
-						RBinding::Prop(_, ref mut none) => *none = Some(rfn)
-					}
-				}
-				(kind, _) => bail!("{} is not a valid tag for an RData method", kind)
+By default, GameLisp code is forced to treat `rdata` as a black box. They have no methods, no 
+property getters or setters, no class name (so predicates like `is?` will always return false), 
+they can't be cloned, and they can't be compared for equality.
+
+`RClassBuilder` provides methods to override all of the above.
+
+	//provide some basic bindings for ggez::Image
+	RClassBuilder::<Image>::new()
+		.prop_get("width", &Image::width)
+		.prop_get("height", &Image::height)
+		.met("draw", &|image: &Image, ctx: &mut Context| {
+			image.draw(ctx, DrawParam::default())
+		})
+		.build();
+
+	//now, whenever an rdata is constructed from a ggez::Image,
+	//it will have a GameLisp api
+	glsp::bind_global("example", Image::new(ctx, "example.png")?)?;
+
+	eval!("
+		(prn [example 'width] [example 'height])
+		(.draw example)
+	");
+*/
+
+#[must_use]
+pub struct RClassBuilder<T> {
+	name: Option<Sym>,
+	bindings: FnvHashMap<Sym, RBinding>,
+
+	phantom: PhantomData<T>
+}
+
+impl<T: 'static> RClassBuilder<T> {
+	pub fn new() -> RClassBuilder<T> {
+		let raw_name = type_name::<T>();
+		let mut name = None;
+		if !raw_name.contains(&['<', '>', '[', ']', ';', '\''][..]) {
+			let filtered: String = raw_name
+				.chars()
+				.filter(|ch| !char::is_whitespace(*ch))
+				.collect();
+
+			let start = filtered.rfind(':').map(|i| i + 1).unwrap_or(0);
+			let suffix = &filtered[start..];
+
+			if glsp::is_valid_sym(&suffix) {
+				name = Some(glsp::sym(&suffix).unwrap());
 			}
 		}
 
-		Ok(RClass {
-			name: class_name,
-			bindings
-		})
+		RClassBuilder {
+			name,
+			bindings: FnvHashMap::default(),
+			phantom: PhantomData
+		}
+	}
+
+	/**
+	Assigns a name which will be used by the functions `is?` and `class-of` to identify
+	this `RClass`.
+
+	Every `RClass` must have a name, and that name must be globally unique within a particular
+	`Runtime`. For example, if you have two Rust types `audio::Clip` and `video::Clip`, they 
+	can't both be named `Clip`.
+
+	`RClassBuilder::new()` will attempt to auto-generate an unprefixed name by processing the 
+	result of [`std::mem::type_name::<T>()`](https://doc.rust-lang.org/std/any/fn.type_name.html). 
+	This will fail for generic types, references, and types with lifetime parameters; for
+	those types, you must provide a name manually.
+
+	This method panics if `name` is not a valid symbol.
+	*/
+	pub fn name<S: ToSym>(self, name: S) -> RClassBuilder<T> {
+		RClassBuilder {
+			name: Some(name.to_sym().unwrap()),
+			..self
+		}
+	}
+
+	/**
+	Registers a method.
+
+	Firstly, the `f` function is promoted to an `RFn`, as though by calling 
+	[`glsp::rfn`](fn.rfn.html). Whenever GameLisp code attempts to invoke the specified method
+	on an `rdata` of type `T`, that `RFn` will be invoked, passing in the `rdata` as its first
+	argument.
+
+	Panics if a property or method has already been associated with the given name,
+	or if `name` is not a valid symbol.
+
+	**Due to [a rustc bug](https://github.com/rust-lang/rust/issues/79207), the `f` parameter must 
+	be passed as a reference or a `Box`; it can't be directly passed by value.**
+	*/
+	pub fn met<S, ArgsWithTag, Ret, F>(mut self, name: S, f: F) -> RClassBuilder<T>
+	where
+		S: ToSym,
+		Wrapper<ArgsWithTag, Ret, F>: WrappedCall + 'static
+	{
+		let name = name.to_sym().unwrap();
+		let rfn = glsp::named_rfn(name, f);
+
+		match self.bindings.entry(name) {
+			Vacant(entry) => {
+				entry.insert(RBinding::Met(rfn));
+			}
+			Occupied(_) => panic!("duplicate method {}", name)
+		}
+
+		self
+	}
+
+	/**
+	Registers a property getter.
+
+	Firstly, the `f` function is promoted to an `RFn`, as though by calling 
+	[`glsp::rfn`](fn.rfn.html). Whenever GameLisp code attempts to access the specified property 
+	on an `rdata` of type `T`, that `RFn` will be invoked, passing in the `rdata` as its only 
+	argument.
+
+	Panics if a property getter or method has already been associated with the given name,
+	or if `name` is not a valid symbol.
+
+	**Due to [a rustc bug](https://github.com/rust-lang/rust/issues/79207), the `f` parameter must 
+	be passed as a reference or a `Box`; it can't be directly passed by value.**
+	*/
+	pub fn prop_get<S, ArgsWithTag, Ret, F>(mut self, name: S, f: F) -> RClassBuilder<T>
+	where
+		S: ToSym,
+		Wrapper<ArgsWithTag, Ret, F>: WrappedCall + 'static
+	{
+		let name = name.to_sym().unwrap();
+		let rfn = glsp::named_rfn(name, f);
+
+		match self.bindings.entry(name) {
+			Vacant(entry) => {
+				entry.insert(RBinding::Prop(Some(rfn), None));
+			}
+			Occupied(mut entry) => {
+				match entry.get_mut() {
+					RBinding::Met(_) => {
+						panic!("{} is bound to both a method and a property", name)
+					}
+					RBinding::Prop(Some(_), _) => {
+						panic!("duplicate property getter {}", name)
+					}
+					RBinding::Prop(ref mut none, _) => *none = Some(rfn)
+				}
+			}
+		}
+
+		self
+	}
+
+	/**
+	Registers a property setter.
+
+	Firstly, the `f` function is promoted to an `RFn`, as though by calling 
+	[`glsp::rfn`](fn.rfn.html). Whenever GameLisp code attempts to assign to the specified 
+	property on an `rdata` of type `T`, that `RFn` will be invoked, passing in the `rdata` as 
+	its first argument and the assigned value as its second argument.
+
+	Panics if a property setter or method has already been associated with the given name,
+	or if `name` is not a valid symbol.
+
+	**Due to [a rustc bug](https://github.com/rust-lang/rust/issues/79207), the `f` parameter must 
+	be passed as a reference or a `Box`; it can't be directly passed by value.**
+	*/
+	pub fn prop_set<S, ArgsWithTag, Ret, F>(mut self, name: S, f: F) -> RClassBuilder<T>
+	where
+		S: ToSym,
+		Wrapper<ArgsWithTag, Ret, F>: WrappedCall + 'static
+	{
+		let name = name.to_sym().unwrap();
+		let rfn = glsp::named_rfn(name, f);
+
+		match self.bindings.entry(name) {
+			Vacant(entry) => {
+				entry.insert(RBinding::Prop(None, Some(rfn)));
+			}
+			Occupied(mut entry) => {
+				match entry.get_mut() {
+					RBinding::Met(_) => {
+						panic!("{} is bound to both a method and a property", name)
+					}
+					RBinding::Prop(_, Some(_)) => {
+						panic!("duplicate property setter {}", name)
+					}
+					RBinding::Prop(_, ref mut none) => *none = Some(rfn)
+				}
+			}
+		}
+
+		self
+	}
+
+	/**
+	Finalizes the `RClass` and registers it with the active `Runtime`.
+
+	Panics if the `RClass`'s name has not been specified, if its name has already been used
+	by another `RClass`, or if another `RClass` for `T` has already been registered.
+	*/
+	pub fn build(self) {
+		glsp::add_rclass::<T>(RClass {
+			name: self.name.expect("RClass has no name"),
+			bindings: self.bindings
+		});
 	}
 }
+
 
 /**
 The `rdata` primitive type.
 
 This is a Rust value which has been moved onto the garbage-collected heap. It can be constructed
-using the [`glsp::rdata`](fn.rdata.html) function, which returns a 
-[`Root<RData>`](struct.Root.html).
+using the [`glsp::rdata`](fn.rdata.html) function, which consumes any `'static` Rust value
+and returns a [`Root<RData>`](struct.Root.html).
 
-`RData` has several convenience features:
+`RData` comes with several convenience features:
 
 - It supports interior mutability, like a 
   [`RefCell`](https://doc.rust-lang.org/std/cell/struct.RefCell.html).
@@ -1042,15 +1244,20 @@ using the [`glsp::rdata`](fn.rdata.html) function, which returns a
 - It's dynamically typed: a `Vec<Root<RData>>` could refer to several different Rust types.
   (If this is undesirable, consider using [`RRoot`](struct.RRoot.html) instead.)
 
-- The [`rdata!` macro](macro.rdata.html) enables Rust functions to be associated with an `RData` 
-  as its methods and properties. They can be accessed from GameLisp code, or accessed from Rust 
-  code using an API similar to [`Obj`](struct.Obj.html).
+By default, `rdata` are opaque; GameLisp scripts can't access their fields or call their methods.
+Optionally, you can use [`RClassBuilder`](struct.RClassBuilder.html) to configure an `RData`
+so that it behaves more like a GameLisp `obj`, with properties and methods which can be invoked
+by GameLisp scripts.
 */
 
 pub struct RData {
 	header: GcHeader,
-	storage: RefCell<Option<Rc<dyn RAllocate>>>,
-	pub(crate) class: Rc<RClass>,
+
+	//the outer RefCell could potentially be replaced with a Cell, but it might cause rustc
+	//to miss some optimizations, it would be much more clunky, and it would only reduce
+	//memory usage by one `usize`
+	storage: RefCell<Option<Rc<dyn Any>>>,
+	pub(crate) rclass: Option<Rc<RClass>>,
 
 	//just like Obj, we need this field so that we can generate a `self` argument when 
 	//rdata.call() is invoked from rust code
@@ -1071,8 +1278,8 @@ impl Allocate for RData {
 	}
 
 	fn owned_memory_usage(&self) -> usize {
-		match self.storage.borrow().as_ref() {
-			Some(rc_ref) => rc_ref.size_of(),
+		match &*self.storage.borrow() {
+			Some(ref rc) => mem::size_of_val::<dyn Any>(&**rc),
 			None => 0
 		}
 	}
@@ -1084,9 +1291,9 @@ A shared reference to an [`RData`](struct.RData.html).
 Created using [`RData::borrow`](struct.RData.html#method.borrow) or
 [`RData::try_borrow`](struct.RData.html#method.try_borrow).
 */
-pub struct RRef<T: RStore>(OwningHandle<Rc<RefCell<T>>, Ref<'static, T>>);
+pub struct RRef<T: 'static>(OwningHandle<Rc<RefCell<T>>, Ref<'static, T>>);
 
-impl<T: RStore> Deref for RRef<T> {
+impl<T> Deref for RRef<T> {
 	type Target = T;
 
 	fn deref(&self) -> &T {
@@ -1100,9 +1307,9 @@ A mutable reference to an [`RData`](struct.RData.html).
 Created using [`RData::borrow_mut`](struct.RData.html#method.borrow_mut) or
 [`RData::try_borrow_mut`](struct.RData.html#method.try_borrow_mut).
 */
-pub struct RRefMut<T: RStore>(OwningHandle<Rc<RefCell<T>>, RefMut<'static, T>>);
+pub struct RRefMut<T: 'static>(OwningHandle<Rc<RefCell<T>>, RefMut<'static, T>>);
 
-impl<T: RStore> Deref for RRefMut<T> {
+impl<T> Deref for RRefMut<T> {
 	type Target = T;
 
 	fn deref(&self) -> &T {
@@ -1110,38 +1317,45 @@ impl<T: RStore> Deref for RRefMut<T> {
 	}
 }
 
-impl<T: RStore> DerefMut for RRefMut<T> {
+impl<T> DerefMut for RRefMut<T> {
 	fn deref_mut(&mut self) -> &mut T {
 		&mut *self.0
 	}
 }
 
 impl RData {
-	pub(crate) fn new<T: RStore>(rdata: T, class: Rc<RClass>) -> RData {
+	pub(crate) fn new<T: 'static>(rdata: T, rclass: Option<Rc<RClass>>) -> RData {
 		RData {
 			header: GcHeader::new(),
 			storage: RefCell::new(Some(Rc::new(RefCell::new(rdata)))),
-			class,
+			rclass,
 			gc_self: Cell::new(None)
 		}
 	}
 
-	pub fn type_name(&self) -> &'static str {
-		match self.storage.borrow().as_ref() {
-			Some(rc_ref) => rc_ref.type_name(),
-			None => ""
-		}
-	}
+	/**
+	Returns this `RData`'s [`RClass`](struct.RClass.html), if any.
 
-	pub fn class_name(&self) -> Sym {
-		self.class.name
+	This is mostly useful for querying the `RData`'s registered class name, by calling
+	the [`name()`](struct.RClass.html#method.name) method on `RClass`.
+
+	To associate an `RClass` with a particular Rust type, use 
+	[`RClassBuilder`](struct.RClassBuilder.html).
+	*/
+	pub fn rclass(&self) -> Option<Rc<RClass>> {
+		self.rclass.clone()
 	}
 
 	/**
 	Returns `true` if this `RData` is currently storing a value of type `T`.
+
+	If this `RData`'s value has been freed, this method will return `false`.
 	*/
-	pub fn is<T: RStore>(&self) -> bool {
-		self.storage.borrow().as_ref().unwrap().as_any().is::<RefCell<T>>()
+	pub fn is<T: 'static>(&self) -> bool {
+		match self.storage.borrow().as_ref() {
+			Some(rc_any) => rc_any.is::<RefCell<T>>(),
+			None => false
+		}
 	}
 
 	/**
@@ -1150,7 +1364,7 @@ impl RData {
 	Panics if the `RData` is not storing a value of type `T`; if its value has been freed; or 
 	if the value is currently mutably borrowed.
 	*/
-	pub fn borrow<T: RStore>(&self) -> RRef<T> {
+	pub fn borrow<T>(&self) -> RRef<T> {
 		self.try_borrow::<T>().unwrap()
 	}
 
@@ -1160,7 +1374,7 @@ impl RData {
 	Returns an `Err` if the `RData` is not storing a value of type `T`; if its value has 
 	been freed; or if the value is currently mutably borrowed.
 	*/
-	pub fn try_borrow<T: RStore>(&self) -> GResult<RRef<T>> {
+	pub fn try_borrow<T>(&self) -> GResult<RRef<T>> {
 		let borrow = match self.storage.try_borrow() {
 			Ok(borrow) => borrow,
 			Err(_) => {
@@ -1171,16 +1385,16 @@ impl RData {
 		};
 
 		if let Some(ref rc) = *borrow {
-			match Rc::downcast::<RefCell<T>>(rc.clone().as_rc_any()) {
+			match Rc::downcast::<RefCell<T>>(rc.clone()) {
 				Ok(rc_ref_cell) => {
 					ensure!(rc_ref_cell.try_borrow().is_ok(),
-					        "try_borrow<{}> failed: value is mutably borrowed", T::type_name());
+					        "try_borrow<{}> failed: value is mutably borrowed", type_name::<T>());
 					Ok(RRef(OwningHandle::new(rc_ref_cell)))
 				}
-				Err(_) => bail!("type mismatch in try_borrow<{}>()", T::type_name())
+				Err(_) => bail!("type mismatch in try_borrow<{}>()", type_name::<T>())
 			}
 		} else {
-			bail!("try_borrow<{}> failed: attempted to access a freed RData", T::type_name())
+			bail!("try_borrow<{}> failed: attempted to access a freed RData", type_name::<T>())
 		}
 	}
 
@@ -1190,7 +1404,7 @@ impl RData {
 	Panics if the `RData` is not storing a value of type `T`; if its value has been freed; or 
 	if the value is currently borrowed.
 	*/
-	pub fn borrow_mut<T: RStore>(&self) -> RRefMut<T> {
+	pub fn borrow_mut<T>(&self) -> RRefMut<T> {
 		self.try_borrow_mut::<T>().unwrap()
 	}
 
@@ -1200,7 +1414,7 @@ impl RData {
 	Returns an `Err` if the `RData` is not storing a value of type `T`; if its value has 
 	been freed; or if the value is currently borrowed.
 	*/
-	pub fn try_borrow_mut<T: RStore>(&self) -> GResult<RRefMut<T>> {
+	pub fn try_borrow_mut<T>(&self) -> GResult<RRefMut<T>> {
 		let borrow = match self.storage.try_borrow() {
 			Ok(borrow) => borrow,
 			Err(_) => {
@@ -1211,17 +1425,17 @@ impl RData {
 		};
 
 		if let Some(ref rc) = *borrow {
-			match Rc::downcast::<RefCell<T>>(rc.clone().as_rc_any()) {
+			match Rc::downcast::<RefCell<T>>(rc.clone()) {
 				Ok(rc_ref_cell) => {
 					ensure!(rc_ref_cell.try_borrow_mut().is_ok(),
 					        "try_borrow_mut<{}> failed: value is currently borrowed", 
-					        T::type_name());
+					        type_name::<T>());
 					Ok(RRefMut(OwningHandle::new_mut(rc_ref_cell)))
 				}
-				Err(_) => bail!("type mismatch in try_borrow<{}>()", T::type_name())
+				Err(_) => bail!("type mismatch in try_borrow<{}>()", type_name::<T>())
 			}
 		} else {
-			bail!("try_borrow_mut<{}> failed: attempted to access a freed RData", T::type_name())
+			bail!("try_borrow_mut<{}> failed: attempted to access a freed RData", type_name::<T>())
 		}
 	}
 
@@ -1233,7 +1447,7 @@ impl RData {
 	Returns an `Err` if the `RData` is not storing a value of type `T`; if its value has already 
 	been freed; or if it's currently borrowed.
 	*/
-	pub fn take<T: RStore>(&self) -> GResult<T> {
+	pub fn take<T: 'static>(&self) -> GResult<T> {
 		//freeing the stored data changes our owned_memory_usage(), so we need to write-barrier it.
 		let prev_usage = self.owned_memory_usage();
 
@@ -1242,13 +1456,13 @@ impl RData {
 				match *borrow_mut {
 					Some(ref rc) if Rc::strong_count(rc) == 1 => {
 						drop(rc);
-						let rc_any = (*borrow_mut).take().unwrap().as_rc_any();
+						let rc_any = (*borrow_mut).take().unwrap();
 						drop(borrow_mut);
 
 						let rc = match Rc::downcast::<RefCell<T>>(rc_any) {
 							Ok(rc) => rc,
 							Err(_) => {
-								bail!("type mismatch when calling take::<{}>()", T::type_name())
+								bail!("type mismatch when calling take::<{}>()", type_name::<T>())
 							}
 						};
 
@@ -1351,8 +1565,8 @@ impl RData {
 	{
 		let sym = key.to_sym()?;
 
-		match self.class.bindings.get(&sym) {
-			Some(RBinding::Prop(Some(rfn), _)) => {
+		match self.rclass.as_ref().and_then(|rclass| rclass.bindings.get(&sym)) {
+			Some(RBinding::Prop(Some(ref rfn), _)) => {
 				with_vm(|vm| {
 					vm.stacks.borrow_mut().regs.push(Slot::RData(self.gc_self()));
 					Ok(Some(R::from_val(&rfn.receive_call(1)?)?))
@@ -1370,7 +1584,7 @@ impl RData {
 	pub fn set<S, V>(&self, key: S, val: V) -> GResult<()>
 	where
 		S: ToSym,
-		V: ToVal
+		V: IntoVal
 	{
 		let sym = key.to_sym()?;
 		ensure!(self.set_if_present(sym, val)?, "attempted to assign to nonexistent or \
@@ -1387,16 +1601,16 @@ impl RData {
 	pub fn set_if_present<S, V>(&self, key: S, val: V) -> GResult<bool>
 	where
 		S: ToSym,
-		V: ToVal
+		V: IntoVal
 	{
 		let sym = key.to_sym()?;
 
-		match self.class.bindings.get(&sym) {
-			Some(RBinding::Prop(_, Some(rfn))) => {
+		match self.rclass.as_ref().and_then(|rclass| rclass.bindings.get(&sym)) {
+			Some(RBinding::Prop(_, Some(ref rfn))) => {
 				with_vm(|vm| {
 					let mut stacks = vm.stacks.borrow_mut();
 					stacks.regs.push(Slot::RData(self.gc_self()));
-					stacks.regs.push(val.to_slot()?);
+					stacks.regs.push(val.into_slot()?);
 					drop(stacks);
 
 					rfn.receive_call(2)?;
@@ -1415,10 +1629,10 @@ impl RData {
 	
 	Equivalent to [`(call-met rdata key ..args)`](https://gamelisp.rs/std/call-met).
 	*/
-	pub fn call<S, A, R>(&self, key: S, args: &A) -> GResult<R> 
+	pub fn call<S, A, R>(&self, key: S, args: A) -> GResult<R> 
 	where
 		S: ToSym,
-		A: ToCallArgs + ?Sized, 
+		A: IntoCallArgs, 
 		R: FromVal
 	{
 		let sym = key.to_sym()?;
@@ -1436,22 +1650,22 @@ impl RData {
 	
 	Equivalent to [`(call-met rdata (? key) ..args)`](https://gamelisp.rs/std/call-met).
 	*/
-	pub fn call_if_present<S, A, R>(&self, key: S, args: &A) -> GResult<Option<R>> 
+	pub fn call_if_present<S, A, R>(&self, key: S, args: A) -> GResult<Option<R>> 
 	where
 		S: ToSym,
-		A: ToCallArgs + ?Sized, 
+		A: IntoCallArgs, 
 		R: FromVal
 	{
 		let sym = key.to_sym()?;
 
-		match self.class.bindings.get(&sym) {
-			Some(RBinding::Met(rfn)) => {
+		match self.rclass.as_ref().and_then(|rclass| rclass.bindings.get(&sym)) {
+			Some(RBinding::Met(ref rfn)) => {
 				with_vm(|vm| {
 					let mut stacks = vm.stacks.borrow_mut();
 					let starting_len = stacks.regs.len();
 
 					stacks.regs.push(Slot::RData(self.gc_self()));
-					args.to_call_args(&mut stacks.regs)?;
+					args.into_call_args(&mut stacks.regs)?;
 
 					let arg_count = stacks.regs.len() - starting_len;
 					drop(stacks);
@@ -1472,7 +1686,7 @@ impl RData {
 	pub fn has_met<S: ToSym>(&self, key: S) -> GResult<bool> {
 		let sym = key.to_sym()?;
 
-		match self.class.bindings.get(&sym) {
+		match self.rclass.as_ref().and_then(|rclass| rclass.bindings.get(&sym)) {
 			Some(RBinding::Met(_)) => Ok(true),
 			_ => Ok(false)
 		}
@@ -1480,8 +1694,10 @@ impl RData {
 
 	//designed to imitate Obj::get_method(). used in vm.rs
 	pub(crate) fn get_method(&self, key: Sym) -> Option<(Slot, bool, bool, Slot)> {
-		match self.class.bindings.get(&key) {
-			Some(&RBinding::Met(rfn)) => Some((Slot::RFn(rfn), true, false, Slot::Nil)),
+		match self.rclass.as_ref().and_then(|rclass| rclass.bindings.get(&key)) {
+			Some(&RBinding::Met(ref rfn)) => {
+				Some((Slot::RFn(rfn.to_gc()), true, false, Slot::Nil))
+			}
 			_ => None
 		}
 	}
@@ -1495,11 +1711,16 @@ impl RData {
 	In that case, if an error occurs, the operator will panic.
 	*/
 	pub fn try_eq(&self, other: &Root<RData>) -> GResult<bool> {
-		if !Rc::ptr_eq(&self.class, &other.class) {
-			return Ok(false)
+		match (&self.rclass, &other.rclass) {
+			(Some(ref self_rclass), Some(ref other_rclass)) => {
+				if !Rc::ptr_eq(self_rclass, other_rclass) {
+					return Ok(false)
+				}
+			}
+			_ => return Ok(false)
 		}
 
-		let val: Option<Val> = self.call_if_present(OP_EQP_SYM, &[other])?;
+		let val: Option<Val> = self.call_if_present(OP_EQP_SYM, (other,))?;
 		match val {
 			Some(val) => Ok(val.is_truthy()),
 			None => Ok(false)
@@ -1531,43 +1752,33 @@ convenient API.
 	let mesh2 = enemy_mesh.take();
 */
 
-pub struct RRoot<T: RStore>(Root<RData>, PhantomData<Rc<RefCell<T>>>);
+pub struct RRoot<T>(Root<RData>, PhantomData<Rc<RefCell<T>>>);
 
-impl<T: RStore> Clone for RRoot<T> {
+impl<T> Clone for RRoot<T> {
 	fn clone(&self) -> RRoot<T> {
 		RRoot(self.0.clone(), PhantomData)
 	}
 }
 
-impl<T: RStore> Debug for RRoot<T> {
+impl<T> Debug for RRoot<T> {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		Debug::fmt(&self.0, f)
 	}
 }
 
-impl<T: RStore> Display for RRoot<T> {
+impl<T> Display for RRoot<T> {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		Display::fmt(&self.0, f)
 	}
 }
 
-impl<T: RStore> Pointer for RRoot<T> {
+impl<T> Pointer for RRoot<T> {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		Pointer::fmt(&self.0, f)
 	}
 }
 
-impl<T: RStore> RRoot<T> {
-	/**
-	Constructs an `RRoot<T>` from a `Root<RData>`.
-
-	Panics if the `RData`'s value does not belong to the type `T`.
-	*/
-	pub fn new(root: Root<RData>) -> RRoot<T> {
-		assert!(root.is::<T>(), "type mismatch when constructing an RRoot<{}>", T::type_name());
-		RRoot(root, PhantomData)
-	}
-
+impl<T> RRoot<T> {
 	///Returns a copy of the underlying `Root<RData>`.
 	pub fn to_root(&self) -> Root<RData> {
 		self.0.clone()
@@ -1587,7 +1798,6 @@ impl<T: RStore> RRoot<T> {
 		self.0.to_gc()
 	}
 
-	#[allow(dead_code)]
 	pub(crate) fn into_gc(self) -> Gc<RData> {
 		self.0.into_gc()
 	}
@@ -1612,11 +1822,6 @@ impl<T: RStore> RRoot<T> {
 		self.0.try_borrow_mut()
 	}
 
-	///Equivalent to [`RData::take`](struct.RData.html#method.take).
-	pub fn take(&self) -> GResult<T> {
-		self.0.take()
-	}
-
 	///Equivalent to [`RData::free`](struct.RData.html#method.free).
 	pub fn free(&self) -> GResult<()> {
 		self.0.free()
@@ -1625,6 +1830,24 @@ impl<T: RStore> RRoot<T> {
 	///Equivalent to [`RData::is_freed`](struct.RData.html#method.is_freed).
 	pub fn is_freed(&self) -> bool {
 		self.0.is_freed()
+	}
+}
+
+
+impl<T: 'static> RRoot<T> {
+	/**
+	Constructs an `RRoot<T>` from a `Root<RData>`.
+
+	Panics if the `RData`'s value does not belong to the type `T`.
+	*/
+	pub fn new(root: Root<RData>) -> RRoot<T> {
+		assert!(root.is::<T>(), "type mismatch when constructing an RRoot<{}>", type_name::<T>());
+		RRoot(root, PhantomData)
+	}
+
+	///Equivalent to [`RData::take`](struct.RData.html#method.take).
+	pub fn take(&self) -> GResult<T> {
+		self.0.take()
 	}
 }
 
@@ -1724,6 +1947,7 @@ pub mod glsp {
 
 	/** Equivalent to [`(valid-sym-char? ch)`](https://gamelisp.rs/std/valid-sym-char-p). */
 
+	#[inline]
 	pub fn is_valid_sym_char(ch: char) -> bool {
 		lex::is_valid_sym_char(ch)
 	}
@@ -1865,11 +2089,11 @@ pub mod glsp {
 	pub fn set_global<S, T>(s: S, val: T) -> GResult<()>
 	where
 		S: ToSym,
-		T: ToVal
+		T: IntoVal
 	{
 		with_engine(|engine| {
 			let sym = s.to_sym()?;
-			let val = val.to_val()?;
+			let val = val.into_val()?;
 
 			let mut syms = engine.syms.borrow_mut();
 			let entry = &mut syms[sym.0 as usize];
@@ -1906,11 +2130,11 @@ pub mod glsp {
 	pub(crate) fn try_set_global<S, T>(s: S, t: T) -> GResult<TrySetGlobalOutcome>
 	where
 		S: ToSym, 
-		T: ToVal
+		T: IntoVal
 	{
 		with_engine(|engine| {
 			let sym = s.to_sym()?;
-			let val = t.to_val()?;
+			let val = t.into_val()?;
 
 			let mut syms = engine.syms.borrow_mut();
 			let entry = &mut syms[sym.0 as usize];
@@ -1957,7 +2181,7 @@ pub mod glsp {
 	}
 
 	//freezes each global which might be caught by the op-transforms pass, like "+". we can't do
-	//this in the Engine constructor because the stdlib initialization code needs to be able to
+	//this in the Engine constructor because the stdrglobal initialization code needs to be able to
 	//bind new rfns to these syms.
 	#[doc(hidden)]
 	pub fn freeze_transform_fns() {
@@ -1997,13 +2221,13 @@ pub mod glsp {
 	pub fn bind_global<S, T>(s: S, t: T) -> GResult<()>
 	where
 		S: ToSym, 
-		T: ToVal
+		T: IntoVal
 	{
 		with_engine(|engine| {
 			let sym = s.to_sym()?;
 			ensure!(sym.is_bindable(), "unable to bind name '{}' to global", sym);
 
-			let val = t.to_val()?;
+			let val = t.into_val()?;
 
 			let mut syms = engine.syms.borrow_mut();
 			let entry = &mut syms[sym.0 as usize];
@@ -2168,37 +2392,22 @@ pub mod glsp {
 	}
 
 	//---------------------------------------------------------------------------------------------
-	// libs, rdata
+	// rglobals, rdata, rclass
 	//---------------------------------------------------------------------------------------------
 
 	/**
 	Moves a Rust value onto the garbage-collected heap.
 
-	Rust types are automatically registered with the `Runtime` when `glsp::rdata` is first called
-	for a value of that type. If two types share the same unprefixed name, like
-	`video::Clip` and `audio::Clip`, it's an error.
+	By default, this produces an opaque `rdata` which can't be manipulated by GameLisp code.
+	To configure a Rust type so that its `rdata` can be accessed from GameLisp, use
+	[`RClassBuilder`](struct.RClassBuilder.html).
 	*/
-
-	pub fn rdata<T: RStore>(rdata: T) -> GResult<Root<RData>> {
+	pub fn rdata<T: 'static>(rdata: T) -> Root<RData> {
 		with_engine(|engine| {
-			let class_rc = match engine.rclasses.borrow_mut().entry(rdata.type_id()) {
-				Vacant(entry) => {
-					let type_name = T::type_name();
-					ensure!(engine.rclass_names.borrow_mut().insert(&type_name),
-					        "multiple distinct RData types share the same name: {}", type_name);
-
-					let class = Rc::new(T::rclass()?);
-					entry.insert(Rc::clone(&class));
-					class
-				}
-				Occupied(entry) => {
-					Rc::clone(&*entry.get())
-				}
-			};
-
-			let root = glsp::alloc(RData::new(rdata, class_rc));
+			let rclass = engine.rclasses.borrow().get(&rdata.type_id()).cloned();
+			let root = glsp::alloc(RData::new(rdata, rclass));
 			root.gc_self.set(Some(root.to_gc()));
-			Ok(root)
+			root
 		})
 	}
 
@@ -2206,128 +2415,143 @@ pub mod glsp {
 	Moves a Rust value onto the garbage-collected heap, returning a typed pointer.
 
 	This function is a shorthand for
-	[`RRoot::<T>::new(glsp::rdata(rdata)?)`](struct.RRoot.html#method.new).
+	[`RRoot::<T>::new(glsp::rdata(rdata))`](struct.RRoot.html#method.new).
 	*/
-	pub fn rroot<T: RStore>(rdata: T) -> GResult<RRoot<T>> {
-		Ok(RRoot::new(glsp::rdata(rdata)?))
+	pub fn rroot<T: 'static>(rdata: T) -> GResult<RRoot<T>> {
+		Ok(RRoot::new(glsp::rdata(rdata)))
 	}
 
 	/**
-	Registers an instance of a library type.
+	Registers [global data](trait.RGlobal.html).
 
-	Library types are singletons: if the active `Runtime` already contains a library of type
+	`RGlobal` types are singletons: if the active `Runtime` already contains a global of type
 	`T`, this function will panic.
 
-	When the active `Runtime` is dropped, each of its libraries will be dropped in the
+	When the active `Runtime` is dropped, each of its globals will be dropped in the
 	reverse order that they were registered.
 
-	Once registered, it's possible to remove a library from the `Runtime` with
-	[`glsp::take_lib`](fn.take_lib.html), or borrow it with [`glsp::lib`](fn.lib.html), 
-	[`glsp::lib_mut`](fn.lib_mut.html), [`glsp::try_lib`](fn.try_lib.html) and
-	[`glsp::try_lib_mut`](fn.try_lib_mut.html).
-
-	It can be more convenient to borrow a library by calling 
-	[`T::borrow()`](trait.Lib.html#method.borrow), and other similar methods on the
-	[`Lib` trait](trait.Lib.html).
+	Once registered, it's possible to remove a global from the `Runtime` by calling
+	[`glsp::take_rglobal`](fn.take_rglobal.html), or borrow it by calling the
+	associated functions [`T::borrow`](trait.RGlobal#method.borrow) and
+	[`T::borrow_mut`](trait.RGlobal#method.borrow_mut).
 	*/
-
-	pub fn add_lib<T: Lib>(lib: T) {
+	pub fn add_rglobal<T: RGlobal>(rglobal: T) {
 		with_engine(|engine| {
-			let rc = Rc::new(RefCell::new(lib)) as Rc<dyn Any>;
-			if engine.libs.borrow_mut().insert(TypeId::of::<T>(), rc).is_some() {
-				panic!("glsp.add_lib() called twice for the same type");
+			let rc = Rc::new(RefCell::new(rglobal)) as Rc<dyn Any>;
+			if engine.rglobals.borrow_mut().insert(TypeId::of::<T>(), rc).is_some() {
+				panic!("glsp.add_rglobal() called twice for the same type");
 			}
 
-			engine.libs_ordering.borrow_mut().push(TypeId::of::<T>());
+			engine.rglobals_ordering.borrow_mut().push(TypeId::of::<T>());
 		})
 	}
 
 	/**
-	Unregisters a value previously registered using [`glsp::add_lib`](fn.add_lib.html), and
-	returns it.
+	Unregisters and returns global data which was previously registered using 
+	[`glsp::add_rglobal`](fn.add_rglobal.html).
 
-	Returns `Err` if no library is registered for the type `T`, or if a library exists but it's
-	currently borrowed.
+	Returns `Err` if no global is registered for the type `T`, or if a global exists but
+	it's currently borrowed.
 	*/
 
-	pub fn take_lib<T: Lib>() -> GResult<T> {
+	pub fn take_rglobal<T: RGlobal>() -> GResult<T> {
 		with_engine(|engine| {
-			let rc = match engine.libs.borrow_mut().remove(&TypeId::of::<T>()) {
+			let rc = match engine.rglobals.borrow_mut().remove(&TypeId::of::<T>()) {
 				Some(rc) => rc.downcast::<RefCell<T>>().unwrap(),
-				None => bail!("attempted to take nonexistent lib {}", type_name::<T>())
+				None => bail!("attempted to take nonexistent global {}", type_name::<T>())
 			};
 
-			let lib = match Rc::try_unwrap(rc) {
+			let rglobal = match Rc::try_unwrap(rc) {
 				Ok(ref_cell) => ref_cell.into_inner(),
-				Err(_) => bail!("called take_lib for {}, which is currently borrowed", 
+				Err(_) => bail!("called take_rglobal for {}, which is currently borrowed", 
 				                type_name::<T>())
 			};
 
-			engine.libs_ordering.borrow_mut().retain(|&type_id| type_id != TypeId::of::<T>());
+			engine.rglobals_ordering.borrow_mut().retain(|&type_id| type_id != TypeId::of::<T>());
 
-			Ok(lib)
+			Ok(rglobal)
 		})
 	}
 
-	///Equivalent to [`Lib::borrow`](trait.Lib.html#method.borrow).
-	pub fn lib<T: Lib>() -> LibRef<T> {
-		match glsp::try_lib::<T>() {
-			Ok(lib_ref) => lib_ref,
+	pub(crate) fn rglobal<T: RGlobal>() -> RGlobalRef<T> {
+		match glsp::try_rglobal::<T>() {
+			Ok(rglobal_ref) => rglobal_ref,
 			Err(err) => panic!("{}", err.val())
 		}
 	}
 
-	///Equivalent to [`Lib::borrow_mut`](trait.Lib.html#method.borrow_mut).
-	pub fn lib_mut<T: Lib>() -> LibRefMut<T> {
-		match glsp::try_lib_mut::<T>() {
-			Ok(lib_ref_mut) => lib_ref_mut,
+	pub(crate) fn rglobal_mut<T: RGlobal>() -> RGlobalRefMut<T> {
+		match glsp::try_rglobal_mut::<T>() {
+			Ok(rglobal_ref_mut) => rglobal_ref_mut,
 			Err(err) => panic!("{}", err.val())
 		}
 	}
 
-	///Equivalent to [`Lib::try_borrow`](trait.Lib.html#method.try_borrow).
-	pub fn try_lib<T: Lib>() -> GResult<LibRef<T>> {
+	pub(crate) fn try_rglobal<T: RGlobal>() -> GResult<RGlobalRef<T>> {
 		with_engine(|engine| {
-			let libs = engine.libs.borrow();
+			let rglobals = engine.rglobals.borrow();
 
-			let rc = match libs.get(&TypeId::of::<T>()) {
+			let rc = match rglobals.get(&TypeId::of::<T>()) {
 				Some(rc) => rc.clone(),
-				None => bail!("lib type {} was never registered, or has been \
+				None => bail!("global type {} was never registered, or it has been \
 				               dropped", type_name::<T>())
 			};
 
 			let rc_ref_cell = rc.downcast::<RefCell<T>>().unwrap();
 
 			if rc_ref_cell.try_borrow().is_err() {
-				bail!("attempted to borrow lib {} during a mutable borrow", type_name::<T>())
+				bail!("attempted to borrow global {} during a mutable borrow", type_name::<T>())
 			}
 
-			Ok(LibRef {
+			Ok(RGlobalRef {
 				handle: OwningHandle::new(rc_ref_cell)
 			})
 		})
 	}
 
-	///Equivalent to [`Lib::try_borrow_mut`](trait.Lib.html#method.try_borrow_mut).
-	pub fn try_lib_mut<T: Lib>() -> GResult<LibRefMut<T>> {
+	pub(crate) fn try_rglobal_mut<T: RGlobal>() -> GResult<RGlobalRefMut<T>> {
 		with_engine(|engine| {
-			let libs = engine.libs.borrow();
+			let rglobals = engine.rglobals.borrow();
 
-			let rc = match libs.get(&TypeId::of::<T>()) {
+			let rc = match rglobals.get(&TypeId::of::<T>()) {
 				Some(rc) => rc.clone(),
-				None => bail!("lib type {} was never registered, or has been \
+				None => bail!("global type {} was never registered, or it has been \
 				               dropped", type_name::<T>())
 			};
 
 			let rc_ref_cell = rc.downcast::<RefCell<T>>().unwrap();
 
 			if rc_ref_cell.try_borrow_mut().is_err() {
-				bail!("attempted to mutably borrow {}, which is already borrowed", type_name::<T>())
+				bail!(
+					"attempted to mutably borrow {}, which is already borrowed",
+					type_name::<T>()
+				)
 			}
 
-			Ok(LibRefMut {
+			Ok(RGlobalRefMut {
 				handle: OwningHandle::new_mut(rc_ref_cell)
 			})
+		})
+	}
+
+	pub(crate) fn add_rclass<T: 'static>(rclass: RClass) {
+		with_engine(|engine| {
+			let mut rclasses = engine.rclasses.borrow_mut();
+			let mut rclass_names = engine.rclass_names.borrow_mut();
+
+			assert!(
+				!rclasses.contains_key(&TypeId::of::<T>()),
+				"duplicate RClass for type {}",
+				type_name::<T>()
+			);
+			assert!(
+				!rclass_names.contains(&rclass.name),
+				"duplicate RClass name {}",
+				rclass.name
+			);
+
+			rclass_names.insert(rclass.name);
+			rclasses.insert(TypeId::of::<T>(), Rc::new(rclass));
 		})
 	}
 
@@ -2338,35 +2562,70 @@ pub mod glsp {
 	/**
 	Creates a GameLisp value which represents a Rust function.
 
-	The `wrapped_fn` parameter should be constructed using the [`rfn!()`](macro.rfn.html) macro.
+	GameLisp will perform automatic conversions for the function's parameters and return
+	value. In particular:
 
-	When binding a Rust function to a global variable, it's usually more convenient to use 
-	[`glsp::bind_rfn`](fn.bind_rfn.html) instead.
+	- The return value may be any type which implements [`IntoVal`](trait.IntoVal.html).
 
-	Functions at the same address are deduplicated. For example, repeated calls to 
-	`glsp::rfn("swap-bytes", i32::swap_bytes)` will return the same `RFn` every time.
+	- Parameters may be any type which implements [`FromVal`](trait.FromVal.html).
+
+	- In addition, parameters may be...
+
+		- References to GameLisp primitive types, like `&Arr` and `&GFn`.
+
+		- An `Option<T>`. These arguments will be set to `None` when the argument list is too 
+		  short to have a value at that position, or when the caller passes in `#n` for that 
+		  argument.
+
+		- References to sized types, `&T` and `&mut T`, require the corresponding argument to be 
+		  an `rdata`. The `rdata`'s payload will be borrowed for the duration of the function call.
+		  If you need finer control over the borrow, you could accept a 
+		  [`Root<RData>`](struct.RData.html) or an [`RRoot<T>`](struct.RRoot.html) instead.
+
+			- As a special exception, when `T` implements `RGlobal`, arguments of type `&T` and 
+			  `&mut T` will *not* consume any values from the argument list. Instead, the 
+			  references will be borrowed from the current `Runtime`'s global storage, for 
+			  the duration of the function call, by calling `T::borrow()` or `T::borrow_mut()`.
+
+		- References to unsized types will be constructed on the stack and then borrowed. 
+		  `&[T]` is converted from an array. `&str`, `&OsStr`, `&CStr` and `&Path` are 
+		  converted from strings.
+
+		- The special type [`Rest`](struct.Rest.html) can be used to define a variadic function
+		  by capturing any number of arguments.
+
+	The `f` parameter can be a closure, but if so, it must be `'static`. In practice, this
+	means that if the closure captures any data, you must use the `move` keyword to take
+	ownership.
+
+	**Due to [a rustc bug](https://github.com/rust-lang/rust/issues/79207), the `f` parameter must 
+	be passed as a reference or a `Box`; it can't be directly passed by value.**
+
+		fn example(i: i32) -> i32 { i }
+
+		glsp::rfn(example); //type inference error
+		glsp::rfn(&example); //success
+
+		glsp::rfn(|i: i32| i); //type inference error
+		glsp::rfn(&|i: i32| i); //success
+
+		let capture = arr![1, 2, 3];
+		glsp::rfn(move || capture.shallow_clone()); //type inference error
+		glsp::rfn(Box::new(move || capture.shallow_clone())); //success
+
+	When binding a Rust function to a global variable, it's usually more convenient to call 
+	[`glsp::bind_rfn`](fn.bind_rfn.html).
 	*/
 
-	pub fn rfn(wrapped_fn: WrappedFn) -> RFn {
-		with_engine(|engine| {
-			let address = wrapped_fn.as_usize();
+	pub fn rfn<ArgsWithTag, Ret, F>(f: F) -> Root<RFn>
+	where
+		Wrapper<ArgsWithTag, Ret, F>: WrappedCall + 'static
+	{
+		glsp::alloc(RFn {
+			header: GcHeader::new(),
 
-			let mut rfns_map =  engine.rfns_map.borrow_mut();
-			if let Some(rfn) = rfns_map.get(&address) {
-				*rfn
-			} else {
-				let mut rfns = engine.rfns.borrow_mut();
-				rfns.push(RFnEntry {
-					name: None,
-					wrapped_fn
-				});
-
-				let id = u32::try_from(rfns.len() - 1).unwrap();
-				let rfn = RFn(NonZeroU32::new(id).unwrap(), PhantomData);
-				rfns_map.insert(address, rfn);
-
-				rfn
-			}
+			name: Cell::new(None),
+			wrapped_fn: wrap(f)
 		})
 	}
 
@@ -2378,8 +2637,11 @@ pub mod glsp {
 	rather than returning `#n`.
 	*/
 
-	pub fn named_rfn(name: Sym, wrapped_fn: WrappedFn) -> RFn {
-		let rfn = glsp::rfn(wrapped_fn);
+	pub fn named_rfn<ArgsWithTag, Ret, F>(name: Sym, f: F) -> Root<RFn>
+	where
+		Wrapper<ArgsWithTag, Ret, F>: WrappedCall + 'static
+	{
+		let rfn = glsp::rfn(f);
 		rfn.set_name(Some(name));
 		rfn
 	}
@@ -2387,46 +2649,54 @@ pub mod glsp {
 	/**
 	Binds a Rust function to a global variable.
 
-	`glsp::bind_rfn(name, rfn!(f))?` is equivalent to:
+	GameLisp will perform automatic conversions for the function's parameters and return
+	value. See [`glsp::rfn`](fn.rfn.html) and [`glsp::named_rfn`](fn.named_rfn.html)
+	for the details.
+
+	`glsp::bind_rfn(name, &f)?` is equivalent to:
 
 		let sym = name.to_sym()?
-		let rfn = glsp::named_rfn(sym, rfn!(f));
-		glsp::bind_global(sym, rfn)?;
-		Ok(rfn)
+		let rfn = glsp::named_rfn(sym, &f);
+		glsp::bind_global(sym, rfn)
 	*/
 
-	pub fn bind_rfn<S: ToSym>(name: S, wrapped_fn: WrappedFn) -> GResult<RFn> {
+	pub fn bind_rfn<S: ToSym, ArgsWithTag, Ret, F>(name: S, f: F) -> GResult<()>
+	where
+		Wrapper<ArgsWithTag, Ret, F>: WrappedCall + 'static
+	{
 		let sym = name.to_sym()?;
 
-		let rfn = glsp::named_rfn(sym, wrapped_fn);
+		let rfn = glsp::named_rfn(sym, f);
 
-		glsp::bind_global(sym, rfn)?;
-		Ok(rfn)
+		glsp::bind_global(sym, rfn)
 	}
 
 	/**
 	Binds a Rust function to a global macro.
 
-	`glsp::bind_rfn_macro(name, rfn!(f))?` is equivalent to:
+	GameLisp will perform automatic conversions for the function's parameters and return
+	value. See [`glsp::rfn`](fn.rfn.html) for the details.
+
+	`glsp::bind_rfn_macro(name, &f)?` is equivalent to:
 
 		let sym = name.to_sym()?
-		let rfn = glsp::named_rfn(sym, rfn!(f));
-		glsp::bind_macro(sym, Expander::RFn(rfn))?;
-		Ok(rfn)
+		let rfn = glsp::named_rfn(sym, &f);
+		glsp::bind_macro(sym, Expander::RFn(rfn))
 	*/
 
-	pub fn bind_rfn_macro<S: ToSym>(name: S, wrapped_fn: WrappedFn) -> GResult<RFn> {
+	pub fn bind_rfn_macro<S: ToSym, ArgsWithTag, Ret, F>(name: S, f: F) -> GResult<()>
+	where
+		Wrapper<ArgsWithTag, Ret, F>: WrappedCall + 'static
+	{
 		let sym = name.to_sym()?;
 
-		let rfn = glsp::named_rfn(sym, wrapped_fn);
+		let rfn = glsp::named_rfn(sym, f);
 		
-		glsp::bind_macro(sym, Expander::RFn(rfn))?;
-		Ok(rfn)
+		glsp::bind_macro(sym, Expander::RFn(rfn))
 	}
 
-	pub(crate) fn call_rfn(rfn: RFn, arg_count: usize) -> GResult<Slot> {
+	pub(crate) fn call_rfn(rfn: &RFn, arg_count: usize) -> GResult<Slot> {
 		with_engine(|engine| {
-
 			/*
 			when invoking a wrapped rfn, we borrow the vm's reg stack, copy the useful parts of
 			it to the Rust callstack (as the Temps type), drop the borrow, and then invoke the 
@@ -2436,18 +2706,17 @@ pub mod glsp {
 			let stacks = engine.vm.stacks.borrow();
 			let base_reg = stacks.regs.len() - arg_count;
 
-			let _guard = Guard::new(|| {
-				let mut stacks = engine.vm.stacks.borrow_mut();
-				stacks.regs.truncate(base_reg);
-			});
-
 			let regs = Ref::map(stacks, |stacks| &stacks.regs[base_reg..]);
 
-			let wrapped_fn = engine.rfns.borrow()[rfn.0.get() as usize].wrapped_fn;
-
 			let result = panic::catch_unwind(AssertUnwindSafe(|| {
-				wrapped_fn.call(regs)
+				rfn.wrapped_fn.wrapped_call(regs)
 			}));
+
+			//we previously used a Guard for this cleanup, but in practice the
+			//above code should never panic
+			let mut stacks = engine.vm.stacks.borrow_mut();
+			stacks.regs.truncate(base_reg);
+			drop(stacks);
 
 			/*
 			for the time being, we don't go through the rigmarole of trying to set a custom panic
@@ -2459,18 +2728,23 @@ pub mod glsp {
 			match result {
 				Ok(glsp_result) => glsp_result,
 				Err(payload) => {
-					let rfn_description = match rfn.name() {
-						Some(sym) => format!("rfn ({})", sym),
-						None => format!("anonymous rfn")
-					};
+					#[cold]
+					fn handle_error(rfn: &RFn, payload: Box<dyn Any + Send>) -> GResult<Slot> {
+						let rfn_description = match rfn.name.get() {
+							Some(sym) => format!("rfn ({})", sym),
+							None => format!("anonymous rfn")
+						};
 
-					if let Some(msg) = payload.downcast_ref::<&str>() {
-						bail!("{} panicked, '{}'", rfn_description, msg)
-					} else if let Some(msg) = payload.downcast_ref::<String>() {
-						bail!("{} panicked, '{}'", rfn_description, msg)
-					} else {
-						bail!("{} panicked", rfn_description)
+						if let Some(msg) = payload.downcast_ref::<&str>() {
+							bail!("{} panicked, '{}'", rfn_description, msg)
+						} else if let Some(msg) = payload.downcast_ref::<String>() {
+							bail!("{} panicked, '{}'", rfn_description, msg)
+						} else {
+							bail!("{} panicked", rfn_description)
+						}
 					}
+
+					handle_error(rfn, payload)
 				}
 			}
 		})
@@ -2592,12 +2866,14 @@ pub mod glsp {
 	// spans and stack-tracing
 	//---------------------------------------------------------------------------------------------
 
+	#[inline]
 	pub(crate) fn push_frame(frame: Frame) {
 		with_engine(|engine| {
 			engine.vm.push_frame(frame);
 		})
 	}
 
+	#[inline]
 	pub(crate) fn pop_frame() {
 		with_engine(|engine| {
 			engine.vm.pop_frame();
@@ -2656,10 +2932,12 @@ pub mod glsp {
 		})
 	}
 
+	#[inline]
 	pub(crate) fn generated_span() -> Span {
 		Span(0)
 	}	
 
+	#[inline]
 	pub(crate) fn span_storage(span: Span) -> SpanStorage {
 		with_engine(|engine| {
 			engine.spans.borrow()[span.0 as usize]
@@ -2787,12 +3065,12 @@ pub mod glsp {
 	[`try`](https://gamelisp.rs/std/try) and [`try-verbose`](https://gamelisp.rs/std/try-verbose)
 	work by invoking `glsp::try_call`.
 
-	The default error-reporting style is verbose.
+	When the program begins, the default error-reporting style is verbose.
 	*/
-	pub fn try_call<R, A>(is_verbose: bool, receiver: &R, args: &A) -> GResult<Val>
+	pub fn try_call<R, A>(is_verbose: bool, receiver: &R, args: A) -> GResult<Val>
 	where
 		R: CallableOps,
-		A: ToCallArgs + ?Sized
+		A: IntoCallArgs
 	{
 		with_engine(|engine| {
 			let prev = engine.errors_verbose.get();
@@ -2813,6 +3091,7 @@ pub mod glsp {
 	// allocation
 	//---------------------------------------------------------------------------------------------
 
+	#[inline]
 	pub(crate) fn alloc<T: Allocate>(t: T) -> Root<T> {
 		with_engine(|engine| {
 			engine.heap.alloc(t)
@@ -2820,6 +3099,7 @@ pub mod glsp {
 	}
 
 	#[doc(hidden)]
+	#[inline]
 	pub fn alloc_gc<T: Allocate>(t: T) -> Gc<T> {
 		with_engine(|engine| {
 			engine.heap.alloc_gc(t)
@@ -2873,9 +3153,12 @@ pub mod glsp {
 	/**
 	Constructs an [array](struct.Arr.html) which contains `reps` repetitions of `elem`.
 
-	Returns an `Err` if [type conversion](trait.ToVal.html) fails.
+	Returns an `Err` if [type conversion](trait.IntoVal.html) fails.
 	*/
-	pub fn arr_from_elem<T: ToVal>(elem: T, reps: usize) -> GResult<Root<Arr>> {
+	pub fn arr_from_elem<T>(elem: T, reps: usize) -> GResult<Root<Arr>> 
+	where
+		T: Clone + IntoVal
+	{
 		let arr = with_heap(|heap| heap.recycler.arr_from_elem(elem, reps))?;
 		arr.set_span(glsp::new_arr_span(None));
 		Ok(arr)
@@ -2884,12 +3167,12 @@ pub mod glsp {
 	/**
 	Constructs an [array](struct.Arr.html) from the contents of a Rust iterator.
 
-	Returns an `Err` if [type conversion](trait.ToVal.html) fails for any element.
+	Returns an `Err` if [type conversion](trait.IntoVal.html) fails for any element.
 	*/
 	pub fn arr_from_iter<T>(iter: T) -> GResult<Root<Arr>> 
 	where
 		T: IntoIterator,
-		T::Item: ToVal
+		T::Item: IntoVal
 	{
 		let arr = with_heap(|heap| heap.recycler.arr_from_iter(iter))?;
 		arr.set_span(glsp::new_arr_span(None));
@@ -2934,13 +3217,13 @@ pub mod glsp {
 
 	Duplicate keys are permitted.
 
-	Returns an `Err` if [type conversion](trait.ToVal.html) fails for any key or value.
+	Returns an `Err` if [type conversion](trait.IntoVal.html) fails for any key or value.
 	*/
 	pub fn tab_from_iter<T, K, V>(iter: T) -> GResult<Root<Tab>> 
 	where
 		T: IntoIterator<Item = (K, V)>,
-		K: ToVal,
-		V: ToVal
+		K: IntoVal,
+		V: IntoVal
 	{
 		Ok(glsp::alloc(Tab::from_iter(iter)?))
 	}
@@ -3565,10 +3848,10 @@ pub mod glsp {
 		let rect: Root<Obj> = glsp::call(&rect_class, &[10, 10, 50, 50])?;
 	*/
 
-	pub fn call<C, A, R>(receiver: &C, args: &A) -> GResult<R>
+	pub fn call<C, A, R>(receiver: &C, args: A) -> GResult<R>
 	where
 		C: CallableOps,
-		A: ToCallArgs + ?Sized,
+		A: IntoCallArgs,
 		R: FromVal
 	{
 		glsp::push_frame(Frame::GlspCall(receiver.name()));
@@ -3578,7 +3861,7 @@ pub mod glsp {
 			let mut stacks = engine.vm.stacks.borrow_mut();
 			let starting_len = stacks.regs.len();
 
-			args.to_call_args(&mut stacks.regs)?;
+			args.into_call_args(&mut stacks.regs)?;
 
 			let arg_count = stacks.regs.len() - starting_len;
 			drop(stacks);

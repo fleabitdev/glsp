@@ -8,11 +8,11 @@ line between GameLisp code and Rust code.
 
 The [`eval!`] procedural macro takes a string literal which contains GameLisp source code, and 
 executes it. You can interleave local variables into the evaluation by unquoting them with `~`.
-Local variables are converted to and from GameLisp values using the [`ToVal`] and [`FromVal`] 
+Local variables are converted to and from GameLisp values using the [`IntoVal`] and [`FromVal`] 
 traits.
 
 [`eval!`]: https://docs.rs/glsp/*/glsp/macro.eval.html
-[`ToVal`]: https://docs.rs/glsp/*/glsp/trait.ToVal.html
+[`IntoVal`]: https://docs.rs/glsp/*/glsp/trait.IntoVal.html
 [`FromVal`]: https://docs.rs/glsp/*/glsp/trait.FromVal.html
 
 ```rust
@@ -99,7 +99,7 @@ fn test_numbers_macro(attempt: Val) -> Val {
 }
 ```
 
-Unquoted local variables are converted into GameLisp values using the [`ToVal`] macro, which
+Unquoted local variables are converted into GameLisp values using the [`IntoVal`] macro, which
 has the potential to fail. [`backquote!`] will panic if the conversion fails. [`try_backquote!`]
 is the non-panicking equivalent; it returns a [`GResult<T>`].
 

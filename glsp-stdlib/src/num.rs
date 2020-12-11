@@ -1,80 +1,80 @@
-use glsp::{bail, ensure, GResult, Num, rfn, Val};
+use glsp::{bail, ensure, GResult, Num, Rest, Val};
 use smallvec::SmallVec;
 use std::cmp::Ordering;
 use std::f32;
 
 pub fn init(_sandboxed: bool) -> GResult<()> {
-	glsp::bind_rfn("+", rfn!(add))?;
-	glsp::bind_rfn("-", rfn!(sub))?;
-	glsp::bind_rfn("*", rfn!(mul))?;
-	glsp::bind_rfn("/", rfn!(div))?;
-	glsp::bind_rfn("%", rfn!(rem))?;
-	glsp::bind_rfn("div-euclid", rfn!(div_euclid))?;
-	glsp::bind_rfn("rem-euclid", rfn!(rem_euclid))?;
-	glsp::bind_rfn("abs", rfn!(abs))?;
-	glsp::bind_rfn("sign", rfn!(sign))?;
+	glsp::bind_rfn("+", &add)?;
+	glsp::bind_rfn("-", &sub)?;
+	glsp::bind_rfn("*", &mul)?;
+	glsp::bind_rfn("/", &div)?;
+	glsp::bind_rfn("%", &rem)?;
+	glsp::bind_rfn("div-euclid", &div_euclid)?;
+	glsp::bind_rfn("rem-euclid", &rem_euclid)?;
+	glsp::bind_rfn("abs", &abs)?;
+	glsp::bind_rfn("sign", &sign)?;
 
-	glsp::bind_rfn("even?", rfn!(evenp))?;
-	glsp::bind_rfn("odd?", rfn!(oddp))?;
-	glsp::bind_rfn("nat-int?", rfn!(nat_intp))?;
-	glsp::bind_rfn("pos-int?", rfn!(pos_intp))?;
-	glsp::bind_rfn("neg-int?", rfn!(neg_intp))?;
-	glsp::bind_rfn("nan?", rfn!(nanp))?;
-	glsp::bind_rfn("inf?", rfn!(infp))?;
+	glsp::bind_rfn("even?", &evenp)?;
+	glsp::bind_rfn("odd?", &oddp)?;
+	glsp::bind_rfn("nat-int?", &nat_intp)?;
+	glsp::bind_rfn("pos-int?", &pos_intp)?;
+	glsp::bind_rfn("neg-int?", &neg_intp)?;
+	glsp::bind_rfn("nan?", &nanp)?;
+	glsp::bind_rfn("inf?", &infp)?;
 
-	glsp::bind_rfn("==", rfn!(num_eq))?;
-	glsp::bind_rfn("<", rfn!(lt))?;
-	glsp::bind_rfn("<=", rfn!(lte))?;
-	glsp::bind_rfn(">", rfn!(gt))?;
-	glsp::bind_rfn(">=", rfn!(gte))?;
-	glsp::bind_rfn("ord", rfn!(ord))?;
-	glsp::bind_rfn("min", rfn!(min))?;
-	glsp::bind_rfn("max", rfn!(max))?;
-	glsp::bind_rfn("clamp", rfn!(clamp))?;
+	glsp::bind_rfn("==", &num_eq)?;
+	glsp::bind_rfn("<", &lt)?;
+	glsp::bind_rfn("<=", &lte)?;
+	glsp::bind_rfn(">", &gt)?;
+	glsp::bind_rfn(">=", &gte)?;
+	glsp::bind_rfn("ord", &ord)?;
+	glsp::bind_rfn("min", &min)?;
+	glsp::bind_rfn("max", &max)?;
+	glsp::bind_rfn("clamp", &clamp)?;
 
-	glsp::bind_rfn("round", rfn!(round))?;
-	glsp::bind_rfn("floor", rfn!(floor))?;
-	glsp::bind_rfn("ceil", rfn!(ceil))?;
-	glsp::bind_rfn("sqrt", rfn!(sqrt))?;
-	glsp::bind_rfn("cbrt", rfn!(cbrt))?;
-	glsp::bind_rfn("pow", rfn!(pow))?;
-	glsp::bind_rfn("log", rfn!(log))?;
-	glsp::bind_rfn("flo-sign", rfn!(flo_sign))?;
-	glsp::bind_rfn("trunc", rfn!(trunc))?;
-	glsp::bind_rfn("fract", rfn!(fract))?;
-	glsp::bind_rfn("sin", rfn!(sin))?;
-	glsp::bind_rfn("cos", rfn!(cos))?;
-	glsp::bind_rfn("tan", rfn!(tan))?;
-	glsp::bind_rfn("asin", rfn!(asin))?;
-	glsp::bind_rfn("acos", rfn!(acos))?;
-	glsp::bind_rfn("atan", rfn!(atan))?;
+	glsp::bind_rfn("round", &round)?;
+	glsp::bind_rfn("floor", &floor)?;
+	glsp::bind_rfn("ceil", &ceil)?;
+	glsp::bind_rfn("sqrt", &sqrt)?;
+	glsp::bind_rfn("cbrt", &cbrt)?;
+	glsp::bind_rfn("pow", &pow)?;
+	glsp::bind_rfn("log", &log)?;
+	glsp::bind_rfn("flo-sign", &flo_sign)?;
+	glsp::bind_rfn("trunc", &trunc)?;
+	glsp::bind_rfn("fract", &fract)?;
+	glsp::bind_rfn("sin", &sin)?;
+	glsp::bind_rfn("cos", &cos)?;
+	glsp::bind_rfn("tan", &tan)?;
+	glsp::bind_rfn("asin", &asin)?;
+	glsp::bind_rfn("acos", &acos)?;
+	glsp::bind_rfn("atan", &atan)?;
 
-	glsp::bind_rfn("bitand", rfn!(bitand))?;
-	glsp::bind_rfn("bitor", rfn!(bitor))?;
-	glsp::bind_rfn("bitxor", rfn!(bitxor))?;
-	glsp::bind_rfn("bitnot", rfn!(bitnot))?;
-	glsp::bind_rfn("bitshl", rfn!(bitshl))?;
-	glsp::bind_rfn("bitshr", rfn!(bitshr))?;
-	glsp::bind_rfn("bitsar", rfn!(bitsar))?;
+	glsp::bind_rfn("bitand", &bitand)?;
+	glsp::bind_rfn("bitor", &bitor)?;
+	glsp::bind_rfn("bitxor", &bitxor)?;
+	glsp::bind_rfn("bitnot", &bitnot)?;
+	glsp::bind_rfn("bitshl", &bitshl)?;
+	glsp::bind_rfn("bitshr", &bitshr)?;
+	glsp::bind_rfn("bitsar", &bitsar)?;
 
-	glsp::bind_rfn("rand", rfn!(rand))?;
-	glsp::bind_rfn("chance?", rfn!(chancep))?;
-	glsp::bind_rfn("rand-pick", rfn!(rand_pick))?;
-	glsp::bind_rfn("rand-weighted", rfn!(rand_weighted))?;
-	glsp::bind_rfn("rand-reseed", rfn!(rand_reseed))?;
+	glsp::bind_rfn("rand", &rand)?;
+	glsp::bind_rfn("chance?", &chancep)?;
+	glsp::bind_rfn("rand-pick", &rand_pick)?;
+	glsp::bind_rfn("rand-weighted", &rand_weighted)?;
+	glsp::bind_rfn("rand-reseed", &rand_reseed)?;
 
-	glsp::bind_rfn("smoothstep", rfn!(smoothstep))?;
-	glsp::bind_rfn("seek", rfn!(seek))?;
-	glsp::bind_rfn("antiseek", rfn!(antiseek))?;
+	glsp::bind_rfn("smoothstep", &smoothstep)?;
+	glsp::bind_rfn("seek", &seek)?;
+	glsp::bind_rfn("antiseek", &antiseek)?;
 
 	Ok(())
 }
 
-fn add(args: &[Num]) -> Num {
+fn add(args: Rest<Num>) -> Num {
 	args.iter().fold(Num::Int(0), |accum, &arg| accum + arg)
 }
 
-fn sub(first: Num, rest: &[Num]) -> Num {
+fn sub(first: Num, rest: Rest<Num>) -> Num {
 	if rest.len() == 0 {
 		-first
 	} else {
@@ -86,11 +86,11 @@ fn sub(first: Num, rest: &[Num]) -> Num {
 //Flo if there are any Flo arguments: for example, that would stop (* #xf0000 #xf0000 3.0) from
 //overflowing when multiplying the first two arguments. however, this would be inconsistent
 //with the arithmetic operators' behaviour in vm.rs and transform.rs.
-fn mul(args: &[Num]) -> Num {
+fn mul(args: Rest<Num>) -> Num {
 	args.iter().fold(Num::Int(1), |accum, &arg| accum * arg)
 }
 
-fn div(first: Num, rest: &[Num]) -> GResult<Num> {
+fn div(first: Num, rest: Rest<Num>) -> GResult<Num> {
 	if rest.len() == 0 {
 		ensure!(first != Num::Int(0), "divide-by-zero error");
 		Ok(Num::Flo(1.0) / first)
@@ -102,7 +102,7 @@ fn div(first: Num, rest: &[Num]) -> GResult<Num> {
 	}
 }
 
-fn div_euclid(first: Num, rest: &[Num]) -> GResult<Num> {
+fn div_euclid(first: Num, rest: Rest<Num>) -> GResult<Num> {
 	if rest.len() == 0 {
 		ensure!(first != Num::Int(0), "divide-by-zero error");
 		Ok(Num::Flo(1.0).div_euclid(first))
@@ -139,7 +139,7 @@ fn sign(num: Num) -> i32 {
 	}
 }
 
-fn min(first: Val, rest: &[Val]) -> GResult<Val> {
+fn min(first: Val, rest: Rest<Val>) -> GResult<Val> {
 	ensure!(rest.iter().all(|val| val.is_int() || val.is_flo() || val.is_char()),
 	        "non-number passed to min");
 	Ok(rest.iter().fold(first, |accum, arg| {
@@ -151,7 +151,7 @@ fn min(first: Val, rest: &[Val]) -> GResult<Val> {
 	}))
 }
 
-fn max(first: Val, rest: &[Val]) -> GResult<Val> {
+fn max(first: Val, rest: Rest<Val>) -> GResult<Val> {
 	ensure!(rest.iter().all(|val| val.is_int() || val.is_flo() || val.is_char()),
 	        "non-number passed to max");
 	Ok(rest.iter().fold(first, |accum, arg| {
@@ -333,15 +333,15 @@ fn infp(f: f32) -> bool {
 	f.is_infinite()
 }
 
-fn bitand(args: &[i32]) -> i32 {
+fn bitand(args: Rest<i32>) -> i32 {
 	args.iter().fold(-1, |accum, &arg| accum & arg)
 }
 
-fn bitor(args: &[i32]) -> i32 {
+fn bitor(args: Rest<i32>) -> i32 {
 	args.iter().fold(0, |accum, &arg| accum | arg)
 }
 
-fn bitxor(args: &[i32]) -> i32 {
+fn bitxor(args: Rest<i32>) -> i32 {
 	args.iter().fold(0, |accum, &arg| accum ^ arg)
 }
 
@@ -364,35 +364,35 @@ fn bitsar(arg: i32, shift: u32) -> i32 {
 	arg.overflowing_shr(shift).0
 }
 
-fn num_eq(args: &[Val]) -> GResult<bool> {
+fn num_eq(args: Rest<Val>) -> GResult<bool> {
 	ensure!(args.len() >= 2, "expected at least 2 args, but received {}", args.len());
 	ensure!(args.iter().all(|val| val.is_int() || val.is_flo() || val.is_char()),
 	        "non-number passed to ==");
 	Ok((0 .. args.len()-1).all(|i| args[i].partial_cmp(&args[i+1]).unwrap() == Ordering::Equal))
 }
 
-fn lt(args: &[Val]) -> GResult<bool> {
+fn lt(args: Rest<Val>) -> GResult<bool> {
 	ensure!(args.len() >= 2, "expected at least 2 args, but received {}", args.len());
 	ensure!(args.iter().all(|val| val.is_int() || val.is_flo() || val.is_char()),
 	        "non-number passed to <");
 	Ok((0 .. args.len()-1).all(|i| args[i].partial_cmp(&args[i+1]).unwrap() == Ordering::Less))
 }
 
-fn lte(args: &[Val]) -> GResult<bool> {
+fn lte(args: Rest<Val>) -> GResult<bool> {
 	ensure!(args.len() >= 2, "expected at least 2 args, but received {}", args.len());
 	ensure!(args.iter().all(|val| val.is_int() || val.is_flo() || val.is_char()),
 	        "non-number passed to <=");
 	Ok((0 .. args.len()-1).all(|i| args[i].partial_cmp(&args[i+1]).unwrap() != Ordering::Greater))
 }
 
-fn gt(args: &[Val]) -> GResult<bool> {
+fn gt(args: Rest<Val>) -> GResult<bool> {
 	ensure!(args.len() >= 2, "expected at least 2 args, but received {}", args.len());
 	ensure!(args.iter().all(|val| val.is_int() || val.is_flo() || val.is_char()),
 	        "non-number passed to >");
 	Ok((0 .. args.len()-1).all(|i| args[i].partial_cmp(&args[i+1]).unwrap() == Ordering::Greater))
 }
 
-fn gte(args: &[Val]) -> GResult<bool> {
+fn gte(args: Rest<Val>) -> GResult<bool> {
 	ensure!(args.len() >= 2, "expected at least 2 args, but received {}", args.len());
 	ensure!(args.iter().all(|val| val.is_int() || val.is_flo() || val.is_char()),
 	        "non-number passed to >=");
@@ -449,14 +449,14 @@ fn chancep(chance: f32) -> bool {
 	}
 }
 
-fn rand_pick(args: &[Val]) -> GResult<Val> {
+fn rand_pick(args: Rest<Val>) -> GResult<Val> {
 	ensure!(args.len() > 0, "expected at least one argument");
 
 	let i = (super::rand_i32().abs() as usize) % args.len();
 	Ok(args[i].clone())
 }
 
-fn rand_weighted(args: &[Val]) -> GResult<Val> {
+fn rand_weighted(args: Rest<Val>) -> GResult<Val> {
 	ensure!(args.len() > 0, "expected at least one argument");
 	ensure!(args.len() % 2 == 0, "expected an even number of arguments");
 

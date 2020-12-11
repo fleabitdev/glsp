@@ -28,7 +28,7 @@ You already have several ways to achieve this sort of code reuse:
 
 - Consider whether the differences between your entities can be described using plain data rather 
   than code. If you were to reimplement the original [Final Fantasy] in GameLisp, you wouldn't 
-  need a distinct class for an `Ogre` and a `Creep` - you would just have a single `Enemy` class 
+  need distinct classes for an `Ogre` and a `Creep` - you would just have a single `Enemy` class 
   which makes use of plain data like "hit points" and "sprite size". Likewise, if you were to 
   reimplement [The Sims], all of the different doorways would probably be modelled as a single 
   `Door` class which is capable of displaying a few different sprites.
@@ -236,7 +236,7 @@ it was copied-and-pasted in at the very start of the implementing class.
 	    (const kg 1100)))
 
 	; this is an error, because the name Weight:kg collides with Heavy:kg.
-	; if Heavy:kg were to be commented out, the code would compile.
+	; if Heavy's (const kg 1000) were commented out, the code would compile.
 	(defclass Weight
 	  (mixin Heavy)
 	  (const kg 500))

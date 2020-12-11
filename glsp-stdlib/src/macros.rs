@@ -1,7 +1,7 @@
 use glsp::{
 	arr, Arr, bail, bail_at, Callable, DequeAccess, DequeOps, 
-	ensure, EnvMode, error, FromVal, GResult, Lib, macro_no_op, 
-	rfn, Root, Span, Sym, stock_syms::*, str, Val
+	ensure, EnvMode, error, FromVal, GResult, macro_no_op, 
+	Rest, RGlobal, Root, Span, Sym, stock_syms::*, str, Val
 };
 use glsp_proc_macros::{backquote};
 use smallvec::{SmallVec};
@@ -16,88 +16,88 @@ use super::pat::{
 
 pub fn init(sandboxed: bool) -> GResult<()> {
 	if !sandboxed {
-		glsp::bind_rfn_macro("include", rfn!(include))?;
+		glsp::bind_rfn_macro("include", &include)?;
 	}
 	
-	glsp::bind_rfn_macro("+", rfn!(add))?;
-	glsp::bind_rfn_macro("-", rfn!(sub))?;
-	glsp::bind_rfn_macro("*", rfn!(mul))?;
-	glsp::bind_rfn_macro("/", rfn!(div))?;
-	glsp::bind_rfn_macro("min", rfn!(min))?;
-	glsp::bind_rfn_macro("max", rfn!(max))?;
-	glsp::bind_rfn_macro("bitand", rfn!(bitand))?;
-	glsp::bind_rfn_macro("bitor", rfn!(bitor))?;
-	glsp::bind_rfn_macro("bitxor", rfn!(bitxor))?;
+	glsp::bind_rfn_macro("+", &add)?;
+	glsp::bind_rfn_macro("-", &sub)?;
+	glsp::bind_rfn_macro("*", &mul)?;
+	glsp::bind_rfn_macro("/", &div)?;
+	glsp::bind_rfn_macro("min", &min)?;
+	glsp::bind_rfn_macro("max", &max)?;
+	glsp::bind_rfn_macro("bitand", &bitand)?;
+	glsp::bind_rfn_macro("bitor", &bitor)?;
+	glsp::bind_rfn_macro("bitxor", &bitxor)?;
 
-	glsp::bind_rfn_macro("def", rfn!(def))?;
-	glsp::bind_rfn_macro("defn", rfn!(defn))?;
-	glsp::bind_rfn_macro("defmacro", rfn!(defmacro))?;
-	glsp::bind_rfn_macro("with-global", rfn!(with_global))?;
+	glsp::bind_rfn_macro("def", &def)?;
+	glsp::bind_rfn_macro("defn", &defn)?;
+	glsp::bind_rfn_macro("defmacro", &defmacro)?;
+	glsp::bind_rfn_macro("with-global", &with_global)?;
 
-	glsp::bind_rfn_macro("global", rfn!(global))?;
-	glsp::bind_rfn_macro("global=", rfn!(set_global))?;
-	glsp::bind_rfn_macro("macro", rfn!(get_macro))?;
-	glsp::bind_rfn_macro("macro=", rfn!(set_macro))?;
+	glsp::bind_rfn_macro("global", &global)?;
+	glsp::bind_rfn_macro("global=", &set_global)?;
+	glsp::bind_rfn_macro("macro", &get_macro)?;
+	glsp::bind_rfn_macro("macro=", &set_macro)?;
 
-	glsp::bind_rfn_macro("access", rfn!(access))?;
-	glsp::bind_rfn_macro("access=", rfn!(set_access))?;
-	glsp::bind_rfn_macro("del!", rfn!(del))?;
-	glsp::bind_rfn_macro("remove!", rfn!(remove))?;
+	glsp::bind_rfn_macro("access", &access)?;
+	glsp::bind_rfn_macro("access=", &set_access)?;
+	glsp::bind_rfn_macro("del!", &del)?;
+	glsp::bind_rfn_macro("remove!", &remove)?;
 
-	glsp::bind_rfn_macro("call-met", rfn!(call_met))?;
+	glsp::bind_rfn_macro("call-met", &call_met)?;
 
-	glsp::bind_rfn_macro("ensure", rfn!(ensure))?;
-	glsp::bind_rfn_macro("dbg", rfn!(dbg))?;
-	glsp::bind_rfn_macro("todo", rfn!(todo))?;
-	glsp::bind_rfn_macro("try", rfn!(try_))?;
-	glsp::bind_rfn_macro("try-verbose", rfn!(try_verbose))?;
+	glsp::bind_rfn_macro("ensure", &ensure)?;
+	glsp::bind_rfn_macro("dbg", &dbg)?;
+	glsp::bind_rfn_macro("todo", &todo)?;
+	glsp::bind_rfn_macro("try", &try_)?;
+	glsp::bind_rfn_macro("try-verbose", &try_verbose)?;
 
-	glsp::bind_rfn_macro("when", rfn!(when))?;
-	glsp::bind_rfn_macro("unless", rfn!(unless))?;
-	glsp::bind_rfn_macro("while", rfn!(while_))?;
-	glsp::bind_rfn_macro("until", rfn!(until))?;
-	glsp::bind_rfn_macro("cond", rfn!(cond))?;
-	glsp::bind_rfn_macro("and", rfn!(and))?;
-	glsp::bind_rfn_macro("or", rfn!(or))?;
-	glsp::bind_rfn_macro("do-0", rfn!(do_0))?;
+	glsp::bind_rfn_macro("when", &when)?;
+	glsp::bind_rfn_macro("unless", &unless)?;
+	glsp::bind_rfn_macro("while", &while_)?;
+	glsp::bind_rfn_macro("until", &until)?;
+	glsp::bind_rfn_macro("cond", &cond)?;
+	glsp::bind_rfn_macro("and", &and)?;
+	glsp::bind_rfn_macro("or", &or)?;
+	glsp::bind_rfn_macro("do-0", &do_0)?;
 
-	glsp::bind_rfn_macro("cond==", rfn!(cond_num_eq))?;
-	glsp::bind_rfn_macro("cond-same?", rfn!(cond_same))?;
-	glsp::bind_rfn_macro("cond-eq?", rfn!(cond_eq))?;
+	glsp::bind_rfn_macro("cond==", &cond_num_eq)?;
+	glsp::bind_rfn_macro("cond-same?", &cond_same)?;
+	glsp::bind_rfn_macro("cond-eq?", &cond_eq)?;
 
-	glsp::bind_rfn_macro("backquote", rfn!(backquote))?;
+	glsp::bind_rfn_macro("backquote", &backquote)?;
 
-	glsp::bind_rfn_macro("let", rfn!(let_))?;
-	glsp::bind_rfn_macro("let-fn", rfn!(let_fn))?;
+	glsp::bind_rfn_macro("let", &let_)?;
+	glsp::bind_rfn_macro("let-fn", &let_fn)?;
 
-	glsp::bind_rfn_macro("match", rfn!(match_))?;
-	glsp::bind_rfn_macro("matches?", rfn!(matchesp))?;
-	glsp::bind_rfn_macro("when-let", rfn!(when_let))?;
+	glsp::bind_rfn_macro("match", &match_)?;
+	glsp::bind_rfn_macro("matches?", &matchesp)?;
+	glsp::bind_rfn_macro("when-let", &when_let)?;
 
-	glsp::bind_rfn_macro("fn", rfn!(fn_))?;
-	glsp::bind_rfn_macro("%met-fn", rfn!(met_fn))?;
-	glsp::bind_rfn_macro("fn0", rfn!(fn0))?;
-	glsp::bind_rfn_macro("fn1", rfn!(fn1))?;
+	glsp::bind_rfn_macro("fn", &fn_)?;
+	glsp::bind_rfn_macro("%met-fn", &met_fn)?;
+	glsp::bind_rfn_macro("fn0", &fn0)?;
+	glsp::bind_rfn_macro("fn1", &fn1)?;
 
-	glsp::bind_rfn_macro("->", rfn!(arrow_first))?;
-	glsp::bind_rfn_macro("->>", rfn!(arrow_last))?;
+	glsp::bind_rfn_macro("->", &arrow_first)?;
+	glsp::bind_rfn_macro("->>", &arrow_last)?;
 
-	glsp::bind_rfn_macro("?", rfn!(question_mark))?;
+	glsp::bind_rfn_macro("?", &question_mark)?;
 
-	glsp::bind_rfn_macro("tab", rfn!(tab))?;
+	glsp::bind_rfn_macro("tab", &tab)?;
 
-	glsp::bind_rfn_macro("for", rfn!(for_))?;
-	glsp::bind_rfn_macro("forn", rfn!(forn))?;
-	glsp::bind_rfn_macro("forni", rfn!(forni))?;
-	glsp::bind_rfn_macro("break", rfn!(break_))?;
-	glsp::bind_rfn_macro("continue", rfn!(continue_))?;
-	glsp::bind_rfn_macro("loop", rfn!(loop_))?;
-	glsp::bind_rfn_macro("yield-from", rfn!(yield_from))?;
+	glsp::bind_rfn_macro("for", &for_)?;
+	glsp::bind_rfn_macro("forn", &forn)?;
+	glsp::bind_rfn_macro("forni", &forni)?;
+	glsp::bind_rfn_macro("break", &break_)?;
+	glsp::bind_rfn_macro("continue", &continue_)?;
+	glsp::bind_rfn_macro("loop", &loop_)?;
+	glsp::bind_rfn_macro("yield-from", &yield_from)?;
 
 	//setters and in-place mutation
-	glsp::bind_rfn_macro("defplace", rfn!(defplace))?;
-	glsp::bind_rfn("bind-place!", rfn!(bind_place))?;
-	glsp::bind_rfn_macro("=", rfn!(set))?;
+	glsp::bind_rfn_macro("defplace", &defplace)?;
+	glsp::bind_rfn("bind-place!", &bind_place)?;
+	glsp::bind_rfn_macro("=", &set)?;
 	
 	static SETTERS: [(&str, &str, Option<bool>); 7] = [
 		("access", "access=", None),
@@ -125,19 +125,19 @@ pub fn init(sandboxed: bool) -> GResult<()> {
 		std.opt_setters.insert(glsp::sym(accessor)?, (glsp::sym(setter)?, memoize_args));
 	}
 
-	glsp::bind_rfn_macro("inc!", rfn!(inc_assign))?;
-	glsp::bind_rfn_macro("dec!", rfn!(dec_assign))?;
-	glsp::bind_rfn_macro("mul!", rfn!(mul_assign))?;
-	glsp::bind_rfn_macro("div!", rfn!(div_assign))?;
-	glsp::bind_rfn_macro("div-euclid!", rfn!(div_euclid_assign))?;
-	glsp::bind_rfn_macro("rem!", rfn!(rem_assign))?;
-	glsp::bind_rfn_macro("rem-euclid!", rfn!(rem_euclid_assign))?;
-	glsp::bind_rfn_macro("abs!", rfn!(abs_assign))?;
-	glsp::bind_rfn_macro("neg!", rfn!(neg_assign))?;
-	glsp::bind_rfn_macro("seek!", rfn!(seek_assign))?;
-	glsp::bind_rfn_macro("antiseek!", rfn!(antiseek_assign))?;
-	glsp::bind_rfn_macro("clamp!", rfn!(clamp_assign))?;
-	glsp::bind_rfn_macro("swap!", rfn!(swap_assign))?;
+	glsp::bind_rfn_macro("inc!", &inc_assign)?;
+	glsp::bind_rfn_macro("dec!", &dec_assign)?;
+	glsp::bind_rfn_macro("mul!", &mul_assign)?;
+	glsp::bind_rfn_macro("div!", &div_assign)?;
+	glsp::bind_rfn_macro("div-euclid!", &div_euclid_assign)?;
+	glsp::bind_rfn_macro("rem!", &rem_assign)?;
+	glsp::bind_rfn_macro("rem-euclid!", &rem_euclid_assign)?;
+	glsp::bind_rfn_macro("abs!", &abs_assign)?;
+	glsp::bind_rfn_macro("neg!", &neg_assign)?;
+	glsp::bind_rfn_macro("seek!", &seek_assign)?;
+	glsp::bind_rfn_macro("antiseek!", &antiseek_assign)?;
+	glsp::bind_rfn_macro("clamp!", &clamp_assign)?;
+	glsp::bind_rfn_macro("swap!", &swap_assign)?;
 
 	Ok(())
 }
@@ -263,12 +263,12 @@ fn constant_fold(callee: Sym, args: &[Val]) -> Option<Val> {
 
 macro_rules! arithmetic_macro {
 	($name:ident, $callee:expr, $identity_val:expr, $replaceable:expr) => (
-		fn $name(args: &[Val]) -> GResult<Val> {
-			if let Some(result) = constant_fold($callee, args) {
+		fn $name(args: Rest<Val>) -> GResult<Val> {
+			if let Some(result) = constant_fold($callee, &args) {
 				return Ok(result)
 			}
 
-			if let Some(result) = binarize($callee, $identity_val, $replaceable, args) {
+			if let Some(result) = binarize($callee, $identity_val, $replaceable, &args) {
 				return Ok(result)
 			}
 
@@ -279,12 +279,12 @@ macro_rules! arithmetic_macro {
 
 arithmetic_macro!(add, ADD_SYM, Some(Val::Int(0)), true);
 
-fn sub(args: &[Val]) -> GResult<Val> {
-	if let Some(result) = constant_fold(SUB_SYM, args) {
+fn sub(args: Rest<Val>) -> GResult<Val> {
+	if let Some(result) = constant_fold(SUB_SYM, &args) {
 		return Ok(result)
 	}
 
-	if let Some(result) = binarize(SUB_SYM, None, false, args) {
+	if let Some(result) = binarize(SUB_SYM, None, false, &args) {
 		return Ok(result)
 	}
 
@@ -317,8 +317,8 @@ fn include(path: &str) -> GResult<Val> {
 	}
 }
 
-fn def(args: &[Val]) -> GResult<Val> {
-	match expand_let_like(DEF_SYM, PlaceStrategy::Global, args)? {
+fn def(args: Rest<Val>) -> GResult<Val> {
+	match expand_let_like(DEF_SYM, PlaceStrategy::Global, &args)? {
 		Some(expanded) => Ok(expanded),
 		None => {
 			match args.len() {
@@ -335,20 +335,20 @@ fn def(args: &[Val]) -> GResult<Val> {
 	}
 }
 
-fn defn(name: Sym, params: Root<Arr>, body: &[Val]) -> Val {
+fn defn(name: Sym, params: Root<Arr>, body: Rest<Val>) -> Val {
 	backquote!(r#"
 		(bind-global! '~name (fn &name ~name ~params ~..body))
 	"#)
 }
 
-fn defmacro(name: Sym, params: Root<Arr>, body: &[Val]) -> Val {
+fn defmacro(name: Sym, params: Root<Arr>, body: Rest<Val>) -> Val {
 	backquote!(r#"
 		(bind-macro! '~name (fn &name ~name ~params ~..body))
 	"#)
 }
 
-fn with_global(args: &[Val]) -> GResult<Val> {
-	match expand_let_like(WITH_GLOBAL_SYM, PlaceStrategy::Global, args)? {
+fn with_global(args: Rest<Val>) -> GResult<Val> {
+	match expand_let_like(WITH_GLOBAL_SYM, PlaceStrategy::Global, &args)? {
 		Some(expanded) => Ok(expanded),
 		None => {
 			match args.len() {
@@ -403,7 +403,7 @@ fn unwrap_question_mark(val: Val) -> GResult<Option<Val>> {
 }
 
 fn unwrap_slice_args(rest: &[Val]) -> GResult<Option<(Val, Val)>> {
-	let to_from = match rest {
+	let to_from = match &*rest {
 		&[Val::Sym(COLON_SYM)] => Some((Val::Nil, Val::Nil)),
 		&[ref from, Val::Sym(COLON_SYM)] => Some((from.clone(), Val::Nil)),
 		&[Val::Sym(COLON_SYM), ref to] => Some((Val::Nil, to.clone())),
@@ -453,8 +453,8 @@ fn set_macro(name: Val, new_val: Val) -> GResult<Val> {
 	macro_no_op!()
 }
 
-fn access(coll: Val, rest: &[Val]) -> GResult<Val> {
-	if let Some((from, to)) = unwrap_slice_args(rest)? {
+fn access(coll: Val, rest: Rest<Val>) -> GResult<Val> {
+	if let Some((from, to)) = unwrap_slice_args(&rest)? {
 		return Ok(backquote!("(access-slice ~coll ~from ~to)"))
 	}
 
@@ -468,7 +468,7 @@ fn access(coll: Val, rest: &[Val]) -> GResult<Val> {
 	macro_no_op!()
 }
 
-fn set_access(coll: Val, rest: &[Val]) -> GResult<Val> {
+fn set_access(coll: Val, rest: Rest<Val>) -> GResult<Val> {
 	if rest.len() == 0 {
 		macro_no_op!()
 	}
@@ -490,8 +490,8 @@ fn set_access(coll: Val, rest: &[Val]) -> GResult<Val> {
 	macro_no_op!()
 }
 
-fn remove(coll: Val, rest: &[Val]) -> GResult<Val> {
-	if let Some((from, to)) = unwrap_slice_args(rest)? {
+fn remove(coll: Val, rest: Rest<Val>) -> GResult<Val> {
+	if let Some((from, to)) = unwrap_slice_args(&rest)? {
 		return Ok(backquote!("(remove-slice! ~coll ~from ~to)"))
 	}
 
@@ -505,8 +505,8 @@ fn remove(coll: Val, rest: &[Val]) -> GResult<Val> {
 	macro_no_op!()
 }
 
-fn del(coll: Val, rest: &[Val]) -> GResult<Val> {
-	if let Some((from, to)) = unwrap_slice_args(rest)? {
+fn del(coll: Val, rest: Rest<Val>) -> GResult<Val> {
+	if let Some((from, to)) = unwrap_slice_args(&rest)? {
 		return Ok(backquote!("(del-slice! ~coll ~from ~to)"))
 	}
 
@@ -520,7 +520,7 @@ fn del(coll: Val, rest: &[Val]) -> GResult<Val> {
 	macro_no_op!()
 }
 
-fn call_met(args: &[Val]) -> GResult<Val> {
+fn call_met(args: Rest<Val>) -> GResult<Val> {
 	if args.len() == 0 {
 		macro_no_op!()
 	}
@@ -533,7 +533,7 @@ fn call_met(args: &[Val]) -> GResult<Val> {
 	}
 }
 
-fn ensure(test: Val, error_args: &[Val]) -> Val {
+fn ensure(test: Val, error_args: Rest<Val>) -> Val {
 	if error_args.len() == 0 {
 		let message = str!("(ensure {}) failed", &test);
 		backquote!("(if ~test #n (bail ~message))")
@@ -543,9 +543,9 @@ fn ensure(test: Val, error_args: &[Val]) -> Val {
 }
 
 //todo: support splayed arguments to (dbg)
-fn dbg(forms: &[Val]) -> GResult<Root<Arr>> {
+fn dbg(forms: Rest<Val>) -> GResult<Root<Arr>> {
 	let result = arr![DO_SYM];
-	for form in forms {
+	for form in &forms {
 		let form_name = glsp::gensym();
 		let stringified_form = str!["{:?}", form];
 
@@ -553,8 +553,8 @@ fn dbg(forms: &[Val]) -> GResult<Root<Arr>> {
 			(do
 			  (let ~form_name ~form)
 			  (eprn (if (str? ~form_name)
-			  	(str "[" (file-location) "] " ~stringified_form " = \"" ~form_name "\"")
-			  	(str "[" (file-location) "] " ~stringified_form " = " ~form_name))))
+			  	(str "[" (file-location) "] " ~&stringified_form " = \"" ~form_name "\"")
+			  	(str "[" (file-location) "] " ~&stringified_form " = " ~form_name))))
 		"#);
 		result.push(clause)?;
 	}
@@ -562,7 +562,7 @@ fn dbg(forms: &[Val]) -> GResult<Root<Arr>> {
 	Ok(result)
 }
 
-fn todo(forms: &[Val]) -> Root<Arr> {
+fn todo(forms: Rest<Val>) -> Root<Arr> {
 	if forms.len() == 0 {
 		backquote!(r#"(bail "not yet implemented")"#)
 	} else {
@@ -570,15 +570,15 @@ fn todo(forms: &[Val]) -> Root<Arr> {
 	}
 }
 
-fn try_(body: &[Val]) -> Root<Arr> {
+fn try_(body: Rest<Val>) -> Root<Arr> {
 	backquote!("(try-call 'brief (fn () ~..body))")
 }
 
-fn try_verbose(body: &[Val]) -> Root<Arr> {
+fn try_verbose(body: Rest<Val>) -> Root<Arr> {
 	backquote!("(try-call 'verbose (fn () ~..body))")
 }
 
-fn when(cond_clause: Val, rest: &[Val]) -> Root<Arr> {
+fn when(cond_clause: Val, rest: Rest<Val>) -> Root<Arr> {
 	let then_clause = match rest.len() {
 		0 => Val::Nil,
 		1 => rest[0].clone(),
@@ -588,7 +588,7 @@ fn when(cond_clause: Val, rest: &[Val]) -> Root<Arr> {
 	backquote!("(if ~cond_clause ~then_clause #n)")
 }
 
-fn unless(cond_clause: Val, rest: &[Val]) -> Root<Arr> {
+fn unless(cond_clause: Val, rest: Rest<Val>) -> Root<Arr> {
 	let then_clause = match rest.len() {
 		0 => Val::Nil,
 		1 => rest[0].clone(),
@@ -598,7 +598,7 @@ fn unless(cond_clause: Val, rest: &[Val]) -> Root<Arr> {
 	backquote!("(if ~cond_clause #n ~then_clause)")
 }
 
-fn while_(cond_clause: Val, body: &[Val]) -> Root<Arr> {
+fn while_(cond_clause: Val, body: Rest<Val>) -> Root<Arr> {
 	backquote!(r#"
 		(block LOOP
 		  (if ~cond_clause
@@ -609,7 +609,7 @@ fn while_(cond_clause: Val, body: &[Val]) -> Root<Arr> {
 	"#)
 }
 
-fn until(cond_clause: Val, body: &[Val]) -> Root<Arr> {
+fn until(cond_clause: Val, body: Rest<Val>) -> Root<Arr> {
 	backquote!(r#"
 		(block LOOP
 		  (if ~cond_clause
@@ -620,7 +620,7 @@ fn until(cond_clause: Val, body: &[Val]) -> Root<Arr> {
 	"#)
 }
 
-fn cond(clauses: &[Root<Arr>]) -> GResult<Val> {
+fn cond(clauses: Rest<Root<Arr>>) -> GResult<Val> {
 	let mut result = Val::Nil;
 
 	for (rev_i, clause) in clauses.iter().rev().enumerate() {
@@ -650,7 +650,7 @@ fn cond(clauses: &[Root<Arr>]) -> GResult<Val> {
 	Ok(result)
 }
 
-fn and(forms: &[Val]) -> Val {
+fn and(forms: Rest<Val>) -> Val {
 	if forms.len() == 0 {
 		Val::Bool(true)
 	} else {
@@ -664,7 +664,7 @@ fn and(forms: &[Val]) -> Val {
 	}
 }
 
-fn or(forms: &[Val]) -> GResult<Val> {
+fn or(forms: Rest<Val>) -> GResult<Val> {
 	if forms.len() == 0 {
 		Ok(Val::Bool(false))
 	} else {
@@ -682,7 +682,7 @@ fn or(forms: &[Val]) -> GResult<Val> {
 	}
 }
 
-fn do_0(first: Val, rest: &[Val]) -> Val {
+fn do_0(first: Val, rest: Rest<Val>) -> Val {
 	backquote!(r#"
 		(do
 		  (let first-name# ~first)
@@ -691,16 +691,16 @@ fn do_0(first: Val, rest: &[Val]) -> Val {
 	"#)
 }
 
-fn cond_num_eq(test_form: Val, clauses: &[Val]) -> GResult<Val> {
-	cond_with_comparator(NUM_EQ_SYM, test_form, clauses)
+fn cond_num_eq(test_form: Val, clauses: Rest<Val>) -> GResult<Val> {
+	cond_with_comparator(NUM_EQ_SYM, test_form, &clauses)
 }
 
-fn cond_same(test_form: Val, clauses: &[Val]) -> GResult<Val> {
-	cond_with_comparator(SAMEP_SYM, test_form, clauses)
+fn cond_same(test_form: Val, clauses: Rest<Val>) -> GResult<Val> {
+	cond_with_comparator(SAMEP_SYM, test_form, &clauses)
 }
 
-fn cond_eq(test_form: Val, clauses: &[Val]) -> GResult<Val> {
-	cond_with_comparator(EQP_SYM, test_form, clauses)
+fn cond_eq(test_form: Val, clauses: Rest<Val>) -> GResult<Val> {
+	cond_with_comparator(EQP_SYM, test_form, &clauses)
 }
 
 fn cond_with_comparator(comparator: Sym, test_form: Val, clauses: &[Val]) -> GResult<Val> {
@@ -892,8 +892,8 @@ fn expand_let_like(
 }
 
 
-fn let_(args: &[Val]) -> GResult<Val> {
-	match expand_let_like(LET_SYM, PlaceStrategy::Local, args)? {
+fn let_(args: Rest<Val>) -> GResult<Val> {
+	match expand_let_like(LET_SYM, PlaceStrategy::Local, &args)? {
 		Some(expanded) => Ok(expanded),
 		None => {
 			if args.len() == 0 {
@@ -905,7 +905,7 @@ fn let_(args: &[Val]) -> GResult<Val> {
 	}
 }
 
-fn let_fn(name: Sym, params: Root<Arr>, body: &[Val]) -> Val {
+fn let_fn(name: Sym, params: Root<Arr>, body: Rest<Val>) -> Val {
 	backquote!(r#"
 		(splice
 		  (let ~name #n)
@@ -913,7 +913,7 @@ fn let_fn(name: Sym, params: Root<Arr>, body: &[Val]) -> Val {
 	"#)
 }
 
-fn match_(input_form: Val, clauses: &[Root<Arr>]) -> GResult<Val> {
+fn match_(input_form: Val, clauses: Rest<Root<Arr>>) -> GResult<Val> {
 	//(match) is implemented in terms of (when-let)
 	let block_name = glsp::gensym();
 	let input_name = glsp::gensym();
@@ -941,10 +941,10 @@ fn match_(input_form: Val, clauses: &[Root<Arr>]) -> GResult<Val> {
 	Ok(Val::Arr(block_form))
 }
 
-fn matchesp(input_form: Val, pat_forms: &[Val]) -> GResult<Val> {
+fn matchesp(input_form: Val, pat_forms: Rest<Val>) -> GResult<Val> {
 	//emit a (bool (block name {pattern-matching code} #t)), where the pattern-matching code 
 	//mismatches with (finish-block name #n).
-	let (pat, forms_consumed) = pat_from_forms(pat_forms, false, Span::default())?;
+	let (pat, forms_consumed) = pat_from_forms(&pat_forms, false, Span::default())?;
 	ensure!(forms_consumed == pat_forms.len(), "unexpected end of pattern in (matches?)");
 
 	let block_name = glsp::gensym();
@@ -966,10 +966,10 @@ fn matchesp(input_form: Val, pat_forms: &[Val]) -> GResult<Val> {
 	Ok(backquote!("(bool ~block_form)"))
 }
 
-fn when_let(args: &[Val]) -> GResult<Val> {
+fn when_let(args: Rest<Val>) -> GResult<Val> {
 	//emit a (block name {pattern-matching code} ..body), where the pattern-matching code 
 	//mismatches with (finish-block name #n).
-	let (pat, forms_consumed) = pat_from_forms(args, false, Span::default())?;
+	let (pat, forms_consumed) = pat_from_forms(&args, false, Span::default())?;
 	ensure!(args.len() >= forms_consumed + 1, "(when-let) is missing an initializer");
 
 	let init_form = args[forms_consumed].clone();
@@ -1047,8 +1047,8 @@ enum FnStrategy {
 	Complex
 }
 
-fn fn_(args: &[Val]) -> GResult<Val> {
-	fn_common(args, false)
+fn fn_(args: Rest<Val>) -> GResult<Val> {
+	fn_common(&args, false)
 }
 
 /*
@@ -1057,8 +1057,8 @@ the (%met-fn) macro is exactly like (fn), except that @-bindings are permitted i
 pass to change (fn (@a @b (? @c)) ..) into (fn (a b (? c)) ...).
 */
 
-fn met_fn(args: &[Val]) -> GResult<Val> {
-	fn_common(args, true)
+fn met_fn(args: Rest<Val>) -> GResult<Val> {
+	fn_common(&args, true)
 }
 
 fn fn_common(args: &[Val], atsign_params: bool) -> GResult<Val> {
@@ -1317,11 +1317,11 @@ fn fn_common(args: &[Val], atsign_params: bool) -> GResult<Val> {
 	}
 }
 
-fn fn0(body: &[Val]) -> Root<Arr> {
+fn fn0(body: Rest<Val>) -> Root<Arr> {
 	backquote!("(fn () ~..body)")
 }
 
-fn fn1(body: &[Val]) -> GResult<Root<Arr>> {
+fn fn1(body: Rest<Val>) -> GResult<Root<Arr>> {
 	fn replace_underscores(src: Val, replacement: Sym) -> GResult<Val> {
 		// `src` is fully-expanded, so the only forms we need to skip are the first argument to
 		// `let`, and anything within a nested `fn` or a `quote`.
@@ -1348,7 +1348,7 @@ fn fn1(body: &[Val]) -> GResult<Root<Arr>> {
 		}
 	}
 
-	let mut expanded = glsp::expand_multi(body, Some(EnvMode::Copied))?;
+	let mut expanded = glsp::expand_multi(&body, Some(EnvMode::Copied))?;
 
 	let param_name = glsp::gensym();
 	for form in &mut expanded {
@@ -1358,12 +1358,12 @@ fn fn1(body: &[Val]) -> GResult<Root<Arr>> {
 	Ok(backquote!("(fn (~param_name) ~..expanded)"))
 }
 
-fn arrow_first(first: Val, rest: &[Val]) -> GResult<Val> {
-	arrow(ArrowPos::First, first, rest)
+fn arrow_first(first: Val, rest: Rest<Val>) -> GResult<Val> {
+	arrow(ArrowPos::First, first, &rest)
 }
 
-fn arrow_last(first: Val, rest: &[Val]) -> GResult<Val> {
-	arrow(ArrowPos::Last, first, rest)
+fn arrow_last(first: Val, rest: Rest<Val>) -> GResult<Val> {
+	arrow(ArrowPos::Last, first, &rest)
 }
 
 enum ArrowPos {
@@ -1401,7 +1401,7 @@ fn arrow(pos: ArrowPos, first: Val, rest: &[Val]) -> GResult<Val> {
 
 				let out_call_arr: Root<Arr> = match callee {
 					Val::Sym(MET_NAME_SYM) | Val::Sym(QUESTION_MARK_SYM) | Val::Sym(ATSIGN_SYM) => {
-						backquote!("(~call_arr ~result_form)")
+						backquote!("(~&call_arr ~result_form)")
 					}
 					callee => {
 						match pos {
@@ -1442,7 +1442,7 @@ fn question_mark(arg: Val) -> GResult<Val> {
 	macro_no_op!()
 }
 
-fn tab(clauses: &[Root<Arr>]) -> GResult<Root<Arr>> {
+fn tab(clauses: Rest<Root<Arr>>) -> GResult<Root<Arr>> {
 	if clauses.len() == 0 {
 		macro_no_op!()
 	}
@@ -1473,8 +1473,8 @@ fn tab(clauses: &[Root<Arr>]) -> GResult<Root<Arr>> {
 	"#))
 }
 
-fn for_(args: &[Val]) -> GResult<Val> {
-	let (_, forms_consumed) = pat_from_forms(args, false, Span::default())?;
+fn for_(args: Rest<Val>) -> GResult<Val> {
+	let (_, forms_consumed) = pat_from_forms(&args, false, Span::default())?;
 	
 	ensure!(args.len() >= forms_consumed + 2 && args[forms_consumed] == Val::Sym(IN_SYM),
 	        "invalid for loop: expected (for pattern in iterable ...)");
@@ -1496,7 +1496,7 @@ fn for_(args: &[Val]) -> GResult<Val> {
 	"#))
 }
 
-fn forn(clause: Root<Arr>, body: &[Val]) -> GResult<Val> {
+fn forn(clause: Root<Arr>, body: Rest<Val>) -> GResult<Val> {
 	ensure!(clause.len() >= 2 && clause.len() <= 4 && clause.get::<Val>(0)?.is_sym(), 
 	        "invalid forn clause {}", &clause);
 
@@ -1509,7 +1509,7 @@ fn forn(clause: Root<Arr>, body: &[Val]) -> GResult<Val> {
 	"#))
 }
 
-fn forni(clause: Root<Arr>, body: &[Val]) -> GResult<Val> {
+fn forni(clause: Root<Arr>, body: Rest<Val>) -> GResult<Val> {
 	ensure!(clause.len() >= 2 && clause.len() <= 4 && clause.get::<Val>(0)?.is_sym(), 
 	        "invalid forni clause {}", &clause);
 
@@ -1533,7 +1533,7 @@ fn continue_() -> Val {
 	backquote!("(restart-block LOOP)")
 }
 
-fn loop_(body: &[Val]) -> Val {
+fn loop_(body: Rest<Val>) -> Val {
 	backquote!(r#"
 		(block LOOP
 		  ~..body
@@ -1579,7 +1579,7 @@ fn bind_place(
 	Ok(())
 }
 
-fn set(std: &Std, args: &[Val]) -> GResult<Val> {
+fn set(std: &Std, args: Rest<Val>) -> GResult<Val> {
 	ensure!(args.len() % 2 == 0, "= expects an even number of arguments");
 
 	fn set_clause(std: &Std, place: Val, new_val_form: Val) -> GResult<Val> {
@@ -1695,55 +1695,55 @@ where
 	}
 }
 
-fn inc_assign(place: Val, by: &[Val]) -> GResult<Val> {
-	let by = if by.len() == 0 { &[Val::Int(1)] } else { by };
-	in_place(place, |place| Ok(backquote!("(= ~place (+ ~place ~..by))")))
+fn inc_assign(place: Val, by: Rest<Val>) -> GResult<Val> {
+	let by = if by.len() == 0 { &[Val::Int(1)] } else { &*by };
+	in_place(place, |place| Ok(backquote!("(= ~&place (+ ~&place ~..by))")))
 }
 
-fn dec_assign(place: Val, by: &[Val]) -> GResult<Val> {
-	let by = if by.len() == 0 { &[Val::Int(1)] } else { by };
-	in_place(place, |place| Ok(backquote!("(= ~place (- ~place ~..by))")))
+fn dec_assign(place: Val, by: Rest<Val>) -> GResult<Val> {
+	let by = if by.len() == 0 { &[Val::Int(1)] } else { &*by };
+	in_place(place, |place| Ok(backquote!("(= ~&place (- ~&place ~..by))")))
 }
 
-fn mul_assign(place: Val, by: &[Val]) -> GResult<Val> {
+fn mul_assign(place: Val, by: Rest<Val>) -> GResult<Val> {
 	ensure!(by.len() >= 1, "mul! expects a place and at least one additional argument");
-	in_place(place, |place| Ok(backquote!("(= ~place (* ~place ~..by))")))
+	in_place(place, |place| Ok(backquote!("(= ~&place (* ~&place ~..by))")))
 }
 
-fn div_assign(place: Val, by: &[Val]) -> GResult<Val> {
-	in_place(place, |place| Ok(backquote!("(= ~place (/ ~place ~..by))")))
+fn div_assign(place: Val, by: Rest<Val>) -> GResult<Val> {
+	in_place(place, |place| Ok(backquote!("(= ~&place (/ ~&place ~..by))")))
 }
 
-fn div_euclid_assign(place: Val, by: &[Val]) -> GResult<Val> {
-	in_place(place, |place| Ok(backquote!("(= ~place (div-euclid ~place ~..by))")))
+fn div_euclid_assign(place: Val, by: Rest<Val>) -> GResult<Val> {
+	in_place(place, |place| Ok(backquote!("(= ~&place (div-euclid ~&place ~..by))")))
 }
 
 fn rem_assign(place: Val, by: Val) -> GResult<Val> {
-	in_place(place, |place| Ok(backquote!("(= ~place (% ~place ~by))")))
+	in_place(place, |place| Ok(backquote!("(= ~&place (% ~&place ~&by))")))
 }
 
 fn rem_euclid_assign(place: Val, by: Val) -> GResult<Val> {
-	in_place(place, |place| Ok(backquote!("(= ~place (rem-euclid ~place ~by))")))
+	in_place(place, |place| Ok(backquote!("(= ~&place (rem-euclid ~&place ~&by))")))
 }
 
 fn abs_assign(place: Val) -> GResult<Val> {
-	in_place(place, |place| Ok(backquote!("(= ~place (abs ~place))")))
+	in_place(place, |place| Ok(backquote!("(= ~&place (abs ~&place))")))
 }
 
 fn neg_assign(place: Val) -> GResult<Val> {
-	in_place(place, |place| Ok(backquote!("(= ~place (- ~place))")))
+	in_place(place, |place| Ok(backquote!("(= ~&place (- ~&place))")))
 }
 
 fn seek_assign(place: Val, target: Val, step_by: Option<Val>) -> GResult<Val> {
 	match step_by {
 		Some(step_by) => {
 			in_place(place, |place| Ok(backquote!("
-				(= ~place (seek ~place ~target ~step_by))
+				(= ~&place (seek ~&place ~&target ~&step_by))
 			")))
 		}
 		None => {
 			in_place(place, |place| Ok(backquote!("
-				(= ~place (seek ~place ~target))
+				(= ~&place (seek ~&place ~&target))
 			")))
 		}
 	}
@@ -1753,19 +1753,19 @@ fn antiseek_assign(place: Val, anti_target: Val, step_by: Option<Val>) -> GResul
 	match step_by {
 		Some(step_by) => {
 			in_place(place, |place| Ok(backquote!("
-				(= ~place (antiseek ~place ~anti_target ~step_by))
+				(= ~&place (antiseek ~&place ~&anti_target ~&step_by))
 			")))
 		}
 		None => {
 			in_place(place, |place| Ok(backquote!("
-				(= ~place (antiseek ~place ~anti_target))
+				(= ~&place (antiseek ~&place ~&anti_target))
 			")))
 		}
 	}
 }
 
 fn clamp_assign(place: Val, min: Val, max: Val) -> GResult<Val> {
-	in_place(place, |place| Ok(backquote!("(= ~place (clamp ~place ~min ~max))")))
+	in_place(place, |place| Ok(backquote!("(= ~&place (clamp ~&place ~&min ~&max))")))
 }
 
 fn swap_assign(place0: Val, place1: Val) -> GResult<Val> {
@@ -1773,9 +1773,9 @@ fn swap_assign(place0: Val, place1: Val) -> GResult<Val> {
 		in_place(place1, |place1| {
 			Ok(backquote!("
 				(do
-				  (let tmp-name# ~place0)
-				  (= ~place0 ~place1)
-				  (= ~place1 tmp-name#))
+				  (let tmp-name# ~&place0)
+				  (= ~&place0 ~&place1)
+				  (= ~&place1 tmp-name#))
 			"))
 		})
 	})

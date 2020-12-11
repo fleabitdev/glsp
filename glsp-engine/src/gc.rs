@@ -5,7 +5,7 @@ use super::engine::{ACTIVE_ENGINE_ID, glsp, RData, RFn, Span, Sym, with_heap};
 use super::error::{GResult};
 use super::iter::{GIter, GIterState};
 use super::val::{Hashable, Val};
-use super::wrap::{ToVal};
+use super::wrap::{IntoVal};
 use std::{f32};
 use std::borrow::{Borrow};
 use std::cell::{Cell, RefCell, RefMut};
@@ -34,20 +34,24 @@ pub struct Gc<T: Allocate> {
 
 #[cfg(not(feature = "unsafe-internals"))]
 impl<T: Allocate> Gc<T> {
+	#[inline]
 	fn new(t: T) -> Gc<T> {
 		Gc {
 			rc: Rc::new(t)
 		}
 	}
 
+	#[inline]
 	pub(crate) fn ptr_eq(gc0: &Gc<T>, gc1: &Gc<T>) -> bool {
 		Rc::ptr_eq(&gc0.rc, &gc1.rc)
 	}
 
+	#[inline]
 	fn as_usize(&self) -> usize {
 		&(*self.rc) as *const T as usize
 	}
 
+	#[inline]
 	fn free(&self) {
 		self.clear_gcs()
 	}
@@ -55,6 +59,7 @@ impl<T: Allocate> Gc<T> {
 
 #[cfg(not(feature = "unsafe-internals"))]
 impl<T: Allocate> Clone for Gc<T> {
+	#[inline]
 	fn clone(&self) -> Gc<T> {
 		Gc {
 			rc: Rc::clone(&self.rc)
@@ -66,6 +71,7 @@ impl<T: Allocate> Clone for Gc<T> {
 impl<T: Allocate> Deref for Gc<T> {
 	type Target = T;
 
+	#[inline]
 	fn deref(&self) -> &T {
 		&*self.rc
 	}
@@ -85,20 +91,24 @@ pub struct Gc<T: Allocate> {
 
 #[cfg(feature = "unsafe-internals")]
 impl<T: Allocate> Gc<T> {
+	#[inline]
 	fn new(t: T) -> Gc<T> {
 		Gc {
 			ptr: NonNull::new(Box::into_raw(Box::new(t))).unwrap()
 		}
 	}
 
+	#[inline]
 	pub(crate) fn ptr_eq(gc0: &Gc<T>, gc1: &Gc<T>) -> bool {
 		gc0.ptr == gc1.ptr
 	}
 
+	#[inline]
 	fn as_usize(&self) -> usize {
 		self.ptr.as_ptr() as usize
 	}
 
+	#[inline]
 	fn free(&self) {
 		unsafe {
 			drop(Box::from_raw(self.ptr.as_ptr()))
@@ -108,6 +118,7 @@ impl<T: Allocate> Gc<T> {
 
 #[cfg(feature = "unsafe-internals")]
 impl<T: Allocate> Clone for Gc<T> {
+	#[inline]
 	fn clone(&self) -> Gc<T> {
 		Gc {
 			ptr: self.ptr
@@ -119,6 +130,7 @@ impl<T: Allocate> Clone for Gc<T> {
 impl<T: Allocate> Deref for Gc<T> {
 	type Target = T;
 
+	#[inline]
 	fn deref(&self) -> &T {
 		unsafe {
 			&*self.ptr.as_ptr()
@@ -130,6 +142,7 @@ impl<T: Allocate> Deref for Gc<T> {
 //----------------------------------------------------------------------------
 
 impl<T: Allocate> Gc<T> {
+	#[inline]
 	pub(crate) fn from_root(root: &Root<T>) -> Gc<T> {
 		let engine_id = ACTIVE_ENGINE_ID.with(|id| id.get().unwrap());
 		if engine_id != root.header().engine_id() {
@@ -140,20 +153,24 @@ impl<T: Allocate> Gc<T> {
 		root.gc.clone()
 	}
 
+	#[inline]
 	pub(crate) fn root(&self) -> Root<T> {
 		Root::new(self.clone())
 	}
 
+	#[inline]
 	pub(crate) fn into_root(self) -> Root<T> {
 		Root::new(self)
 	}
 
+	#[inline]
 	fn header(&self) -> &GcHeader {
 		(**self).header()
 	}
 }
 
 impl<T: Allocate> PartialEq for Gc<T> {
+	#[inline]
 	fn eq(&self, other: &Gc<T>) -> bool {
 		self.as_usize() == other.as_usize()
 	}
@@ -162,6 +179,7 @@ impl<T: Allocate> PartialEq for Gc<T> {
 impl<T: Allocate> Eq for Gc<T> { }
 
 impl<T: Allocate> Hash for Gc<T> {
+	#[inline]
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.as_usize().hash(state)
 	}
@@ -230,25 +248,27 @@ erased_types!(
 	Stay,
 	Coro,
 	RData,
+	RFn,
 	Bytecode,
 	Lambda
 );
 
 /**
-A smart pointer onto the garbage-collected heap.
-
+A pointer onto the garbage-collected heap.
 */
 
 pub struct Root<T: Allocate> {
 	pub(crate) gc: Gc<T>
 }
 
+#[derive(Debug)]
 struct RootEntry {
 	gc: ErasedGc,
 	root_count: usize
 }
 
 impl<T: Allocate> Root<T> {
+	#[inline]
 	fn new(gc: Gc<T>) -> Root<T> {
 		let header = gc.header();
 
@@ -282,38 +302,46 @@ impl<T: Allocate> Root<T> {
 		}
 	}
 
+	#[inline]
 	pub(crate) fn as_gc(&self) -> &Gc<T> {
 		&self.gc
 	}
 
+	#[inline]
 	pub(crate) fn to_gc(&self) -> Gc<T> {
 		Gc::from_root(self)
 	}
 
-	//weirdly, there's actually no way to do this safely in current rust (todo?)
+	//weirdly, there's actually no way to do this safely in current rust. however, there's
+	//no point special-casing it for "unsafe-internals" mode, because Gc::from_root is
+	//basically free in that mode
 	#[doc(hidden)]
 	pub fn into_gc(self) -> Gc<T> {
 		Gc::from_root(&self)
 	}
 
+	#[inline]
 	pub fn ptr_eq(root0: &Root<T>, root1: &Root<T>) -> bool {
 		Gc::ptr_eq(&root0.gc, &root1.gc)
 	}
 }
 
 impl<T: Allocate> Borrow<T> for Root<T> {
+	#[inline]
     fn borrow(&self) -> &T {
         &**self
     }
 }
 
 impl<T: Allocate> AsRef<T> for Root<T> {
+	#[inline]
     fn as_ref(&self) -> &T {
         &**self
     }
 }
 
 impl<T: Allocate + PartialEq<T>> PartialEq<Root<T>> for Root<T> {
+	#[inline]
 	fn eq(&self, other: &Root<T>) -> bool {
 		(**self).eq(&**other)
 	}
@@ -322,18 +350,21 @@ impl<T: Allocate + PartialEq<T>> PartialEq<Root<T>> for Root<T> {
 impl<T: Allocate + Eq> Eq for Root<T> { }
 
 impl<T: Allocate + PartialOrd<T>> PartialOrd<Root<T>> for Root<T> {
+	#[inline]
 	fn partial_cmp(&self, other: &Root<T>) -> Option<Ordering> {
 		(**self).partial_cmp(&**other)
 	}
 }
 
 impl<T: Allocate + Ord> Ord for Root<T> {
+	#[inline]
 	fn cmp(&self, other: &Root<T>) -> Ordering {
 		(**self).cmp(&**other)
 	}
 }
 
 impl<T: Allocate> Clone for Root<T> {
+	#[inline]
 	fn clone(&self) -> Root<T> {
 		let header = self.gc.header();
 		let root_index = header.root_index();
@@ -344,7 +375,7 @@ impl<T: Allocate> Clone for Root<T> {
 			abort()
 		}
 
-		//we could eliminate this with_heap() and borrow_mut() by storing the root count inline
+		//we could eliminate this with_heap() and borrow_mut() by storing the strong count inline
 		//in the GcHeader, but that would enlarge GcHeader significantly. difficult decision.
 		with_heap(|heap| {
 			heap.roots.borrow_mut()[root_index].root_count += 1;
@@ -358,6 +389,8 @@ impl<T: Allocate> Clone for Root<T> {
 
 impl<T: Allocate> Deref for Root<T> {
 	type Target = T;
+
+	#[inline]
 	fn deref(&self) -> &T {
 		&self.gc
 	}
@@ -404,7 +437,6 @@ pub enum Slot {
 	Char(char),
 	Bool(bool),
 	Sym(Sym),
-	RFn(RFn),
 	Arr(Gc<Arr>),
 	Str(Gc<Str>),
 	Tab(Gc<Tab>),
@@ -413,10 +445,12 @@ pub enum Slot {
 	Class(Gc<Class>),
 	GFn(Gc<GFn>),
 	Coro(Gc<Coro>),
-	RData(Gc<RData>)
+	RData(Gc<RData>),
+	RFn(Gc<RFn>),
 }
 
 impl Slot {
+	#[inline]
 	pub(crate) fn from_val(val: &Val) -> Slot {
 		match *val {
 			Val::Nil => Slot::Nil,
@@ -425,7 +459,6 @@ impl Slot {
 			Val::Flo(f) => Slot::Flo(f),
 			Val::Bool(b) => Slot::Bool(b),
 			Val::Sym(s) => Slot::Sym(s),
-			Val::RFn(r) => Slot::RFn(r),
 			Val::Arr(ref a) => Slot::Arr(Gc::from_root(a)),
 			Val::Str(ref s) => Slot::Str(Gc::from_root(s)),
 			Val::Tab(ref t) => Slot::Tab(Gc::from_root(t)),
@@ -434,10 +467,12 @@ impl Slot {
 			Val::Class(ref c) => Slot::Class(Gc::from_root(c)),
 			Val::GFn(ref g) => Slot::GFn(Gc::from_root(g)),
 			Val::Coro(ref c) => Slot::Coro(Gc::from_root(c)),
-			Val::RData(ref r) => Slot::RData(Gc::from_root(r))
+			Val::RData(ref r) => Slot::RData(Gc::from_root(r)),
+			Val::RFn(ref r) => Slot::RFn(Gc::from_root(r))
 		}
 	}
 
+	#[inline]
 	pub(crate) fn root(&self) -> Val {
 		match *self {
 			Slot::Nil => Val::Nil,
@@ -446,7 +481,6 @@ impl Slot {
 			Slot::Flo(f) => Val::Flo(f),
 			Slot::Bool(b) => Val::Bool(b),
 			Slot::Sym(s) => Val::Sym(s),
-			Slot::RFn(r) => Val::RFn(r),
 			Slot::Arr(ref a) => Val::Arr(a.root()),
 			Slot::Str(ref s) => Val::Str(s.root()),
 			Slot::Tab(ref t) => Val::Tab(t.root()),
@@ -456,35 +490,15 @@ impl Slot {
 			Slot::GFn(ref c) => Val::GFn(c.root()),
 			Slot::Coro(ref c) => Val::Coro(c.root()),
 			Slot::RData(ref r) => Val::RData(r.root()),
+			Slot::RFn(ref r) => Val::RFn(r.root())
 		}
 	}
 
-	pub(crate) fn into_root(self) -> Val {
-		match self {
-			Slot::Nil => Val::Nil,
-			Slot::Int(i) => Val::Int(i),
-			Slot::Char(c) => Val::Char(c),
-			Slot::Flo(f) => Val::Flo(f),
-			Slot::Bool(b) => Val::Bool(b),
-			Slot::Sym(s) => Val::Sym(s),
-			Slot::RFn(r) => Val::RFn(r),
-			Slot::Arr(a) => Val::Arr(a.into_root()),
-			Slot::Str(s) => Val::Str(s.into_root()),
-			Slot::Tab(t) => Val::Tab(t.into_root()),
-			Slot::GIter(g) => Val::GIter(g.into_root()),
-			Slot::Obj(o) => Val::Obj(o.into_root()),
-			Slot::Class(c) => Val::Class(c.into_root()),
-			Slot::GFn(c) => Val::GFn(c.into_root()),
-			Slot::Coro(c) => Val::Coro(c.into_root()),
-			Slot::RData(r) => Val::RData(r.into_root()),
-		}
-	}
-
-	pub fn type_name(&self) -> &'static str {
+	pub(crate) fn type_name(&self) -> &'static str {
 		self.root().type_name()
 	}
 
-	pub fn a_type_name(&self) -> &'static str {
+	pub(crate) fn a_type_name(&self) -> &'static str {
 		self.root().a_type_name()
 	}
 }
@@ -492,6 +506,7 @@ impl Slot {
 //Slot implements Eq and Hash so that it can be used as HashMap key. unlike Val, its PartialEq 
 //implementation has the semantics of keys_eqv, rather than eq.
 impl PartialEq<Slot> for Slot {
+	#[inline]
 	fn eq(&self, other: &Slot) -> bool {
 		self.root().keys_eqv(&other.root())
 	}
@@ -508,7 +523,6 @@ impl Hash for Slot {
 			Slot::Char(c) => Hashable(Val::Char(c)).hash(state),
 			Slot::Bool(b) => Hashable(Val::Bool(b)).hash(state),
 			Slot::Sym(s) => Hashable(Val::Sym(s)).hash(state),
-			Slot::RFn(f) => Hashable(Val::RFn(f)).hash(state),
 			Slot::Arr(ref gc) => (**gc).hash(state),
 			Slot::Str(ref gc) => (**gc).hash(state),
 			Slot::Tab(ref gc) => (&**gc as *const _ as usize).hash(state),
@@ -517,7 +531,8 @@ impl Hash for Slot {
 			Slot::Class(ref gc) => (&**gc as *const _ as usize).hash(state),
 			Slot::GFn(ref gc) => (&**gc as *const _ as usize).hash(state),
 			Slot::Coro(ref gc) => (&**gc as *const _ as usize).hash(state),
-			Slot::RData(ref gc) => (&**gc as *const _ as usize).hash(state)
+			Slot::RData(ref gc) => (&**gc as *const _ as usize).hash(state),
+			Slot::RFn(ref gc) => (&**gc as *const _ as usize).hash(state)
 		}
 	}
 }
@@ -577,10 +592,12 @@ impl GcHeader {
 		(self.hi.get() >> ENGINE_ID_SHIFT) as u8
 	}
 
+	#[inline]
 	pub(crate) fn frozen(&self) -> bool {
 		(self.hi.get() & FROZEN_BIT) != 0
 	}
 
+	#[inline]
 	pub(crate) fn freeze(&self) {
 		self.hi.set(self.hi.get() | FROZEN_BIT);
 	}
@@ -649,8 +666,8 @@ pub trait Visitor {
 
 	fn visit_slot(&mut self, slot: &Slot) {
 		match *slot {
-			Slot::Nil | Slot::Int(_) | Slot::Char(_) | Slot::Flo(_) | 
-			Slot::Bool(_) | Slot::Sym(_) | Slot::RFn(_) => (),
+			Slot::Nil | Slot::Int(_) | Slot::Char(_) | 
+			Slot::Flo(_) | Slot::Bool(_) | Slot::Sym(_) => (),
 			Slot::Arr(ref a) => self.visit_gc(a),
 			Slot::Str(ref s) => self.visit_gc(s),
 			Slot::Tab(ref t) => self.visit_gc(t),
@@ -659,7 +676,8 @@ pub trait Visitor {
 			Slot::Class(ref c) => self.visit_gc(c),
 			Slot::GFn(ref g) => self.visit_gc(g),
 			Slot::Coro(ref c) => self.visit_gc(c),
-			Slot::RData(ref r) => self.visit_gc(r)
+			Slot::RData(ref r) => self.visit_gc(r),
+			Slot::RFn(ref r) => self.visit_gc(r),
 		}
 	}
 }
@@ -770,6 +788,9 @@ pub(crate) struct Heap {
 impl Drop for Heap {
 	fn drop(&mut self) {
 		if self.roots.get_mut().len() > 0 {
+			for root in &*self.roots.get_mut() {
+				eprintln!("{:?}", root);
+			}
 			eprintln!("a Root has outlived its originating Runtime - aborting process");
 			abort()
 		}
@@ -1108,8 +1129,8 @@ impl Heap {
 
 	pub(crate) fn traverse_stack_slot(&self, dst: &Slot) {
 		match *dst {
-			Slot::Nil | Slot::Int(_) | Slot::Char(_) | Slot::Flo(_) | 
-			Slot::Bool(_) | Slot::Sym(_) | Slot::RFn(_) => (),
+			Slot::Nil | Slot::Int(_) | Slot::Char(_) | 
+			Slot::Flo(_) | Slot::Bool(_) | Slot::Sym(_) => (),
 			Slot::Arr(ref gc) => self.traverse_stack_gc(gc),
 			Slot::Str(ref gc) => self.traverse_stack_gc(gc),
 			Slot::Tab(ref gc) => self.traverse_stack_gc(gc),
@@ -1118,7 +1139,8 @@ impl Heap {
 			Slot::Class(ref gc) => self.traverse_stack_gc(gc),
 			Slot::GFn(ref gc) => self.traverse_stack_gc(gc),
 			Slot::Coro(ref gc) => self.traverse_stack_gc(gc),
-			Slot::RData(ref gc) => self.traverse_stack_gc(gc)
+			Slot::RData(ref gc) => self.traverse_stack_gc(gc),
+			Slot::RFn(ref gc) => self.traverse_stack_gc(gc)
 		}
 	}
 
@@ -1155,8 +1177,8 @@ impl Heap {
 
 	pub(crate) fn write_barrier_val<T: Allocate>(&self, src: &T, dst: &Val) {
 		match *dst {
-			Val::Nil | Val::Int(_) | Val::Char(_) | Val::Flo(_) | 
-			Val::Bool(_) | Val::Sym(_) | Val::RFn(_) => (),
+			Val::Nil | Val::Int(_) | Val::Char(_) | 
+			Val::Flo(_) | Val::Bool(_) | Val::Sym(_) => (),
 			Val::Arr(ref root) => self.write_barrier(src, &root.to_gc()),
 			Val::Str(ref root) => self.write_barrier(src, &root.to_gc()),
 			Val::Tab(ref root) => self.write_barrier(src, &root.to_gc()),
@@ -1165,14 +1187,15 @@ impl Heap {
 			Val::Class(ref root) => self.write_barrier(src, &root.to_gc()),
 			Val::GFn(ref root) => self.write_barrier(src, &root.to_gc()),
 			Val::Coro(ref root) => self.write_barrier(src, &root.to_gc()),
-			Val::RData(ref root) => self.write_barrier(src, &root.to_gc())
+			Val::RData(ref root) => self.write_barrier(src, &root.to_gc()),
+			Val::RFn(ref root) => self.write_barrier(src, &root.to_gc()),
 		}
 	}
 
 	pub(crate) fn write_barrier_slot<T: Allocate>(&self, src: &T, dst: &Slot) {
 		match *dst {
-			Slot::Nil | Slot::Int(_) | Slot::Char(_) | Slot::Flo(_) | 
-			Slot::Bool(_) | Slot::Sym(_) | Slot::RFn(_) => (),
+			Slot::Nil | Slot::Int(_) | Slot::Char(_) | 
+			Slot::Flo(_) | Slot::Bool(_) | Slot::Sym(_) => (),
 			Slot::Arr(ref gc) => self.write_barrier(src, gc),
 			Slot::Str(ref gc) => self.write_barrier(src, gc),
 			Slot::Tab(ref gc) => self.write_barrier(src, gc),
@@ -1181,10 +1204,12 @@ impl Heap {
 			Slot::Class(ref gc) => self.write_barrier(src, gc),
 			Slot::GFn(ref gc) => self.write_barrier(src, gc),
 			Slot::Coro(ref gc) => self.write_barrier(src, gc),
-			Slot::RData(ref gc) => self.write_barrier(src, gc)
+			Slot::RData(ref gc) => self.write_barrier(src, gc),
+			Slot::RFn(ref gc) => self.write_barrier(src, gc)
 		}
 	}
 
+	#[inline]
 	pub(crate) fn write_barrier<T, U>(&self, src: &T, dst: &Gc<U>)
 	where
 		T: Allocate,
@@ -1232,6 +1257,7 @@ impl Heap {
 		}
 	}
 
+	#[inline]
 	pub(crate) fn memory_usage_barrier<T>(&self, src: &T, prev_usage: usize, cur_usage: usize) 
 	where
 		T: Allocate
@@ -1321,6 +1347,7 @@ impl Recycler {
 			ErasedGc::Stay(gc) => gc.free(),
 			ErasedGc::Coro(gc) => gc.free(),
 			ErasedGc::RData(gc) => gc.free(),
+			ErasedGc::RFn(gc) => gc.free(),
 			ErasedGc::Bytecode(gc) => gc.free(),
 			ErasedGc::Lambda(gc) => gc.free()
 		}
@@ -1356,11 +1383,10 @@ impl Recycler {
 		glsp::alloc(Arr::with_capacity(capacity))
 	}
 
-	pub(crate) fn arr_from_elem<V: ToVal>(
-		&self, 
-		elem: V, 
-		reps: usize
-	) -> GResult<Root<Arr>> {
+	pub(crate) fn arr_from_elem<V>(&self, elem: V, reps: usize) -> GResult<Root<Arr>> 
+	where
+		V: Clone + IntoVal
+	{
 		for i in reps .. MAX_ARR_CAPACITY {
 			let mut arrs = self.arrs[i].borrow_mut();
 			if !arrs.is_empty() {
@@ -1369,8 +1395,12 @@ impl Recycler {
 
 				with_heap(|heap| heap.register_young(arr.to_gc()));
 
-				for _ in 0 .. reps {
-					arr.push(elem.to_slot()?)?;
+				for _ in 0 .. reps.saturating_sub(1) {
+					arr.push(elem.clone())?;
+				}
+
+				if reps >= 1 {
+					arr.push(elem)?;
 				}
 
 				return Ok(arr)
@@ -1380,10 +1410,10 @@ impl Recycler {
 		Ok(glsp::alloc(Arr::from_elem(elem, reps)?))
 	}
 
-	pub(crate) fn arr_from_iter<T, V>(&self, source: T) -> GResult<Root<Arr>> 
+	pub(crate) fn arr_from_iter<T>(&self, source: T) -> GResult<Root<Arr>> 
 	where
-		T: IntoIterator<Item = V>,
-		V: ToVal
+		T: IntoIterator,
+		T::Item: IntoVal
 	{
 		let iter = source.into_iter();
 		let (min_size, max_size) = iter.size_hint();
@@ -1399,7 +1429,7 @@ impl Recycler {
 					with_heap(|heap| heap.register_young(arr.to_gc()));
 
 					for item in iter {
-						arr.push(item.to_slot()?)?;
+						arr.push(item)?;
 					}
 
 					return Ok(arr)

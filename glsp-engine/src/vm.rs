@@ -429,7 +429,7 @@ fn exec_bytecode(
 	//invoke the interpreter
 	drop(stacks);
 	match interpret(vm, bytecode.to_gc(), instr_n, base_reg, base_stay) {
-		Ok(InterpretResult::Return(slot)) => Ok(slot.into_root()),
+		Ok(InterpretResult::Return(slot)) => Ok(slot.root()),
 		Ok(InterpretResult::Yield(_, _, _)) => unreachable!(),
 		Ok(InterpretResult::EndDefer) => unreachable!(),
 		Err(mut error) => {
@@ -456,7 +456,7 @@ fn exec_gfn(
 		None
 	)?;
 
-	Ok(result.into_root())
+	Ok(result.root())
 }
 
 //put a Coro's saved data back onto the stack and resume its execution until it yields, returns
@@ -562,7 +562,7 @@ fn coro_run(
 	match interpret(vm, gfn.lambda.bytecode.clone(), instr, base_reg, base_stay) {
 		Ok(InterpretResult::Return(slot)) => {
 			coro.state.set(PrivCoroState::Finished);
-			Ok(slot.into_root())
+			Ok(slot.root())
 		}
 		Ok(InterpretResult::Yield(slot, resume_reg, resume_instr)) => {
 			coro.state.set(PrivCoroState::Paused(resume_reg));
@@ -586,7 +586,7 @@ fn coro_run(
 				heap.memory_usage_barrier(&**coro, usage1, usage2);
 			});
 			
-			Ok(slot.into_root())
+			Ok(slot.root())
 		}
 		Ok(InterpretResult::EndDefer) => unreachable!(),
 		Err(mut error) => {
@@ -670,7 +670,9 @@ fn call<'a>(
 		Slot::RFn(rfn) => {
 			drop(stacks);
 
-			glsp::call_rfn(rfn, arg_count)
+			//the callee RFn will always exist either in a register or rooted in an RClass 
+			//at this point, so there's no need to root it here
+			glsp::call_rfn(&rfn, arg_count)
 		}
 		Slot::Class(class) => {
 			drop(stacks);

@@ -12,9 +12,9 @@ Game code is naturally object-oriented. A typical game codebase might contain:
 		  themselves to participate in the physics system, emitting drawing commands, 
 		  serializing themselves when the game is saved, and so on.
 
-		- Entities are sometimes data-driven (for example, an enemy in an action-adventure game
+		- Entities are sometimes data-driven (for example, a monster in an action-adventure game
 		  might be partially defined by its total health and a list of elemental weaknesses), but 
-		  defining a new entity usually involves at least some scripting (for example, each enemy 
+		  defining a new entity usually involves at least some scripting (for example, each monster 
 		  would have an AI script to control its behaviour in combat).
 
 Entity definitions usually make up the lion's share of any game's codebase, so providing a great
@@ -359,8 +359,8 @@ methods, it's possible to refer to the backing field as [`@field`](../std/atsign
 	    (prn "my actual coords are " @coords:field)))
 
 Just like fields and constants, properties can be initialized automatically, using the syntax
-`(prop name init ...)`. The initial value is assigned to the backing field directly; the setter 
-is not invoked.
+`(prop name initializer-form ...)`. The initial value is assigned to the backing field directly; 
+the setter is not invoked.
 
 Properties are more complicated than fields, so you should avoid using them when they're not
 necessary. Unless you really need to prevent assignment for some reason, the classes above 
@@ -383,10 +383,10 @@ function calls and field accesses. The arrow macros include special handling for
 
 	[(@to-local (.offset-by (.coords rect) 10 10)) 'x]
 
-Note the resemblance to Rust's syntax. In Rust, the above would be written as:
+Notice the resemblance to Rust's method invocation syntax:
 	
 ```rust
-self.to_local(rect.coords.offset_by(10, 10)).x
+rect.coords.offset_by(10, 10)
 ```
 
 

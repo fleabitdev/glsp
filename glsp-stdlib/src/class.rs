@@ -1,7 +1,7 @@
 use glsp::{
 	arr, Arr, bail, bail_at, Class, DequeAccess, DequeOps, 
 	ensure, ensure_at, EnvMode, Expander, Expansion, FromVal, GFn,
-	GResult, Obj, OrNil, rfn, Root, Span, Sym, stock_syms::*, Tab, Val
+	GResult, IntoVal, Obj, Rest, Root, Span, Sym, stock_syms::*, Tab, Val
 };
 use glsp_proc_macros::{backquote};
 use smallvec::{SmallVec};
@@ -15,41 +15,41 @@ use super::pat::{
 };
 
 pub fn init(_sandboxed: bool) -> GResult<()> {
-	glsp::bind_rfn_macro("defclass", rfn!(defclass))?;
-	glsp::bind_rfn_macro("let-class", rfn!(let_class))?;
-	glsp::bind_rfn_macro("class", rfn!(class))?;
+	glsp::bind_rfn_macro("defclass", &defclass)?;
+	glsp::bind_rfn_macro("let-class", &let_class)?;
+	glsp::bind_rfn_macro("class", &class)?;
 
-	glsp::bind_rfn_macro("defmixin", rfn!(defmixin))?;
-	glsp::bind_rfn_macro("let-mixin", rfn!(let_mixin))?;
-	glsp::bind_rfn_macro("mixin", rfn!(mixin))?;
+	glsp::bind_rfn_macro("defmixin", &defmixin)?;
+	glsp::bind_rfn_macro("let-mixin", &let_mixin)?;
+	glsp::bind_rfn_macro("mixin", &mixin)?;
 
-	glsp::bind_rfn_macro("defclassmacro", rfn!(defclassmacro))?;
-	glsp::bind_rfn("bind-classmacro!", rfn!(bind_classmacro))?;
+	glsp::bind_rfn_macro("defclassmacro", &defclassmacro)?;
+	glsp::bind_rfn("bind-classmacro!", &bind_classmacro)?;
 
-	glsp::bind_rfn_macro("defstruct", rfn!(defstruct))?;
-	glsp::bind_rfn("%struct-constructor-macro", rfn!(struct_constructor_macro))?;
+	glsp::bind_rfn_macro("defstruct", &defstruct)?;
+	glsp::bind_rfn("%struct-constructor-macro", &struct_constructor_macro)?;
 
 	//todo: get rid of these
-	glsp::bind_rfn("%eval-as-method", rfn!(eval_as_method))?;
-	glsp::bind_rfn("%create-pseudo-method", rfn!(create_pseudo_method))?;
+	glsp::bind_rfn("%eval-as-method", &eval_as_method)?;
+	glsp::bind_rfn("%create-pseudo-method", &create_pseudo_method)?;
 
-	glsp::bind_rfn("call-met", rfn!(call_meth))?;
-	glsp::bind_rfn("call-met-opt", rfn!(call_met_opt))?;
-	glsp::bind_rfn("has-met?", rfn!(has_metp))?;
-	glsp::bind_rfn("call-base-raw", rfn!(call_base_raw))?;
-	glsp::bind_rfn("is?", rfn!(isp))?;
-	glsp::bind_rfn("class-name", rfn!(class_name))?;
-	glsp::bind_rfn("class-of", rfn!(class_of))?;
-	glsp::bind_rfn("class-has-mixin?", rfn!(class_has_mixinp))?;
-	glsp::bind_rfn("class-mixins", rfn!(class_mixins))?;
-	glsp::bind_rfn("mixin?", rfn!(mixinp))?;
-	glsp::bind_rfn("enab!", rfn!(enab))?;
-	glsp::bind_rfn("enab?", rfn!(enabp))?;
-	glsp::bind_rfn("disab!", rfn!(disab))?;
-	glsp::bind_rfn("has-state?", rfn!(has_statep))?;
-	glsp::bind_rfn("obj-kill!", rfn!(obj_kill))?;
-	glsp::bind_rfn("obj-killed?", rfn!(obj_killedp))?;
-	glsp::bind_rfn("%make-class", rfn!(make_class))?;
+	glsp::bind_rfn("call-met", &call_meth)?;
+	glsp::bind_rfn("call-met-opt", &call_met_opt)?;
+	glsp::bind_rfn("has-met?", &has_metp)?;
+	glsp::bind_rfn("call-base-raw", &call_base_raw)?;
+	glsp::bind_rfn("is?", &isp)?;
+	glsp::bind_rfn("class-name", &class_name)?;
+	glsp::bind_rfn("class-of", &class_of)?;
+	glsp::bind_rfn("class-has-mixin?", &class_has_mixinp)?;
+	glsp::bind_rfn("class-mixins", &class_mixins)?;
+	glsp::bind_rfn("mixin?", &mixinp)?;
+	glsp::bind_rfn("enab!", &enab)?;
+	glsp::bind_rfn("enab?", &enabp)?;
+	glsp::bind_rfn("disab!", &disab)?;
+	glsp::bind_rfn("has-state?", &has_statep)?;
+	glsp::bind_rfn("obj-kill!", &obj_kill)?;
+	glsp::bind_rfn("obj-killed?", &obj_killedp)?;
+	glsp::bind_rfn("%make-class", &make_class)?;
 
 	//todo: some way to query the arg-limits of a method
 	
@@ -61,7 +61,7 @@ pub fn init(_sandboxed: bool) -> GResult<()> {
 // class construction
 //-------------------------------------------------------------------------------------------------
 
-fn defclass(name: Sym, clauses: &[Val]) -> Val {
+fn defclass(name: Sym, clauses: Rest<Val>) -> Val {
 	backquote!(r#"
 		(def ~name (class
 		  (name ~name)
@@ -69,7 +69,7 @@ fn defclass(name: Sym, clauses: &[Val]) -> Val {
 	"#)
 }
 
-fn let_class(name: Sym, clauses: &[Val]) -> Val {
+fn let_class(name: Sym, clauses: Rest<Val>) -> Val {
 	backquote!(r#"
 		(let ~name (cond
 		  ((has-global? 'storage#)
@@ -83,7 +83,7 @@ fn let_class(name: Sym, clauses: &[Val]) -> Val {
 	"#)
 }
 
-fn defmixin(name: Sym, clauses: &[Val]) -> Val {
+fn defmixin(name: Sym, clauses: Rest<Val>) -> Val {
 	backquote!(r#"
 		(def ~name (mixin
 		  (name ~name)
@@ -91,7 +91,7 @@ fn defmixin(name: Sym, clauses: &[Val]) -> Val {
 	"#)
 }
 
-fn let_mixin(name: Sym, clauses: &[Val]) -> Val {
+fn let_mixin(name: Sym, clauses: Rest<Val>) -> Val {
 	backquote!(r#"
 		(let ~name (cond
 		  ((has-global? 'storage#)
@@ -147,12 +147,12 @@ fn expand_class_clauses(std: &Std, clauses: &[Val]) -> GResult<VecDeque<Val>> {
 	Ok(expanded)
 }
 
-fn class(std: &Std, clauses: &[Val]) -> GResult<Val> {
-	class_impl(std, clauses, false)
+fn class(std: &Std, clauses: Rest<Val>) -> GResult<Val> {
+	class_impl(std, &*clauses, false)
 }
 
-fn mixin(std: &Std, clauses: &[Val]) -> GResult<Val> {
-	class_impl(std, clauses, true)
+fn mixin(std: &Std, clauses: Rest<Val>) -> GResult<Val> {
+	class_impl(std, &*clauses, true)
 }
 
 fn class_impl(std: &Std, clauses: &[Val], is_mixin: bool) -> GResult<Val> {
@@ -930,6 +930,8 @@ fn process_class_state(
 		tab_form.set(PARENT_SYM, parent_name)?;
 	}
 
+	println!("!!! {}", fsm_sibling_names.into_slot().unwrap());
+
 	tab_form.set(NAME_SYM, state_name)?;
 	tab_form.set(ENABLED_BY_DEFAULTP_SYM, enabled_by_default)?;
 	tab_form.set(FSM_SIBLINGS_SYM, fsm_sibling_names)?;
@@ -1464,8 +1466,8 @@ fn eval_as_method(obj: Root<Obj>, to_eval: Val) -> GResult<Val> {
 	glsp::call(&to_call, &[obj])
 }
 
-fn create_pseudo_method(
-	OrNil(class_name): OrNil<Sym>, 
+fn create_pseudo_method( 
+	class_name: Option<Sym>, 
 	method_name: Sym,
 	args: Root<Arr>, 
 	body: Root<Arr>
@@ -1483,7 +1485,7 @@ fn create_pseudo_method(
 	glsp::eval(&Val::Arr(form), Some(EnvMode::Copied))
 }
 
-fn defclassmacro(name: Sym, fn_forms: &[Val]) -> Val {
+fn defclassmacro(name: Sym, fn_forms: Rest<Val>) -> Val {
 	backquote!("(bind-classmacro! '~name (fn &name ~name ~..fn_forms))")
 }
 
@@ -1494,7 +1496,7 @@ fn bind_classmacro(std: &mut Std, name: Sym, gfn: Root<GFn>) -> GResult<()> {
 	Ok(())
 }
 
-fn defstruct(name: Sym, clauses: &[Val]) -> GResult<Val> {
+fn defstruct(name: Sym, clauses: Rest<Val>) -> GResult<Val> {
 	//input syntax: any number of bare syms, followed by any number of (met) clauses, (prop) 
 	//clauses, and (const) clauses. we emit a (field) for each sym; an (init); and implementations
 	//for (met op-eq? ...) and (met op-clone ...) if they're not already present. we also
@@ -1597,7 +1599,7 @@ fn struct_constructor_macro(
 	name: Sym,
 	name_new: Sym,
 	field_names: Vec<Sym>,
-	args: &[Val]
+	args: Rest<Val>
 ) -> GResult<Val> {
 
 	let mut remaining_names: HashMap<Sym, usize> = HashMap::from_iter(field_names.iter()
@@ -1690,7 +1692,12 @@ fn struct_constructor_macro(
 fn isp(arg: Val, class: Val) -> bool {
 	match (arg, class) {
 		(Val::Obj(obj), Val::Class(class)) => obj.is(&class),
-		(Val::RData(rdata), Val::Sym(sym)) => rdata.class_name() == sym,
+		(Val::RData(rdata), Val::Sym(sym)) => {
+			match rdata.rclass() {
+				Some(rclass) => rclass.name() == sym,
+				None => false
+			}
+		}
 		_ => false
 	}
 }
@@ -1710,25 +1717,30 @@ fn mixinp(class: &Class) -> bool {
 fn class_of(arg: Val) -> GResult<Val> {
 	match arg {
 		Val::Obj(obj) => Ok(Val::Class(obj.class())),
-		Val::RData(rdata) => Ok(Val::Sym(rdata.class_name())),
+		Val::RData(rdata) => {
+			match rdata.rclass() {
+				Some(rclass) => Ok(Val::Sym(rclass.name())),
+				None => Ok(Val::Nil)
+			}
+		}
 		val => bail!("expected an obj or an rdata, received {}", val.a_type_name())
 	}
 }
 
-fn call_meth(method_name: Sym, rcv: Val, args: &[Val]) -> GResult<Val> {
+fn call_meth(method_name: Sym, rcv: Val, args: Rest<Val>) -> GResult<Val> {
 	match rcv {
-		Val::Obj(obj) => obj.call(method_name, args),
-		Val::Class(class) => class.call(method_name, args),
-		Val::RData(rdata) => rdata.call(method_name, args),
+		Val::Obj(obj) => obj.call(method_name, &args),
+		Val::Class(class) => class.call(method_name, &args),
+		Val::RData(rdata) => rdata.call(method_name, &args),
 		val => bail!("expected an obj, class or rdata, received {}", val.a_type_name())
 	}
 }
 
-fn call_met_opt(method_name: Sym, rcv: Val, args: &[Val]) -> GResult<Option<Val>> {
+fn call_met_opt(method_name: Sym, rcv: Val, args: Rest<Val>) -> GResult<Option<Val>> {
 	match rcv {
-		Val::Obj(obj) => obj.call_if_present(method_name, args),
-		Val::Class(class) => class.call_if_present(method_name, args),
-		Val::RData(rdata) => rdata.call_if_present(method_name, args),
+		Val::Obj(obj) => obj.call_if_present(method_name, &args),
+		Val::Class(class) => class.call_if_present(method_name, &args),
+		Val::RData(rdata) => rdata.call_if_present(method_name, &args),
 		val => bail!("expected an obj, class or rdata, received {}", val.a_type_name())
 	}
 }
@@ -1742,9 +1754,9 @@ fn has_metp(rcv: Val, method_name: Sym) -> GResult<bool> {
 	}
 }
 
-fn call_base_raw(obj: &Obj, base: Val, args: &[Val]) -> GResult<Val> {
+fn call_base_raw(obj: &Obj, base: Val, args: Rest<Val>) -> GResult<Val> {
 	match base {
-		Val::Int(index) if index >= 0 => obj.raw_call(index as usize, args),
+		Val::Int(index) if index >= 0 => obj.raw_call(index as usize, &args),
 		Val::Nil => Ok(Val::Nil),
 		_ => panic!()
 	}
@@ -1758,8 +1770,8 @@ fn has_statep(val: Val, state_name: Sym) -> GResult<bool> {
 	}
 }
 
-fn enab(obj: &Obj, state_name: Sym, args: &[Val]) -> GResult<()> {
-	obj.enab(state_name, args)
+fn enab(obj: &Obj, state_name: Sym, args: Rest<Val>) -> GResult<()> {
+	obj.enab(state_name, &args)
 }
 
 fn enabp(obj: &Obj, state_name: Sym) -> GResult<bool> {

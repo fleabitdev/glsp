@@ -766,7 +766,7 @@ impl GIter {
 				loop {
 					match base.raw_next() {
 						Some(Ok(slot)) => {
-							let result: Val = match glsp::call(&gc_callable.root(), &[&slot]) {
+							let result: Val = match glsp::call(&gc_callable.root(), (&slot,)) {
 								Ok(val) => val,
 								Err(err) => break Some(Err(err))
 							};
@@ -865,7 +865,7 @@ impl GIter {
 			TakeWhile(ref gc_callable, ref base) => {
 				match base.raw_next() {
 					Some(Ok(item)) => {
-						let result: GResult<Val> = glsp::call(&gc_callable.root(), &[&item]);
+						let result: GResult<Val> = glsp::call(&gc_callable.root(), (&item,));
 						match result {
 							Ok(val) => {
 								if val.is_truthy() {
@@ -903,7 +903,7 @@ impl GIter {
 							Some(Ok(item)) => {
 								let result: GResult<Val> = glsp::call(
 									&gc_callable.root(),
-									&[&item]
+									(&item,)
 								); 
 
 								match result {
@@ -1243,7 +1243,7 @@ impl GIter {
 				loop {
 					match base.raw_next_back() {
 						Some(Ok(slot)) => {
-							let result: Val = match glsp::call(&gc_callable.root(), &[&slot]) {
+							let result: Val = match glsp::call(&gc_callable.root(), (&slot,)) {
 								Ok(val) => val,
 								Err(err) => break Some(Err(err))
 							};
@@ -1490,7 +1490,7 @@ impl GIterState {
 
 #[derive(Clone)]
 pub(crate) enum GcCallable {
-	RFn(RFn),
+	RFn(Gc<RFn>),
 	GFn(Gc<GFn>),
 	Class(Gc<Class>),
 }
@@ -1498,7 +1498,7 @@ pub(crate) enum GcCallable {
 impl GcCallable {
 	pub(crate) fn from_callable(callable: &Callable) -> GcCallable {
 		match callable {
-			Callable::RFn(rfn) => GcCallable::RFn(*rfn),
+			Callable::RFn(rfn) => GcCallable::RFn(Gc::from_root(rfn)),
 			Callable::GFn(gfn) => GcCallable::GFn(Gc::from_root(gfn)),
 			Callable::Class(class) => GcCallable::Class(Gc::from_root(class))
 		}
@@ -1506,7 +1506,7 @@ impl GcCallable {
 
 	pub(crate) fn root(&self) -> Callable {
 		match self {
-			GcCallable::RFn(rfn) => Callable::RFn(*rfn),
+			GcCallable::RFn(rfn) => Callable::RFn(rfn.root()),
 			GcCallable::GFn(gfn) => Callable::GFn(gfn.root()),
 			GcCallable::Class(class) => Callable::Class(class.root())
 		}
@@ -1515,7 +1515,7 @@ impl GcCallable {
 
 fn visit_gc_callable<V: Visitor>(v: &mut V, gc_callable: &GcCallable) {
 	match gc_callable {
-		GcCallable::RFn(_) => (),
+		GcCallable::RFn(rfn) => v.visit_gc(rfn),
 		GcCallable::GFn(gfn) => v.visit_gc(gfn),
 		GcCallable::Class(class) => v.visit_gc(class)
 	}

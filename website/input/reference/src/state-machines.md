@@ -115,9 +115,9 @@ This brings us to GameLisp's `state` clauses:
 
 ## States
 
-By default, a `state` introduces a binary state machine. It represents part of a class which can 
-be switched on and switched off. [`state*` clauses](../std/statex-clause) are enabled by default, 
-whereas [`state` clauses](../std/state-clause) are disabled by default.
+A `state` represents part of a class which can be switched on and switched off.
+[`state*` clauses](../std/statex-clause) are enabled by default, whereas
+[`state` clauses](../std/state-clause) are disabled by default.
 
 States may contain most of the same clauses which are permitted at the toplevel of a class:
 `field`, `const`, `prop`, `met`, classmacros, and so on. The difference is that, while the state 
@@ -155,7 +155,7 @@ Within a method, `(@enab! name)` is shorthand for `(enab! @self name)`, and like
 
 ## Finite State Machines
 
-A single state by itself is rarely useful. What you usually need is a group of states which are 
+A single `state` by itself is rarely useful. What you usually need is a group of states which are 
 mutually exclusive, so that no more than one of the states can be enabled at any given moment.
 This can be achieved using an [`fsm` clause](../std/fsm-clause).
 	
@@ -170,7 +170,7 @@ This can be achieved using an [`fsm` clause](../std/fsm-clause).
 
 When a state within an `fsm` clause is about to be enabled, but one of its siblings is already 
 enabled, that sibling is automatically disabled first. In this case, if we were to call
-`(enab! fighter 'Guarding)`, it would automatically call `(disab! fighter 'Neutral)` first.
+`(@enab! 'Guarding)`, it would automatically call `(@disab! 'Neutral)` first.
 
 
 ## Nested States
@@ -275,16 +275,16 @@ The rules are:
 These are essentially the same rules which govern local variable bindings.
 
 	(defclass ShoppingCentre
-	  (field tax-revenue 10_000)
+	  (const tax-revenue 10_000)
 
 	  (state WellKnown
-	    (field tax-revenue 15_000))
+	    (const tax-revenue 15_000))
 
 	  (state Damaged
-	    (field tax-revenue 2_000)
+	    (const tax-revenue 2_000)
 
 	    (state Demolished
-	      (field tax-revenue 0))))
+	      (const tax-revenue 0))))
 
 	(let shops (ShoppingCentre))
 	(prn [shops 'tax-revenue]) ; prints 10000
@@ -304,27 +304,27 @@ all fields and constants defined in the toplevel of a class are considered to be
 state which can never be disabled.
 	
 	(defclass FancyChair
-	  (const comfort 75)
-	  (const room 40)
-	  (const fun 5)
+	  (const comfort-points 75)
+	  (const room-points 40)
+	  (const fun-points 5)
 
 	  (state Grubby
-	    (const comfort 40)
-	    (const room 10)
+	    (const comfort-points 40)
+	    (const room-points 10)
 
 	    (state Filthy
-	      (const room -30))))
+	      (const room-points -30))))
 
 	(let chair (FancyChair))
 	(enab! chair 'Filthy)
 
-	(prn [chair 'comfort]) ; prints 40
-	(prn [chair 'room]) ; prints -30
-	(prn [chair 'fun]) ; prints 5
+	(prn [chair 'comfort-points]) ; prints 40
+	(prn [chair 'room-points]) ; prints -30
+	(prn [chair 'fun-points]) ; prints 5
 
-	(prn [chair 'Main:comfort]) ; prints 75
-	(prn [chair 'Grubby:room]) ; prints 10
-	(prn [chair 'Filthy:room]) ; prints -30
+	(prn [chair 'Main:comfort-points]) ; prints 75
+	(prn [chair 'Grubby:room-points]) ; prints 10
+	(prn [chair 'Filthy:room-points]) ; prints -30
 
 This highlights a quirky detail of how state namespaces work: state names don't actually form a 
 hierarchy. A state `Child` defined within the state `Parent` defined within the `Main` state is 

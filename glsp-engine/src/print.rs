@@ -16,7 +16,7 @@ use super::eval::{Expander};
 use super::gc::{Allocate, Gc, Root, Slot};
 use super::iter::{GIter};
 use super::val::{Val};
-use super::wrap::{CallableOps, ToVal};
+use super::wrap::{CallableOps, IntoVal};
 
 /*
 
@@ -343,9 +343,9 @@ impl<T: Allocate> Pointer for Gc<T> {
 impl Display for Slot {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		if f.alternate() {
-			write!(f, "{:#}", self.to_val().unwrap())
+			write!(f, "{:#}", self.into_val().unwrap())
 		} else {
-			write!(f, "{}", self.to_val().unwrap())
+			write!(f, "{}", self.into_val().unwrap())
 		}
 	}
 }
@@ -353,9 +353,9 @@ impl Display for Slot {
 impl Debug for Slot {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		if f.alternate() {
-			write!(f, "{:#?}", self.to_val().unwrap())
+			write!(f, "{:#?}", self.into_val().unwrap())
 		} else {
-			write!(f, "{:?}", self.to_val().unwrap())
+			write!(f, "{:?}", self.into_val().unwrap())
 		}
 	}
 }
@@ -385,7 +385,6 @@ impl Display for Val {
 			}
 			Val::Bool(b) => write!(f, "{}", if b { "#t" } else { "#f" }),
 			Val::Sym(s) => write!(f, "{}", s),
-			Val::RFn(r) => write!(f, "{}", r),
 			Val::Arr(ref root) => {
 				if f.alternate() {
 					write!(f, "{:#}", root)
@@ -406,7 +405,8 @@ impl Display for Val {
 			Val::Class(ref root) => write!(f, "{}", root),
 			Val::GFn(ref root) => write!(f, "{}", root),
 			Val::Coro(ref root) => write!(f, "{}", root),
-			Val::RData(ref root) => write!(f, "{}", root)
+			Val::RData(ref root) => write!(f, "{}", root),
+			Val::RFn(ref root) => write!(f, "{}", root)
 		}
 	}
 }
@@ -446,7 +446,7 @@ impl Display for Sym {
 
 impl Display for RFn {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-		match self.name() {
+		match self.name.get() {
 			Some(name) => write!(f, "#<rfn:{}>", name),
 			None => write!(f, "#<rfn>")
 		}
@@ -511,7 +511,11 @@ impl Display for Coro {
 
 impl Display for RData {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-		write!(f, "#<rdata:{}>", self.type_name())
+		if let Some(rclass) = self.rclass.as_ref() {
+			write!(f, "#<rdata:{}>", rclass.name())
+		} else {
+			write!(f, "#<rdata>")
+		}
 	}
 }
 

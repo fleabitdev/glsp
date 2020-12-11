@@ -1,61 +1,61 @@
 use glsp::{
 	Arr, bail, Callable, DequeOps, GIter, GResult, Iterable, IterableOps,
-	Num, OrNil, rfn, Root, Str, Tab, Val
+	Num, Rest, Root, Str, Tab, Val
 };
 
 pub fn init(_sandboxed: bool) -> GResult<()> {
 
 	//fundamental iterator operations
-	glsp::bind_rfn("iter", rfn!(iter))?;
-	glsp::bind_rfn("iter-next!", rfn!(iter_next))?;
-	glsp::bind_rfn("iter-next-back!", rfn!(iter_next_back))?;
-	glsp::bind_rfn("iter-finished?", rfn!(iter_finishedp))?;
-	glsp::bind_rfn("iter-double-ended?", rfn!(iter_double_endedp))?;
+	glsp::bind_rfn("iter", &iter)?;
+	glsp::bind_rfn("iter-next!", &iter_next)?;
+	glsp::bind_rfn("iter-next-back!", &iter_next_back)?;
+	glsp::bind_rfn("iter-finished?", &iter_finishedp)?;
+	glsp::bind_rfn("iter-double-ended?", &iter_double_endedp)?;
 
 	//constructors for basic iterators
-	glsp::bind_rfn("rn", rfn!(rn))?;
-	glsp::bind_rfn("rni", rfn!(rni))?;
-	glsp::bind_rfn("once", rfn!(once))?;
-	glsp::bind_rfn("once-with", rfn!(once_with))?;
-	glsp::bind_rfn("repeat", rfn!(repeat))?;
-	glsp::bind_rfn("repeat-with", rfn!(repeat_with))?;
-	glsp::bind_rfn("chunks", rfn!(chunks))?;
-	glsp::bind_rfn("chunks-exact", rfn!(chunks_exact))?;
-	glsp::bind_rfn("rchunks", rfn!(rchunks))?;
-	glsp::bind_rfn("rchunks-exact", rfn!(rchunks_exact))?;
-	glsp::bind_rfn("windows", rfn!(windows))?;
-	glsp::bind_rfn("lines", rfn!(lines))?;
-	glsp::bind_rfn("split", rfn!(split))?;
-	glsp::bind_rfn("keys", rfn!(keys))?;
-	glsp::bind_rfn("values", rfn!(values))?;
+	glsp::bind_rfn("rn", &rn)?;
+	glsp::bind_rfn("rni", &rni)?;
+	glsp::bind_rfn("once", &once)?;
+	glsp::bind_rfn("once-with", &once_with)?;
+	glsp::bind_rfn("repeat", &repeat)?;
+	glsp::bind_rfn("repeat-with", &repeat_with)?;
+	glsp::bind_rfn("chunks", &chunks)?;
+	glsp::bind_rfn("chunks-exact", &chunks_exact)?;
+	glsp::bind_rfn("rchunks", &rchunks)?;
+	glsp::bind_rfn("rchunks-exact", &rchunks_exact)?;
+	glsp::bind_rfn("windows", &windows)?;
+	glsp::bind_rfn("lines", &lines)?;
+	glsp::bind_rfn("split", &split)?;
+	glsp::bind_rfn("keys", &keys)?;
+	glsp::bind_rfn("values", &values)?;
 
 	//constructors for iterator adapters
-	glsp::bind_rfn("rev", rfn!(rev))?;
-	glsp::bind_rfn("enumerate", rfn!(enumerate))?;
-	glsp::bind_rfn("cloned", rfn!(cloned))?;
-	glsp::bind_rfn("deep-cloned", rfn!(deep_cloned))?;
-	glsp::bind_rfn("step-by", rfn!(step_by))?;
-	glsp::bind_rfn("map", rfn!(map))?;
-	glsp::bind_rfn("filter", rfn!(filter))?;
-	glsp::bind_rfn("zip", rfn!(zip))?;
-	glsp::bind_rfn("chain", rfn!(chain))?;
-	glsp::bind_rfn("flatten", rfn!(flatten))?;
-	glsp::bind_rfn("cycle", rfn!(cycle))?;
-	glsp::bind_rfn("take", rfn!(take))?;
-	glsp::bind_rfn("take-while", rfn!(take_while))?;
-	glsp::bind_rfn("skip", rfn!(skip))?;
-	glsp::bind_rfn("skip-while", rfn!(skip_while))?;
+	glsp::bind_rfn("rev", &rev)?;
+	glsp::bind_rfn("enumerate", &enumerate)?;
+	glsp::bind_rfn("cloned", &cloned)?;
+	glsp::bind_rfn("deep-cloned", &deep_cloned)?;
+	glsp::bind_rfn("step-by", &step_by)?;
+	glsp::bind_rfn("map", &map)?;
+	glsp::bind_rfn("filter", &filter)?;
+	glsp::bind_rfn("zip", &zip)?;
+	glsp::bind_rfn("chain", &chain)?;
+	glsp::bind_rfn("flatten", &flatten)?;
+	glsp::bind_rfn("cycle", &cycle)?;
+	glsp::bind_rfn("take", &take)?;
+	glsp::bind_rfn("take-while", &take_while)?;
+	glsp::bind_rfn("skip", &skip)?;
+	glsp::bind_rfn("skip-while", &skip_while)?;
 
 	//functions which consume an iterator or iterable
-	glsp::bind_rfn("count", rfn!(count))?;
-	glsp::bind_rfn("nth", rfn!(nth))?;
-	glsp::bind_rfn("nth-back", rfn!(nth_back))?;
-	glsp::bind_rfn("any?", rfn!(anyp))?;
-	glsp::bind_rfn("all?", rfn!(allp))?;
-	glsp::bind_rfn("find", rfn!(find))?;
-	glsp::bind_rfn("rfind", rfn!(rfind))?;
-	glsp::bind_rfn("fold", rfn!(fold))?;
-	glsp::bind_rfn("rfold", rfn!(rfold))?;
+	glsp::bind_rfn("count", &count)?;
+	glsp::bind_rfn("nth", &nth)?;
+	glsp::bind_rfn("nth-back", &nth_back)?;
+	glsp::bind_rfn("any?", &anyp)?;
+	glsp::bind_rfn("all?", &allp)?;
+	glsp::bind_rfn("find", &find)?;
+	glsp::bind_rfn("rfind", &rfind)?;
+	glsp::bind_rfn("fold", &fold)?;
+	glsp::bind_rfn("rfold", &rfold)?;
 
 	Ok(())
 }
@@ -80,19 +80,40 @@ fn iter_double_endedp(giter: &GIter) -> bool {
 	giter.is_double_ended()
 }
 
-fn rn(i0: Num, i1: Option<OrNil<Num>>, step_by: Option<Num>) -> GResult<Root<GIter>> {
-	let step_by = step_by.unwrap_or(Num::Int(1));
-	match (i0, i1) {
-		(end, None) => glsp::rn(Num::Int(0), Some(end), step_by),
-		(start, Some(OrNil(end))) => glsp::rn(start, end, step_by)
-	}
+fn rn(n: Num, rest: Rest<Val>) -> GResult<Root<GIter>> {
+	rn_impl(n, &rest, glsp::rn)
 }
 
-fn rni(i0: Num, i1: Option<OrNil<Num>>, step_by: Option<Num>) -> GResult<Root<GIter>> {
-	let step_by = step_by.unwrap_or(Num::Int(1));
-	match (i0, i1) {
-		(end, None) => glsp::rni(Num::Int(0), Some(end), step_by),
-		(start, Some(OrNil(end))) => glsp::rni(start, end, step_by)
+fn rni(n: Num, rest: Rest<Val>) -> GResult<Root<GIter>> {
+	rn_impl(n, &rest, glsp::rni)
+}
+
+fn rn_impl(
+	n: Num,
+	rest: &[Val],
+	constructor: fn(Num, Option<Num>, Num) -> GResult<Root<GIter>>
+) -> GResult<Root<GIter>> {
+
+	match rest.len() {
+		0 => glsp::rn(Num::Int(0), Some(n), Num::Int(1)),
+		1 | 2 => {
+			let step_by = match rest.get(1) {
+				None => Num::Int(1),
+				Some(&Val::Int(i)) => Num::Int(i),
+				Some(&Val::Flo(f)) => Num::Flo(f),
+				Some(val) => bail!("expected a Num, received {}", val.a_type_name())
+			};
+
+			match &rest[0] {
+				&Val::Nil => constructor(n, None, step_by),
+				&Val::Int(i) => constructor(n, Some(Num::Int(i)), step_by),
+				&Val::Flo(f) => constructor(n, Some(Num::Flo(f)), step_by),
+				val => bail!("expected a Num or nil, received {}", val.a_type_name())
+			}
+		}
+		rest_len => {
+			bail!("too many arguments: received {}, but expected no more than 3", rest_len)
+		}
 	}
 }
 
@@ -104,16 +125,16 @@ fn values(tab: &Tab) -> Root<GIter> {
 	tab.gvalues()
 }
 
-fn once(args: &[Val]) -> Root<GIter> {
-	glsp::once(args)
+fn once(args: Rest<Val>) -> Root<GIter> {
+	glsp::once(&args)
 }
 
 fn once_with(callable: Callable) -> Root<GIter> {
 	glsp::once_with(callable)
 }
 
-fn repeat(args: &[Val]) -> GResult<Root<GIter>> {
-	glsp::repeat(args)
+fn repeat(args: Rest<Val>) -> GResult<Root<GIter>> {
+	glsp::repeat(&args)
 }
 
 fn repeat_with(callable: Callable) -> Root<GIter> {
@@ -183,12 +204,12 @@ fn filter(callable: Callable, base: Iterable) -> Root<GIter> {
 	glsp::filter(&callable, &base.giter())
 }
 
-fn zip(iterables: &[Iterable]) -> Root<GIter> {
-	glsp::zip(iterables)
+fn zip(iterables: Rest<Iterable>) -> Root<GIter> {
+	glsp::zip(&iterables)
 }
 
-fn chain(iterables: &[Iterable]) -> Root<GIter> {
-	glsp::chain(iterables)
+fn chain(iterables: Rest<Iterable>) -> Root<GIter> {
+	glsp::chain(&iterables)
 }
 
 fn flatten(base: Iterable) -> Root<GIter> {

@@ -16,14 +16,13 @@ None of these options are the right choice for game development. In order for a 
 avoid feeling "choppy", it *must* meet the deadline set by the monitor's refresh rate, or an 
 integer fraction of that refresh rate (say, 72 Hz for a 144 Hz monitor). A swap chain can allow 
 the game to accumulate one or two frames of "borrowed time" without being detectable to the 
-user (at the cost of increased latency), but whenever the cumulative delay exceeds those one or 
-two frames, the debt is cashed in and the user will experience a frameskip.
+user, but whenever the cumulative delay exceeds those one or two frames, the debt is cashed in 
+and the user will experience a frameskip.
 
 (This is a simple thing to test - in your main loop, just sleep for 15ms every 40th frame,
 which is equivalent to exceeding a 60 Hz frame budget by about 0.3ms per frame. If your game 
 involves any fast movement, you'll find that it suddenly "feels wrong", even if you can't pinpoint 
-exactly which frames are being skipped. Note that this test may not work if your swap chain is 
-triple-buffered.)
+exactly which frames are being skipped.)
 
 When a game's GC is allowed to stop and start, and it takes up one millisecond per frame while
 it's running, then the time budget is effectively one millisecond lower for *every* frame. If a 

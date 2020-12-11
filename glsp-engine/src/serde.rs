@@ -250,8 +250,9 @@ impl<'de> Visitor<'de> for ValVisitor {
 impl<'de> Deserialize<'de> for Val {
 	fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
 		const VARIANTS: &[&str] = &[
-			"Val::Nil", "Val::Int", "Val::Flo", "Val::Char", "Val::Bool", "Val::Sym", "Val::RFn",
-			"Val::Arr", "Val::Str", "Val::Tab", "Val::Obj", "Val::Class", "Val::GFn", "Val::Coro", "Val::RData"
+			"Val::Nil", "Val::Int", "Val::Flo", "Val::Char", "Val::Bool", "Val::Sym", 
+			"Val::Arr", "Val::Str", "Val::Tab", "Val::Obj", "Val::Class", "Val::GFn",
+			"Val::Coro", "Val::RData", "Val::RFn"
 		];
 
 		d.deserialize_enum("Val", VARIANTS, ValVisitor)

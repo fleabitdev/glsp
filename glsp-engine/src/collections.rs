@@ -17,7 +17,7 @@ use super::error::{GError, GResult};
 use super::gc::{Allocate, GcHeader, Slot, Root, Visitor};
 use super::iter::{GIter, GIterState};
 use super::val::{Val};
-use super::wrap::{FromVal, ToVal};
+use super::wrap::{FromVal, IntoVal};
 
 
 //-------------------------------------------------------------------------------------------------
@@ -199,27 +199,27 @@ A type which can be stored in a deque.
 
 Types which implement `IntoElement<Slot>` can be stored in an [`Arr`](struct.Arr.html) or a
 [`Deque`](enum.Deque.html). This has a blanket implementation for any type which implements 
-[`ToVal`](trait.ToVal.html).
+[`IntoVal`](trait.IntoVal.html).
 
 Types which implement `IntoElement<char>` can be stored in a [`Str`](struct.Str.html). This is
 implemented for `char`, [`Val`](enum.Val.html), and shared and mutable references to those types.
 
 This trait is [sealed]. It's not possible to implement this trait for your own types.
-Implement [`ToVal`](trait.ToVal.html) instead.
+Implement [`IntoVal`](trait.IntoVal.html) instead.
 
 [sealed]: https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
 */
 
 pub trait IntoElement<T>: into_element_private::Sealed<T> {
-	fn into_item(self) -> GResult<T>;
+	fn into_element(self) -> GResult<T>;
 }
 
 mod into_element_private {
-	use crate::{gc::Slot, val::Val, wrap::ToVal};
+	use crate::{gc::Slot, val::Val, wrap::IntoVal};
 	
 	pub trait Sealed<T> { }
 
-	impl<T> Sealed<Slot> for T where T: ToVal { }
+	impl<T> Sealed<Slot> for T where T: IntoVal { }
 	impl Sealed<char> for char { }
 	impl Sealed<char> for &char { }
 	impl Sealed<char> for &mut char { }
@@ -248,7 +248,7 @@ Implement [`FromVal`](trait.FromVal.html) instead.
 */
 
 pub trait FromElement<T>: Sized + from_element_private::Sealed<T> {
-	fn from_item(item: &T) -> GResult<Self>;
+	fn from_element(item: &T) -> GResult<Self>;
 }
 
 mod from_element_private {
@@ -262,44 +262,44 @@ mod from_element_private {
 	impl Sealed<char> for Slot { }
 }
 
-impl<T> IntoElement<Slot> for T where T: ToVal {
+impl<T> IntoElement<Slot> for T where T: IntoVal {
 	#[inline(always)]
-	fn into_item(self) -> GResult<Slot> {
-		self.to_slot()
+	fn into_element(self) -> GResult<Slot> {
+		self.into_slot()
 	}
 }
 
 impl<T> FromElement<Slot> for T where T: FromVal {
 	#[inline(always)]
-	fn from_item(item: &Slot) -> GResult<Self> {
+	fn from_element(item: &Slot) -> GResult<Self> {
 		Self::from_slot(item)
 	}
 }
 
 impl IntoElement<char> for char {
 	#[inline(always)]
-	fn into_item(self) -> GResult<char> {
+	fn into_element(self) -> GResult<char> {
 		Ok(self)
 	}
 }
 
 impl IntoElement<char> for &char {
 	#[inline(always)]
-	fn into_item(self) -> GResult<char> {
+	fn into_element(self) -> GResult<char> {
 		Ok(*self)
 	}
 }
 
 impl IntoElement<char> for &mut char {
 	#[inline(always)]
-	fn into_item(self) -> GResult<char> {
+	fn into_element(self) -> GResult<char> {
 		Ok(*self)
 	}
 }
 
 impl IntoElement<char> for Val {
 	#[inline(always)]
-	fn into_item(self) -> GResult<char> {
+	fn into_element(self) -> GResult<char> {
 		match self {
 			Val::Char(ch) => Ok(ch),
 			_ => bail!("attempted to assign a {} to a str", self.type_name())
@@ -309,7 +309,7 @@ impl IntoElement<char> for Val {
 
 impl IntoElement<char> for &Val {
 	#[inline(always)]
-	fn into_item(self) -> GResult<char> {
+	fn into_element(self) -> GResult<char> {
 		match *self {
 			Val::Char(ch) => Ok(ch),
 			_ => bail!("attempted to assign a {} to a str", self.type_name())
@@ -319,7 +319,7 @@ impl IntoElement<char> for &Val {
 
 impl IntoElement<char> for &mut Val {
 	#[inline(always)]
-	fn into_item(self) -> GResult<char> {
+	fn into_element(self) -> GResult<char> {
 		match *self {
 			Val::Char(ch) => Ok(ch),
 			_ => bail!("attempted to assign a {} to a str", self.type_name())
@@ -329,7 +329,7 @@ impl IntoElement<char> for &mut Val {
 
 impl IntoElement<char> for Slot {
 	#[inline(always)]
-	fn into_item(self) -> GResult<char> {
+	fn into_element(self) -> GResult<char> {
 		match self {
 			Slot::Char(ch) => Ok(ch),
 			_ => bail!("attempted to assign a {} to a str", self.type_name())
@@ -339,7 +339,7 @@ impl IntoElement<char> for Slot {
 
 impl IntoElement<char> for &Slot {
 	#[inline(always)]
-	fn into_item(self) -> GResult<char> {
+	fn into_element(self) -> GResult<char> {
 		match *self {
 			Slot::Char(ch) => Ok(ch),
 			_ => bail!("attempted to assign a {} to a str", self.type_name())
@@ -349,7 +349,7 @@ impl IntoElement<char> for &Slot {
 
 impl IntoElement<char> for &mut Slot {
 	#[inline(always)]
-	fn into_item(self) -> GResult<char> {
+	fn into_element(self) -> GResult<char> {
 		match *self {
 			Slot::Char(ch) => Ok(ch),
 			_ => bail!("attempted to assign a {} to a str", self.type_name())
@@ -359,21 +359,21 @@ impl IntoElement<char> for &mut Slot {
 
 impl FromElement<char> for char {
 	#[inline(always)]
-	fn from_item(item: &char) -> GResult<Self> {
+	fn from_element(item: &char) -> GResult<Self> {
 		Ok(*item)
 	}
 }
 
 impl FromElement<char> for Val {
 	#[inline(always)]
-	fn from_item(item: &char) -> GResult<Self> {
+	fn from_element(item: &char) -> GResult<Self> {
 		Ok(Val::Char(*item))
 	}
 }
 
 impl FromElement<char> for Slot {
 	#[inline(always)]
-	fn from_item(item: &char) -> GResult<Self> {
+	fn from_element(item: &char) -> GResult<Self> {
 		Ok(Slot::Char(*item))
 	}
 }
@@ -842,13 +842,13 @@ impl Arr {
 	}
 
 	#[allow(dead_code)]
-	pub(crate) fn from_elem<V: ToVal>(elem: V, reps: usize) -> GResult<Arr> {
+	pub(crate) fn from_elem<V: Clone + IntoVal>(elem: V, reps: usize) -> GResult<Arr> {
 
 		let mut vec = VecDeque::with_capacity(reps);
 		for _ in 0 .. reps {
-			//we deliberately call to_slot() multiple times, so that e.g. [(1, 2); 10] will
+			//we deliberately call into_slot() multiple times, so that e.g. [(1, 2); 10] will
 			//allocate ten distinct arrs, rather than ten aliases of the same arr.
-			vec.push_back(elem.to_slot()?)
+			vec.push_back(elem.clone().into_slot()?)
 		}
 
 		Ok(Arr {
@@ -861,12 +861,12 @@ impl Arr {
 	pub(crate) fn from_iter<T, V>(source: T) -> GResult<Arr> 
 	where
 		T: IntoIterator<Item = V>,
-		V: ToVal
+		V: IntoVal
 	{
 		let iter = source.into_iter();
 		let mut vec = VecDeque::with_capacity(iter.size_hint().0);
 		for item in iter {
-			vec.push_back(item.to_slot()?);
+			vec.push_back(item.into_slot()?);
 		}
 
 		Ok(Arr {
@@ -1090,7 +1090,7 @@ impl DequeOps for Arr {
 
 	fn push<V: IntoElement<Slot>>(&self, val: V) -> GResult<()> {
 		self.borrow_mut_with_capacity_guard(|vec| {
-			let val = val.into_item()?;
+			let val = val.into_element()?;
 			self.write_barrier_slot(&val);
 			vec.push_back(val);
 			Ok(())
@@ -1101,14 +1101,14 @@ impl DequeOps for Arr {
 	//write-barriered, since they cannot create new references into the gc heap.
 	fn pop<R: FromElement<Slot>>(&self) -> GResult<R> {
 		match self.borrow_mut()?.pop_back() {
-			Some(val) => R::from_item(&val),
+			Some(val) => R::from_element(&val),
 			None => bail!("attempted to pop from an arr of length 0")
 		}
 	}
 
 	fn push_start<V: IntoElement<Slot>>(&self, val: V) -> GResult<()> {
 		self.borrow_mut_with_capacity_guard(|vec| {
-			let val = val.into_item()?;
+			let val = val.into_element()?;
 			self.write_barrier_slot(&val);
 			vec.push_front(val);
 			Ok(())
@@ -1117,7 +1117,7 @@ impl DequeOps for Arr {
 
 	fn pop_start<R: FromElement<Slot>>(&self) -> GResult<R> {
 		match self.borrow_mut()?.pop_front() {
-			Some(val) => R::from_item(&val),
+			Some(val) => R::from_element(&val),
 			None => bail!("attempted to pop from the start of an arr of length 0")
 		}
 	}
@@ -1126,7 +1126,7 @@ impl DequeOps for Arr {
 	                          end_to_add: usize, fill: V) -> GResult<()> {
 		if start_to_add + end_to_add > 0 {
 			self.borrow_mut_with_capacity_guard(|vec| {
-				let fill = fill.into_item()?;
+				let fill = fill.into_element()?;
 				self.write_barrier_slot(&fill);
 				generic_grow(vec, start_to_add, end_to_add, fill);
 				Ok(())
@@ -1172,7 +1172,7 @@ impl DequeOps for Arr {
 
 	fn resize<V: IntoElement<Slot>>(&self, new_len: usize, fill: V) -> GResult<()> {
 		self.borrow_mut_with_capacity_guard(|self_vec| {
-			let fill = fill.into_item()?;
+			let fill = fill.into_element()?;
 
 			let old_len = self_vec.len();
 			if new_len > old_len {
@@ -1246,7 +1246,7 @@ impl DequeOps for Arr {
 	}
 
 	fn contains<V: IntoElement<Slot>>(&self, x: V) -> GResult<bool> {
-		Ok(self.borrow().contains(&x.into_item()?))
+		Ok(self.borrow().contains(&x.into_element()?))
 	}
 
 	fn extend<I, V>(&self, source: I) -> GResult<()>
@@ -1264,7 +1264,7 @@ impl DequeOps for Arr {
 		})?;
 
 		for val in iter {
-			let val = val.into_item()?;
+			let val = val.into_element()?;
 
 			self.write_barrier_slot(&val);
 			self.borrow_mut_with_capacity_guard(|vec| {
@@ -1285,13 +1285,13 @@ impl DequeOps for Arr {
 impl<I: DequeIndex> DequeAccess<I> for Arr {
 	fn get<R: FromElement<Slot>>(&self, index: I) -> GResult<R> {
 		let i = index.as_usize(self)?;
-		R::from_item(&self.borrow()[i])
+		R::from_element(&self.borrow()[i])
 	}
 
 	fn set<V: IntoElement<Slot>>(&self, index: I, val: V) -> GResult<()> {
 		let i = index.as_usize(self)?;
 
-		let val = val.into_item()?;
+		let val = val.into_element()?;
 		self.write_barrier_slot(&val);
 		self.borrow_mut()?[i] = val;
 		Ok(())
@@ -1301,7 +1301,7 @@ impl<I: DequeIndex> DequeAccess<I> for Arr {
 		let i = index.as_usize_excluded(self)?;
 
 		self.borrow_mut_with_capacity_guard(|vec| {
-			let val = val.into_item()?;
+			let val = val.into_element()?;
 			self.write_barrier_slot(&val);
 			vec.insert(i, val);
 			Ok(())
@@ -1317,19 +1317,19 @@ impl<I: DequeIndex> DequeAccess<I> for Arr {
 	fn remove<R: FromElement<Slot>>(&self, index: I) -> GResult<R> {
 		let i = index.as_usize(self)?;
 		let slot = self.borrow_mut()?.remove(i).unwrap();
-		R::from_item(&slot)
+		R::from_element(&slot)
 	}
 
 	fn swap_remove<R: FromElement<Slot>>(&self, index: I) -> GResult<R> {
 		let i = index.as_usize(self)?;
 		let slot = self.borrow_mut()?.swap_remove_back(i).unwrap();
-		R::from_item(&slot)
+		R::from_element(&slot)
 	}
 
 	fn swap_remove_start<R: FromElement<Slot>>(&self, index: I) -> GResult<R> {
 		let i = index.as_usize(self)?;
 		let slot = self.borrow_mut()?.swap_remove_front(i).unwrap();
-		R::from_item(&slot)
+		R::from_element(&slot)
 	}
 }
 
@@ -1387,7 +1387,7 @@ impl Splay for Val {
 	}
 }
 
-impl<T> Splay for [T] where T: ToVal {
+impl<T> Splay for [T] where for<'a> &'a T: IntoVal {
 	fn splay(&self, dst: &Arr) -> GResult<()> {
 		dst.reserve(self.len())?;
 		for item in self {
@@ -1398,7 +1398,7 @@ impl<T> Splay for [T] where T: ToVal {
 }
 
 //unlike Vec<T> etc., VecDeque<T> can't be dereferenced to &[T], so they need a separate impl
-impl<T> Splay for VecDeque<T> where T: ToVal {
+impl<T> Splay for VecDeque<T> where for<'a> &'a T: IntoVal {
 	fn splay(&self, dst: &Arr) -> GResult<()> {
 		dst.reserve(self.len())?;
 		for item in self {
@@ -1412,7 +1412,7 @@ macro_rules! impl_splay_tuple {
 	($len:literal: $($t:ident $i:tt),+) => (
 		impl<$($t),+> Splay for ($($t,)+) 
 		where 
-			$( for<'a> &'a $t: ToVal ),+ 
+			$( for<'a> &'a $t: IntoVal ),+ 
 		{
 			fn splay(&self, dst: &Arr) -> GResult<()> {
 				dst.reserve($len)?;
@@ -1915,7 +1915,7 @@ impl Str {
 
 		let mut storage = Str1(VecDeque::new());
 		for item in iter.into_iter() {
-			let ch = item.into_item()?;
+			let ch = item.into_element()?;
 			storage.prepare_for_char(ch);
 			match storage {
 				Str1(ref mut vec) => vec.push_back(CharStorage::<u8>::from_char(ch)),
@@ -2168,7 +2168,7 @@ impl DequeOps for Str {
 	}
 
 	fn push<C: IntoElement<char>>(&self, ch: C) -> GResult<()> {
-		let ch = ch.into_item()?;
+		let ch = ch.into_element()?;
 		let ch = &ch;
 
 		self.borrow_mut_with_capacity_guard(|storage| {
@@ -2183,14 +2183,14 @@ impl DequeOps for Str {
 	fn pop<R: FromElement<char>>(&self) -> GResult<R> {
 		with_str_storage_mut!(&mut *self.borrow_mut()?, vec, (), {
 			match vec.pop_back() {
-				Some(char_storage) => R::from_item(&char_storage.into_char()),
+				Some(char_storage) => R::from_element(&char_storage.into_char()),
 				None => bail!("attempted to pop a char from an empty str")
 			}
 		})
 	}
 	
 	fn push_start<C: IntoElement<char>>(&self, ch: C) -> GResult<()> {
-		let ch = ch.into_item()?;
+		let ch = ch.into_element()?;
 		let ch = &ch;
 
 		self.borrow_mut_with_capacity_guard(|storage| {
@@ -2205,7 +2205,7 @@ impl DequeOps for Str {
 	fn pop_start<R: FromElement<char>>(&self) -> GResult<R> {
 		with_str_storage_mut!(&mut *self.borrow_mut()?, vec, (), {
 			match vec.pop_front() {
-				Some(char_storage) => R::from_item(&char_storage.into_char()),
+				Some(char_storage) => R::from_element(&char_storage.into_char()),
 				None => bail!("attempted to pop from the start of an empty str")
 			}
 		})
@@ -2213,7 +2213,7 @@ impl DequeOps for Str {
 	
 	fn grow<C: IntoElement<char>>(&self, start_to_add: usize, 
 	                          end_to_add: usize, fill: C) -> GResult<()> {
-		let fill = fill.into_item()?;
+		let fill = fill.into_element()?;
 		let fill = &fill;
 
 		self.borrow_mut_with_capacity_guard(|storage| {
@@ -2246,7 +2246,7 @@ impl DequeOps for Str {
 	}
 
 	fn resize<C: IntoElement<char>>(&self, new_len: usize, ch: C) -> GResult<()> {
-		let ch = ch.into_item()?;
+		let ch = ch.into_element()?;
 		let ch = &ch;
 
 		self.borrow_mut_with_capacity_guard(|storage| {
@@ -2339,7 +2339,7 @@ impl DequeOps for Str {
 	}
 
 	fn contains<C: IntoElement<char>>(&self, ch: C) -> GResult<bool> {
-		let ch = ch.into_item()?;
+		let ch = ch.into_element()?;
 		let ch = &ch;
 
 		self.borrow_mut_with_capacity_guard(|storage| {
@@ -2362,7 +2362,7 @@ impl DequeOps for Str {
 		//there's no way for us to know in advance how much storage we'll need, so we just
 		//have to check every character individually... not ideal
 		for ch in source.into_iter() {
-			let ch = ch.into_item()?;
+			let ch = ch.into_element()?;
 			let ch = &ch;
 
 			self.borrow_mut_with_capacity_guard(|storage| {
@@ -2382,13 +2382,13 @@ impl<I: DequeIndex> DequeAccess<I> for Str {
 	fn get<R: FromElement<char>>(&self, index: I) -> GResult<R> {
 		let i = index.as_usize(self)?;
 		with_str_storage!(&*self.borrow(), vec, (), {
-			R::from_item(&vec[i].into_char())
+			R::from_element(&vec[i].into_char())
 		})
 	}
 
 	fn set<C: IntoElement<char>>(&self, index: I, ch: C) -> GResult<()> {
 		let i = index.as_usize(self)?;
-		let ch = ch.into_item()?;
+		let ch = ch.into_element()?;
 		let ch = &ch;
 		
 		self.borrow_mut_with_capacity_guard(|storage| {
@@ -2402,7 +2402,7 @@ impl<I: DequeIndex> DequeAccess<I> for Str {
 
 	fn insert<C: IntoElement<char>>(&self, index: I, ch: C) -> GResult<()> {
 		let i = index.as_usize_excluded(self)?;
-		let ch = ch.into_item()?;
+		let ch = ch.into_element()?;
 		let ch = &ch;
 
 		self.borrow_mut_with_capacity_guard(|storage| {
@@ -2425,21 +2425,21 @@ impl<I: DequeIndex> DequeAccess<I> for Str {
 	fn remove<R: FromElement<char>>(&self, index: I) -> GResult<R> {
 		let i = index.as_usize(self)?;
 		with_str_storage_mut!(&mut *self.borrow_mut()?, vec, (), {
-			R::from_item(&vec.remove(i).unwrap().into_char())
+			R::from_element(&vec.remove(i).unwrap().into_char())
 		})
 	}
 
 	fn swap_remove<R: FromElement<char>>(&self, index: I) -> GResult<R> {
 		let i = index.as_usize(self)?;
 		with_str_storage_mut!(&mut *self.borrow_mut()?, vec, (), {
-			R::from_item(&vec.swap_remove_back(i).unwrap().into_char())
+			R::from_element(&vec.swap_remove_back(i).unwrap().into_char())
 		})
 	}
 
 	fn swap_remove_start<R: FromElement<char>>(&self, index: I) -> GResult<R> {
 		let i = index.as_usize(self)?;
 		with_str_storage_mut!(&mut *self.borrow_mut()?, vec, (), {
-			R::from_item(&vec.swap_remove_front(i).unwrap().into_char())
+			R::from_element(&vec.swap_remove_front(i).unwrap().into_char())
 		})
 	}
 }
@@ -2495,7 +2495,7 @@ impl Deque {
 	pub fn from_iter<T>(base: &Deque, source: T) -> GResult<Deque>
 	where
 		T: IntoIterator,
-		T::Item: ToVal + IntoElement<char>
+		T::Item: IntoVal + IntoElement<char>
 	{
 		match base {
 			Deque::Arr(_) => Ok(Deque::Arr(glsp::arr_from_iter(source)?)),
@@ -2634,7 +2634,7 @@ impl DequeOps for Deque {
 	fn contains<V: IntoElement<Slot>>(&self, v: V) -> GResult<bool> {
 		match self {
 			Deque::Arr(ar) => ar.contains(v),
-			Deque::Str(st) => st.contains(v.into_item()?)
+			Deque::Str(st) => st.contains(v.into_element()?)
 		}
 	}
 
@@ -2649,35 +2649,35 @@ impl DequeOps for Deque {
 	fn push<V: IntoElement<Slot>>(&self, v: V) -> GResult<()> {
 		match self {
 			Deque::Arr(ar) => ar.push(v),
-			Deque::Str(st) => st.push(v.into_item()?)
+			Deque::Str(st) => st.push(v.into_element()?)
 		}
 	}
 
 	fn pop<R: FromElement<Slot>>(&self) -> GResult<R> {
 		match self {
 			Deque::Arr(ar) => ar.pop(),
-			Deque::Str(st) => R::from_item(&st.pop()?)
+			Deque::Str(st) => R::from_element(&st.pop()?)
 		}
 	}
 	
 	fn push_start<V: IntoElement<Slot>>(&self, v: V) -> GResult<()> {
 		match self {
 			Deque::Arr(ar) => ar.push_start(v),
-			Deque::Str(st) => st.push_start(v.into_item()?)
+			Deque::Str(st) => st.push_start(v.into_element()?)
 		}
 	}
 	
 	fn pop_start<R: FromElement<Slot>>(&self) -> GResult<R> {
 		match self {
 			Deque::Arr(ar) => ar.pop_start(),
-			Deque::Str(st) => R::from_item(&st.pop_start()?)
+			Deque::Str(st) => R::from_element(&st.pop_start()?)
 		}
 	}
 
 	fn grow<V: IntoElement<Slot>>(&self, start: usize, end: usize, fill: V) -> GResult<()> {
 		match self {
 			Deque::Arr(ar) => ar.grow(start, end, fill),
-			Deque::Str(st) => st.grow(start, end, fill.into_item()?)
+			Deque::Str(st) => st.grow(start, end, fill.into_element()?)
 		}
 	}
 
@@ -2699,7 +2699,7 @@ impl DequeOps for Deque {
 	fn resize<V: IntoElement<Slot>>(&self, new_len: usize, fill: V) -> GResult<()> {
 		match self {
 			Deque::Arr(ar) => ar.resize(new_len, fill),
-			Deque::Str(st) => st.resize(new_len, fill.into_item()?)
+			Deque::Str(st) => st.resize(new_len, fill.into_element()?)
 		}
 	}
 
@@ -2766,7 +2766,7 @@ impl DequeOps for Deque {
 	{
 		match self {
 			Deque::Arr(ar) => ar.extend(source),
-			Deque::Str(st) => st.extend(source.into_iter().map(|c| c.into_item().unwrap()))
+			Deque::Str(st) => st.extend(source.into_iter().map(|c| c.into_element().unwrap()))
 		}
 	}
 }
@@ -2775,21 +2775,21 @@ impl<I: DequeIndex> DequeAccess<I> for Deque {
 	fn get<R: FromElement<Slot>>(&self, i: I) -> GResult<R> {
 		match self {
 			Deque::Arr(ar) => ar.get(i),
-			Deque::Str(st) => R::from_item(&st.get(i)?)
+			Deque::Str(st) => R::from_element(&st.get(i)?)
 		}
 	}
 
 	fn set<V: IntoElement<Slot>>(&self, i: I, v: V) -> GResult<()> {
 		match self {
 			Deque::Arr(ar) => ar.set(i, v),
-			Deque::Str(st) => st.set(i, v.into_item()?)
+			Deque::Str(st) => st.set(i, v.into_element()?)
 		}
 	}
 
 	fn insert<V: IntoElement<Slot>>(&self, i: I, v: V) -> GResult<()> {
 		match self {
 			Deque::Arr(ar) => ar.insert(i, v),
-			Deque::Str(st) => st.insert(i, v.into_item()?)
+			Deque::Str(st) => st.insert(i, v.into_element()?)
 		}
 	}
 
@@ -2803,21 +2803,21 @@ impl<I: DequeIndex> DequeAccess<I> for Deque {
 	fn remove<R: FromElement<Slot>>(&self, i: I) -> GResult<R> {
 		match self {
 			Deque::Arr(ar) => ar.remove(i),
-			Deque::Str(st) => R::from_item(&st.remove(i)?)
+			Deque::Str(st) => R::from_element(&st.remove(i)?)
 		}
 	}
 
 	fn swap_remove<R: FromElement<Slot>>(&self, i: I) -> GResult<R> {
 		match self {
 			Deque::Arr(ar) => ar.swap_remove(i),
-			Deque::Str(st) => R::from_item(&st.swap_remove(i)?)
+			Deque::Str(st) => R::from_element(&st.swap_remove(i)?)
 		}
 	}
 
 	fn swap_remove_start<R: FromElement<Slot>>(&self, i: I) -> GResult<R> {
 		match self {
 			Deque::Arr(ar) => ar.swap_remove_start(i),
-			Deque::Str(st) => R::from_item(&st.swap_remove_start(i)?)
+			Deque::Str(st) => R::from_element(&st.swap_remove_start(i)?)
 		}
 	}
 }
@@ -3193,14 +3193,14 @@ impl Tab {
 	pub(crate) fn from_iter<T, K, V>(t: T) -> GResult<Tab> 
 	where
 		T: IntoIterator<Item = (K, V)>,
-		K: ToVal,
-		V: ToVal
+		K: IntoVal,
+		V: IntoVal
 	{
 		let iter = t.into_iter();
 		let mut map = FnvHashMap::with_capacity_and_hasher(iter.size_hint().0, Default::default());
 
 		for (key, value) in iter {
-			map.insert(key.to_slot()?, value.to_slot()?);
+			map.insert(key.into_slot()?, value.into_slot()?);
 		}
 
 		Ok(Tab {
@@ -3310,8 +3310,8 @@ impl Tab {
 
 	Equivalent to [`[t key]`](https://gamelisp.rs/std/access).
 	*/
-	pub fn get<K: ToVal, V: FromVal>(&self, key: K) -> GResult<V> {
-		let key = key.to_slot()?;
+	pub fn get<K: IntoVal, V: FromVal>(&self, key: K) -> GResult<V> {
+		let key = key.into_slot()?;
 		match self.borrow().get(&key) {
 			Some(value) => V::from_slot(value),
 			None => bail!("missing tab field {:?}", key)
@@ -3323,8 +3323,8 @@ impl Tab {
 
 	Equivalent to [`[t (? key)]`](https://gamelisp.rs/std/access).
 	*/
-	pub fn get_if_present<K: ToVal, V: FromVal>(&self, key: K) -> GResult<Option<V>> {
-		match self.borrow().get(&key.to_slot()?) {
+	pub fn get_if_present<K: IntoVal, V: FromVal>(&self, key: K) -> GResult<Option<V>> {
+		match self.borrow().get(&key.into_slot()?) {
 			Some(value) => Ok(Some(V::from_slot(value)?)),
 			None => Ok(None)
 		}
@@ -3337,11 +3337,11 @@ impl Tab {
 	*/
 	pub fn set<K, V>(&self, key: K, value: V) -> GResult<()> 
 	where
-		K: ToVal,
-		V: ToVal
+		K: IntoVal,
+		V: IntoVal
 	{
-		let key = key.to_slot()?;
-		let value = value.to_slot()?;
+		let key = key.into_slot()?;
+		let value = value.into_slot()?;
 
 		self.borrow_mut_with_capacity_guard(|map| {
 			self.write_barrier_slot(&key);
@@ -3360,11 +3360,11 @@ impl Tab {
 	*/
 	pub fn set_if_present<K, V>(&self, key: K, value: V) -> GResult<bool> 
 	where
-		K: ToVal,
-		V: ToVal
+		K: IntoVal,
+		V: IntoVal
 	{
-		let key = key.to_slot()?;
-		let value = value.to_slot()?;
+		let key = key.into_slot()?;
+		let value = value.into_slot()?;
 
 		self.borrow_mut_with_capacity_guard(|map| {
 			match map.get_mut(&key) {
@@ -3384,8 +3384,8 @@ impl Tab {
 
 	Equivalent to [`(has? t key)`](https://gamelisp.rs/std/has-p).
 	*/
-	pub fn has<K: ToVal>(&self, key: K) -> GResult<bool> {
-		let key = key.to_slot()?;
+	pub fn has<K: IntoVal>(&self, key: K) -> GResult<bool> {
+		let key = key.into_slot()?;
 		Ok(self.borrow().contains_key(&key))
 	}
 
@@ -3394,8 +3394,8 @@ impl Tab {
 
 	Equivalent to [`(del! t key)`](https://gamelisp.rs/std/del-mut).
 	*/
-	pub fn del<K: ToVal>(&self, key: K) -> GResult<()> {
-		let key = key.to_slot()?;
+	pub fn del<K: IntoVal>(&self, key: K) -> GResult<()> {
+		let key = key.into_slot()?;
 		match self.borrow_mut()?.remove(&key) {
 			Some(_) => Ok(()),
 			None => bail!("attempted to delete nonexistent tab field {}", key)
@@ -3409,8 +3409,8 @@ impl Tab {
 
 	Equivalent to [`(del! t (? key))`](https://gamelisp.rs/std/del-mut).
 	*/
-	pub fn del_if_present<K: ToVal>(&self, key: K) -> GResult<bool> {
-		let key = key.to_slot()?;
+	pub fn del_if_present<K: IntoVal>(&self, key: K) -> GResult<bool> {
+		let key = key.into_slot()?;
 		Ok(self.borrow_mut()?.remove(&key).is_some())
 	}
 
@@ -3419,8 +3419,8 @@ impl Tab {
 
 	Equivalent to [`(remove! t key)`](https://gamelisp.rs/std/remove-mut).
 	*/
-	pub fn remove<K: ToVal, V: FromVal>(&self, key: K) -> GResult<V> {
-		let key = key.to_slot()?;
+	pub fn remove<K: IntoVal, V: FromVal>(&self, key: K) -> GResult<V> {
+		let key = key.into_slot()?;
 		match self.borrow_mut()?.remove(&key) {
 			Some(value) => V::from_slot(&value),
 			None => bail!("attempted to remove nonexistent tab field {}", key)
@@ -3432,8 +3432,8 @@ impl Tab {
 
 	Equivalent to [`(remove! t (? key))`](https://gamelisp.rs/std/remove-mut).
 	*/
-	pub fn remove_if_present<K: ToVal, V: FromVal>(&self, key: K) -> GResult<Option<V>> {
-		let key = key.to_slot()?;
+	pub fn remove_if_present<K: IntoVal, V: FromVal>(&self, key: K) -> GResult<Option<V>> {
+		let key = key.into_slot()?;
 		match self.borrow_mut()?.remove(&key) {
 			Some(value) => Ok(Some(V::from_slot(&value)?)),
 			None => Ok(None)
@@ -3548,8 +3548,8 @@ impl Tab {
 	pub fn extend<T, K, V>(&mut self, iter_source: T) -> GResult<()>
 	where 
 		T: IntoIterator<Item = (K, V)>,
-		K: ToVal,
-		V: ToVal
+		K: IntoVal,
+		V: IntoVal
 	{
 		let iter = iter_source.into_iter();
 
@@ -3559,8 +3559,8 @@ impl Tab {
 		})?;
 
 		for (key, value) in iter {
-			let key = key.to_slot()?;
-			let value = value.to_slot()?;
+			let key = key.into_slot()?;
+			let value = value.into_slot()?;
 
 			self.write_barrier_slot(&key);
 			self.write_barrier_slot(&value);

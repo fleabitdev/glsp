@@ -98,22 +98,27 @@ The result has a generic return type - it can be any type which implements
 
 If the input contains any unquoted forms (typically using the `~` abbreviation), each 
 unquoted form must be a symbol which names a local variable in the same scope as the 
-`backquote!()` invocation. That local variable must implement the [`ToVal` 
-trait](trait.ToVal.html). It's converted into a [`Val`](enum.Val.html) which is
+`backquote!()` invocation. That local variable must implement the [`IntoVal` 
+trait](trait.IntoVal.html). It's converted into a [`Val`](enum.Val.html) which is
 interpolated into the output.
+
+Local variables can be borrowed by typing `~&var_name`. This prevents the variable
+from being consumed by the `backquote!()` invocation. If `T` is the variable's type,
+its shared reference `&T` must implement the [`IntoVal` trait](trait.IntoVal.html).
 
 Local variables can be simultaneously unquoted and splayed with `~..`. In that case, the borrowed
 form of the local variable must belong to a type which implements [`Splay`](trait.Splay.html).
 
-If any of the [`ToVal`](trait.ToVal.html) conversions fail, the generated code will panic. For a 
-non-panicking version of this macro, use [`try_backquote!()`](macro.try_backquote.html).
+If any of the [`IntoVal`](trait.IntoVal.html) conversions fail, the generated code will panic.
+For a non-panicking version of this macro, use [`try_backquote!()`](macro.try_backquote.html).
 
 	let c = 100_u64;
 	let d = [200_u16, 250];
+	let e = vec![275.0_f32, 287.5];
 	let val: Val = backquote!(r#"
-	  (a "b" ~c ~..d)
+	  (a "b" ~c ~..d ~&e)
 	"#);
-	println!("{}", val); //prints (a "b" 100 200 250)
+	println!("{}", val); //prints (a "b" 100 200 250 275.0 287.5)
 
 This macro can be more convenient than using [`arr![]`](macro.arr.html) to construct
 complicated nested forms. It's particularly useful when implementing GameLisp macros in Rust.
@@ -154,8 +159,8 @@ pub fn try_backquote(input: TokenStream) -> TokenStream {
 		//		- backquote increases our nesting level
 		//		- unquote and auto-gensym have no special handling if the nesting level is non-zero
 		//		- name# emits a glsp::gensym_with_tag() just before the constructor 
-		//  	- otherwise, ~name emits "name.to_val()", ~..name emits "..name.to_val()", and
-		//        any other unquoted form is invalid
+		//  	- otherwise, ~name emits "name.into_val()", ~..name emits "..name.into_val()",
+		//        ~&name emits "(&name).into_val()", and any other unquoted form is invalid
 		//  	- ~..name is invalid except as the immediate child of an arr![] invocation
 		//  - tabs emit tab!{} for convenience
 		//  - strs are constructed from a rust string literal with glsp::str_from_rust_str
@@ -298,10 +303,21 @@ fn emit_val_for_backquote<T: Write>(
 				let second = ar.get::<Val>(1).unwrap();
 				match second {
 					Val::Sym(sym) => {
-						assert!(is_valid_identifier(&sym.name()), "invalid identifier {}", sym);
-						assert!(!sym.name().starts_with(GENSYM_PREFIX), "unquoted an auto-gensym");
+						let full_name = sym.name();
+						let name = if full_name.starts_with("&") {
+							&full_name[1..]
+						} else {
+							&full_name[..]
+						};
 
-						write!(dst, "::glsp::ToVal::to_val(&{})?", sym).unwrap();
+						assert!(is_valid_identifier(name), "invalid identifier {}", name);
+						assert!(!name.starts_with(GENSYM_PREFIX), "unquoted an auto-gensym");
+
+						if full_name.starts_with("&") {
+							write!(dst, "::glsp::IntoVal::into_val(&{})?", name).unwrap();
+						} else {
+							write!(dst, "::glsp::IntoVal::into_val({})?", sym).unwrap();
+						}
 					}
 					Val::Arr(ar2) 
 						if ar2.len() == 2 && 

@@ -554,13 +554,13 @@ impl Pat {
 
 				let test_form: Option<Val> = match (min_len, max_len) {
 					(0, None) => None,
-					(min_len, None) => Some(backquote!("(>= ~len_form ~min_len)")),
-					(0, Some(max_len)) => Some(backquote!("(>= ~max_len ~len_form)")),
+					(min_len, None) => Some(backquote!("(>= ~&len_form ~min_len)")),
+					(0, Some(max_len)) => Some(backquote!("(>= ~max_len ~&len_form)")),
 					(min_len, Some(max_len)) => {
 						if min_len == max_len {
-							Some(backquote!("(== ~min_len ~len_form)"))
+							Some(backquote!("(== ~min_len ~&len_form)"))
 						} else {
-							Some(backquote!("(>= ~max_len ~len_form ~min_len)"))
+							Some(backquote!("(>= ~max_len ~&len_form ~min_len)"))
 						}
 					}
 				};
@@ -591,7 +591,7 @@ impl Pat {
 								}
 							};
 
-							backquote!("(ensure ~test_form ~err_msg ~len_form)")
+							backquote!("(ensure ~test_form ~err_msg ~&len_form)")
 						}
 					};
 					dst.push(to_push)?;
@@ -635,7 +635,7 @@ impl Pat {
 							)?;
 
 							let to_push: Val = backquote!(r#"
-								(if (> ~len_form ~i)
+								(if (> ~&len_form ~i)
 								  ~then_do_form 
 								  ~else_do_form)
 							"#);
@@ -649,7 +649,7 @@ impl Pat {
 
 							let element_name = glsp::gensym();
 							let to_push: Val = backquote!(r#"
-								(let ~element_name (if (> ~len_form ~i)
+								(let ~element_name (if (> ~&len_form ~i)
 								  [~src_name ~i]
 								  ~default_form))
 							"#);
@@ -669,7 +669,7 @@ impl Pat {
 								(Matcher::Sym(rest_name), false) => {
 									let offset = (normal_count + opt_count) - i;
 									let to_assign: Val = backquote!(r#"
-										[~src_name ~i : (- ~len_form ~offset)]
+										[~src_name ~i : (- ~&len_form ~offset)]
 									"#);
 
 									set_strategy.codegen(dst, *rest_name, to_assign)?;
@@ -696,7 +696,7 @@ impl Pat {
 									let element_name = glsp::gensym();
 									let offset = (normal_count + opt_count) - i;
 									let forn_form: Root<Arr> = backquote!(r#"
-										(forn (~i_name ~i (- ~len_form ~offset))
+										(forn (~i_name ~i (- ~&len_form ~offset))
 										  (let ~element_name [~src_name ~i_name]))
 									"#);
 

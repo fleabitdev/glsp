@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use super::engine::{glsp, Guard, Span, with_vm};
 use super::val::{Val};
 use super::vm::{Frame};
-use super::wrap::{ToVal};
+use super::wrap::{IntoVal};
 
 pub type GResult<T> = Result<T, GError>;
 
@@ -52,8 +52,8 @@ impl GError {
 		GError::from_val(st)
 	}
 
-	pub fn from_val<T: ToVal>(t: T) -> GError {
-		let val = t.to_val().unwrap_or(Val::Nil);
+	pub fn from_val<T: IntoVal>(t: T) -> GError {
+		let val = t.into_val().unwrap_or(Val::Nil);
 		let file_location = glsp::file_location();
 		let stack_trace = if glsp::errors_verbose() {
 			Some(glsp::stack_trace())
@@ -184,7 +184,7 @@ impl GError {
 	}
 
 	#[doc(hidden)]
-	pub fn from_val_at<T: ToVal>(span: Span, t: T) -> GError {
+	pub fn from_val_at<T: IntoVal>(span: Span, t: T) -> GError {
 		glsp::push_frame(Frame::ErrorAt(span));
 		let _guard = Guard::new(|| glsp::pop_frame());
 

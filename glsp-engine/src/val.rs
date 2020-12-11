@@ -22,7 +22,7 @@ use super::iter::{GIter};
 Any GameLisp value.
 
 Many functions in this crate provide automatic conversions to and from `Val`, using the 
-[`FromVal`](trait.FromVal.html) and [`ToVal`](trait.ToVal.html) traits.
+[`FromVal`](trait.FromVal.html) and [`IntoVal`](trait.IntoVal.html) traits.
 */
 
 #[derive(Clone)]
@@ -33,7 +33,6 @@ pub enum Val {
 	Char(char),
 	Bool(bool),
 	Sym(Sym),
-	RFn(RFn),
 	Arr(Root<Arr>),
 	Str(Root<Str>),
 	Tab(Root<Tab>),
@@ -43,6 +42,7 @@ pub enum Val {
 	GFn(Root<GFn>),
 	Coro(Root<Coro>),
 	RData(Root<RData>),
+	RFn(Root<RFn>),
 }
 
 impl Default for Val {
@@ -110,7 +110,6 @@ impl_val!(
 	(Char, char, "char", "a char", is_char, unwrap_char), 
 	(Bool, bool, "bool", "a bool", is_bool, unwrap_bool), 
 	(Sym, Sym, "sym", "a sym", is_sym, unwrap_sym), 
-	(RFn, RFn, "rfn", "an rfn", is_rfn, unwrap_rfn),
 	(Arr, Root<Arr>, "arr", "an arr", is_arr, unwrap_arr),
 	(Str, Root<Str>, "str", "a str", is_str, unwrap_str),
 	(Tab, Root<Tab>, "tab", "a tab", is_tab, unwrap_tab),
@@ -119,7 +118,8 @@ impl_val!(
 	(Class, Root<Class>, "class", "a class", is_class, unwrap_class),
 	(GFn, Root<GFn>, "fn", "a fn", is_gfn, unwrap_gfn),
 	(Coro, Root<Coro>, "coro", "a coro", is_coro, unwrap_coro),
-	(RData, Root<RData>, "rdata", "an rdata", is_rdata, unwrap_rdata)
+	(RData, Root<RData>, "rdata", "an rdata", is_rdata, unwrap_rdata),
+	(RFn, Root<RFn>, "rfn", "an rfn", is_rfn, unwrap_rfn)
 );
 
 impl Val {
@@ -197,7 +197,6 @@ impl Val {
 			Val::Char(c) => Val::Char(c),
 			Val::Bool(b) => Val::Bool(b),
 			Val::Sym(s) => Val::Sym(s),
-			Val::RFn(r) => Val::RFn(r),
 			Val::Arr(ref arr) => Val::Arr(arr.shallow_clone()),
 			Val::Str(ref st) => Val::Str(st.shallow_clone()),
 			Val::Tab(ref tab) => Val::Tab(tab.shallow_clone()),
@@ -219,6 +218,7 @@ impl Val {
 					None => Val::RData(root.clone())
 				}
 			}
+			Val::RFn(ref root) => Val::RFn(root.clone()),
 		})
 	}
 
@@ -237,7 +237,6 @@ impl Val {
 			Val::Char(c) => Val::Char(c),
 			Val::Bool(b) => Val::Bool(b),
 			Val::Sym(s) => Val::Sym(s),
-			Val::RFn(r) => Val::RFn(r),
 			Val::Arr(ref arr) => Val::Arr(arr.deep_clone()?),
 			Val::Str(ref st) => Val::Str(st.shallow_clone()),
 			Val::Tab(ref tab) => Val::Tab(tab.deep_clone()?),
@@ -267,6 +266,7 @@ impl Val {
 					None => Val::RData(root.clone())
 				}
 			}
+			Val::RFn(ref root) => Val::RFn(root.clone())
 		})
 	}
 
@@ -281,8 +281,9 @@ impl Val {
 			Val::Str(ref st) => st.freeze(),
 			Val::Tab(ref tab) => tab.freeze(),
 			Val::Obj(ref obj) => obj.freeze(),
-			Val::Nil | Val::Int(_) | Val::Flo(_) | Val::Char(_) | Val::Bool(_) | Val::Sym(_) |
-			Val::GIter(_) | Val::RFn(_) | Val::Class(_) | Val::GFn(_) | Val::Coro(_) | Val::RData(_) => ()
+			Val::Nil | Val::Int(_) | Val::Flo(_) | Val::Char(_) | 
+			Val::Bool(_) | Val::Sym(_) | Val::GIter(_) | Val::RFn(_) | 
+			Val::Class(_) | Val::GFn(_) | Val::Coro(_) | Val::RData(_) => ()
 		}
 	}
 
@@ -302,8 +303,9 @@ impl Val {
 				//todo
 				obj.freeze()
 			}
-			Val::Nil | Val::Int(_) | Val::Flo(_) | Val::Char(_) | Val::Bool(_) | Val::Sym(_) |
-			Val::GIter(_) | Val::RFn(_) | Val::Class(_) | Val::GFn(_) | Val::Coro(_) | Val::RData(_) => ()
+			Val::Nil | Val::Int(_) | Val::Flo(_) | Val::Char(_) | 
+			Val::Bool(_) | Val::Sym(_) | Val::GIter(_) | Val::RFn(_) | 
+			Val::Class(_) | Val::GFn(_) | Val::Coro(_) | Val::RData(_) => ()
 		}
 	}
 
@@ -649,7 +651,6 @@ impl Val {
 			(&Val::Char(_), &Val::Char(_)) => self.num_eq(other).unwrap(),
 			(&Val::Bool(b0), &Val::Bool(b1)) => b0 == b1,
 			(&Val::Sym(s0), &Val::Sym(s1)) => s0 == s1,
-			(&Val::RFn(r0), &Val::RFn(r1)) => r0 == r1,
 			(&Val::Arr(ref root0), &Val::Arr(ref root1)) => Root::ptr_eq(root0, root1),
 			(&Val::Str(ref root0), &Val::Str(ref root1)) => Root::ptr_eq(root0, root1),
 			(&Val::Tab(ref root0), &Val::Tab(ref root1)) => Root::ptr_eq(root0, root1),
@@ -659,6 +660,7 @@ impl Val {
 			(&Val::GFn(ref root0), &Val::GFn(ref root1)) => Root::ptr_eq(root0, root1),
 			(&Val::Coro(ref root0), &Val::Coro(ref root1)) => Root::ptr_eq(root0, root1),
 			(&Val::RData(ref root0), &Val::RData(ref root1)) => Root::ptr_eq(root0, root1),
+			(&Val::RFn(ref root0), &Val::RFn(ref root1)) => Root::ptr_eq(root0, root1),
 			_ => false
 		}
 	}
@@ -847,7 +849,6 @@ impl Hash for Hashable {
 			Val::Bool(b) => b.hash(state),
 			Val::Char(c) => c.hash(state),
 			Val::Sym(s) => s.hash(state),
-			Val::RFn(f) => f.hash(state),
 			Val::Arr(ref arr) => (**arr).hash(state),
 			Val::Str(ref st) => (**st).hash(state),
 			Val::Tab(ref root) => (&**root as *const _ as usize).hash(state),
@@ -856,7 +857,8 @@ impl Hash for Hashable {
 			Val::Class(ref root) => (&**root as *const _ as usize).hash(state),
 			Val::GFn(ref root) => (&**root as *const _ as usize).hash(state),
 			Val::Coro(ref root) => (&**root as *const _ as usize).hash(state),
-			Val::RData(ref root) => (&**root as *const _ as usize).hash(state)
+			Val::RData(ref root) => (&**root as *const _ as usize).hash(state),
+			Val::RFn(ref root) => (&**root as *const _ as usize).hash(state)
 		}
 	}
 }

@@ -1,7 +1,7 @@
 use glsp::{
 	Arr, bail, Callable, Class, Deque, DequeAccess, DequeAccessRange, DequeOps, ensure, 
-	EprWriter, FromVal, GIterLen, GResult, Iterable, IterableOps, Lib, Obj,
-	OrNil, Parser, PrWriter, rfn, RData, Root, stock_syms::*, Str, Tab, ToVal, Val
+	EprWriter, FromVal, GIterLen, GResult, IntoVal, Iterable, IterableOps, Obj,
+	Parser, PrWriter, RData, Rest, RGlobal, Root, stock_syms::*, Str, Tab, Val
 };
 use glsp_proc_macros::{backquote};
 use smallvec::{SmallVec};
@@ -13,78 +13,78 @@ use super::{Std};
 
 pub fn init(_sandboxed: bool) -> GResult<()> {
 	//apis shared between several collection types
-	glsp::bind_rfn("len", rfn!(len))?;
-	glsp::bind_rfn("empty?", rfn!(emptyp))?;
-	glsp::bind_rfn_macro("empty?", rfn!(emptyp_macro))?;
-	glsp::bind_rfn("clear!", rfn!(clear))?;
-	glsp::bind_rfn("access", rfn!(access))?;
-	glsp::bind_rfn("access=", rfn!(set_access))?;
-	glsp::bind_rfn("access-opt", rfn!(access_opt))?;
-	glsp::bind_rfn("access-opt=", rfn!(set_access_opt))?;
-	glsp::bind_rfn("access-slice", rfn!(access_slice))?;
-	glsp::bind_rfn("access-slice=", rfn!(set_access_slice))?;
-	glsp::bind_rfn("has?", rfn!(hasp))?;
-	glsp::bind_rfn("remove!", rfn!(remove))?;
-	glsp::bind_rfn("remove-opt!", rfn!(remove_opt))?;
-	glsp::bind_rfn("remove-slice!", rfn!(remove_slice))?;
-	glsp::bind_rfn("del!", rfn!(del))?;
-	glsp::bind_rfn("del-opt!", rfn!(del_opt))?;
-	glsp::bind_rfn("del-slice!", rfn!(del_slice))?;
-	glsp::bind_rfn("map-syntax", rfn!(map_syntax))?;
+	glsp::bind_rfn("len", &len)?;
+	glsp::bind_rfn("empty?", &emptyp)?;
+	glsp::bind_rfn_macro("empty?", &emptyp_macro)?;
+	glsp::bind_rfn("clear!", &clear)?;
+	glsp::bind_rfn("access", &access)?;
+	glsp::bind_rfn("access=", &set_access)?;
+	glsp::bind_rfn("access-opt", &access_opt)?;
+	glsp::bind_rfn("access-opt=", &set_access_opt)?;
+	glsp::bind_rfn("access-slice", &access_slice)?;
+	glsp::bind_rfn("access-slice=", &set_access_slice)?;
+	glsp::bind_rfn("has?", &hasp)?;
+	glsp::bind_rfn("remove!", &remove)?;
+	glsp::bind_rfn("remove-opt!", &remove_opt)?;
+	glsp::bind_rfn("remove-slice!", &remove_slice)?;
+	glsp::bind_rfn("del!", &del)?;
+	glsp::bind_rfn("del-opt!", &del_opt)?;
+	glsp::bind_rfn("del-slice!", &del_slice)?;
+	glsp::bind_rfn("map-syntax", &map_syntax)?;
 
 	//deque apis
-	glsp::bind_rfn("arr", rfn!(arr))?;
-	glsp::bind_rfn("arr-from-elem", rfn!(arr_from_elem))?;
-	glsp::bind_rfn("push!", rfn!(push))?;
-	glsp::bind_rfn("push-start!", rfn!(push_start))?;
-	glsp::bind_rfn("pop!", rfn!(pop))?;
-	glsp::bind_rfn("pop-start!", rfn!(pop_start))?;
-	glsp::bind_rfn("insert!", rfn!(insert))?;
-	glsp::bind_rfn("swap-remove!", rfn!(swap_remove))?;
-	glsp::bind_rfn("swap-remove-start!", rfn!(swap_remove_start))?;
-	glsp::bind_rfn("grow!", rfn!(grow))?;
-	glsp::bind_rfn("shrink!", rfn!(shrink))?;
-	glsp::bind_rfn("sort", rfn!(sort))?;
-	glsp::bind_rfn("sort!", rfn!(sort_mut))?;
-	glsp::bind_rfn("starts-with?", rfn!(starts_withp))?;
-	glsp::bind_rfn("ends-with?", rfn!(ends_withp))?;
-	glsp::bind_rfn("position", rfn!(position))?;
-	glsp::bind_rfn("rposition", rfn!(rposition))?;
-	glsp::bind_rfn("rev!", rfn!(rev_mut))?;
-	glsp::bind_rfn("map!", rfn!(map_mut))?;
-	glsp::bind_rfn("retain!", rfn!(retain))?;
-	glsp::bind_rfn("join", rfn!(join))?;
+	glsp::bind_rfn("arr", &arr)?;
+	glsp::bind_rfn("arr-from-elem", &arr_from_elem)?;
+	glsp::bind_rfn("push!", &push)?;
+	glsp::bind_rfn("push-start!", &push_start)?;
+	glsp::bind_rfn("pop!", &pop)?;
+	glsp::bind_rfn("pop-start!", &pop_start)?;
+	glsp::bind_rfn("insert!", &insert)?;
+	glsp::bind_rfn("swap-remove!", &swap_remove)?;
+	glsp::bind_rfn("swap-remove-start!", &swap_remove_start)?;
+	glsp::bind_rfn("grow!", &grow)?;
+	glsp::bind_rfn("shrink!", &shrink)?;
+	glsp::bind_rfn("sort", &sort)?;
+	glsp::bind_rfn("sort!", &sort_mut)?;
+	glsp::bind_rfn("starts-with?", &starts_withp)?;
+	glsp::bind_rfn("ends-with?", &ends_withp)?;
+	glsp::bind_rfn("position", &position)?;
+	glsp::bind_rfn("rposition", &rposition)?;
+	glsp::bind_rfn("rev!", &rev_mut)?;
+	glsp::bind_rfn("map!", &map_mut)?;
+	glsp::bind_rfn("retain!", &retain)?;
+	glsp::bind_rfn("join", &join)?;
 
 	//string apis
-	glsp::bind_rfn("str", rfn!(str))?;
-	glsp::bind_rfn("template-str", rfn!(template_str))?;
-	glsp::bind_rfn("pretty-str", rfn!(pretty_str))?;
-	glsp::bind_rfn("parse", rfn!(parse))?;
-	glsp::bind_rfn("parse-all", rfn!(parse_all))?;
-	glsp::bind_rfn("parse-1", rfn!(parse_1))?;
-	glsp::bind_rfn("unparse", rfn!(unparse))?;
-	glsp::bind_rfn("pretty-unparse", rfn!(pretty_unparse))?;
-	glsp::bind_rfn("pr", rfn!(pr))?;
-	glsp::bind_rfn("prn", rfn!(prn))?;
-	glsp::bind_rfn("pretty-prn", rfn!(pretty_prn))?;
-	glsp::bind_rfn("epr", rfn!(epr))?;
-	glsp::bind_rfn("eprn", rfn!(eprn))?;
-	glsp::bind_rfn("pretty-eprn", rfn!(pretty_eprn))?;
-	glsp::bind_rfn("uppercase", rfn!(uppercase))?;
-	glsp::bind_rfn("lowercase", rfn!(lowercase))?;
-	glsp::bind_rfn("replace", rfn!(replace))?;
-	glsp::bind_rfn("trim", rfn!(trim))?;
-	glsp::bind_rfn("trim-start", rfn!(trim_start))?;
-	glsp::bind_rfn("trim-end", rfn!(trim_end))?;
-	glsp::bind_rfn("pad", rfn!(pad))?;
-	glsp::bind_rfn("pad-start", rfn!(pad_start))?;
-	glsp::bind_rfn("pad-end", rfn!(pad_end))?;
-	glsp::bind_rfn("whitespace?", rfn!(whitespacep))?;
-	glsp::bind_rfn("contains?", rfn!(containsp))?;
+	glsp::bind_rfn("str", &str)?;
+	glsp::bind_rfn("template-str", &template_str)?;
+	glsp::bind_rfn("pretty-str", &pretty_str)?;
+	glsp::bind_rfn("parse", &parse)?;
+	glsp::bind_rfn("parse-all", &parse_all)?;
+	glsp::bind_rfn("parse-1", &parse_1)?;
+	glsp::bind_rfn("unparse", &unparse)?;
+	glsp::bind_rfn("pretty-unparse", &pretty_unparse)?;
+	glsp::bind_rfn("pr", &pr)?;
+	glsp::bind_rfn("prn", &prn)?;
+	glsp::bind_rfn("pretty-prn", &pretty_prn)?;
+	glsp::bind_rfn("epr", &epr)?;
+	glsp::bind_rfn("eprn", &eprn)?;
+	glsp::bind_rfn("pretty-eprn", &pretty_eprn)?;
+	glsp::bind_rfn("uppercase", &uppercase)?;
+	glsp::bind_rfn("lowercase", &lowercase)?;
+	glsp::bind_rfn("replace", &replace)?;
+	glsp::bind_rfn("trim", &trim)?;
+	glsp::bind_rfn("trim-start", &trim_start)?;
+	glsp::bind_rfn("trim-end", &trim_end)?;
+	glsp::bind_rfn("pad", &pad)?;
+	glsp::bind_rfn("pad-start", &pad_start)?;
+	glsp::bind_rfn("pad-end", &pad_end)?;
+	glsp::bind_rfn("whitespace?", &whitespacep)?;
+	glsp::bind_rfn("contains?", &containsp)?;
 
 	//table apis
-	glsp::bind_rfn("tab", rfn!(tab))?;
-	glsp::bind_rfn("extend!", rfn!(extend))?;
+	glsp::bind_rfn("tab", &tab)?;
+	glsp::bind_rfn("extend!", &extend)?;
 
 	Ok(())
 }
@@ -95,12 +95,12 @@ fn len(arg: Val) -> GResult<Val> {
 		Val::Str(st) => st.len(),
 		Val::Tab(tab) => tab.len(),
 		Val::GIter(giter) => {
-			return giter.len().to_val()
+			return giter.len().into_val()
 		}
 		arg => bail!("argument is {} rather than an arr, str or tab", arg.a_type_name())
 	};
 
-	collection_len.to_val()
+	collection_len.into_val()
 }
 
 fn emptyp(any: Val) -> GResult<bool> {
@@ -204,8 +204,8 @@ fn remove_opt(coll: Val, index: Val) -> GResult<Option<Val>> {
 	}
 }
 
-fn remove_slice(deq: Deque, OrNil(i0): OrNil<i32>, OrNil(i1): OrNil<i32>) -> GResult<Deque> {
-	let result = access_slice(deq.clone(), OrNil(i0), OrNil(i1))?;
+fn remove_slice(deq: Deque, i0: Option<i32>, i1: Option<i32>) -> GResult<Deque> {
+	let result = access_slice(deq.clone(), i0, i1)?;
 
 	let i0 = i0.unwrap_or(0);
 	let i1 = i1.unwrap_or(deq.len() as i32);
@@ -260,7 +260,7 @@ fn del_opt(coll: Val, key: Val) -> GResult<()> {
 	Ok(())
 }
 
-fn del_slice(deq: Deque, OrNil(i0): OrNil<i32>, OrNil(i1): OrNil<i32>) -> GResult<()> {
+fn del_slice(deq: Deque, i0: Option<i32>, i1: Option<i32>) -> GResult<()> {
 	let i0 = i0.unwrap_or(0);
 	let i1 = i1.unwrap_or(deq.len() as i32);
 	deq.del_slice(i0 .. i1)
@@ -449,7 +449,7 @@ fn set_access_opt(coll: Val, index: Val, new_value: Val) -> GResult<()> {
 	Ok(())
 }
 
-fn arr(args: &[Val]) -> GResult<Root<Arr>> {
+fn arr(args: Rest<Val>) -> GResult<Root<Arr>> {
 	glsp::arr_from_iter(args.iter())
 }
 
@@ -457,11 +457,11 @@ fn arr_from_elem(elem: Val, reps: usize) -> GResult<Root<Arr>> {
 	glsp::arr_from_elem(elem, reps)
 }
 
-fn push(deq: Deque, to_push: &[Val]) -> GResult<()> {
+fn push(deq: Deque, to_push: Rest<Val>) -> GResult<()> {
 	deq.extend(to_push)
 }
 
-fn push_start(deq: Deque, to_push: &[Val]) -> GResult<()> {
+fn push_start(deq: Deque, to_push: Rest<Val>) -> GResult<()> {
 	deq.reserve(to_push.len())?;
 	for val in to_push.iter().rev() {
 		deq.push_start(val)?;
@@ -486,7 +486,7 @@ fn shrink(deq: Deque, start_to_remove: usize, end_to_remove: usize) -> GResult<(
 	deq.shrink(start_to_remove, end_to_remove)
 }
 
-fn insert(deq: Deque, index: i32, vals: &[Val]) -> GResult<()> {
+fn insert(deq: Deque, index: i32, vals: Rest<Val>) -> GResult<()> {
 	let orig_len = deq.len();
 	deq.grow(0, vals.len(), deq.fill())?;
 
@@ -511,8 +511,8 @@ fn swap_remove_start(deq: Deque, index: i32) -> GResult<Val> {
 
 fn access_slice(
 	deq: Deque,
-	OrNil(i0): OrNil<i32>,
-	OrNil(i1): OrNil<i32>
+	i0: Option<i32>,
+	i1: Option<i32>
 ) -> GResult<Deque> {
 
 	let len = deq.len() as i32;
@@ -529,8 +529,8 @@ fn access_slice(
 
 fn set_access_slice(
 	deq: Deque,
-	OrNil(i0): OrNil<i32>,
-	OrNil(i1): OrNil<i32>,
+	i0: Option<i32>,
+	i1: Option<i32>,
 	src: Iterable
 ) -> GResult<()> {
 
@@ -643,10 +643,11 @@ fn sort(deq: Deque, ord: Option<Callable>) -> GResult<Deque> {
 fn sort_mut(deq: Deque, ord: Option<Callable>) -> GResult<()> {
 	match ord {
 		None => deq.sort(),
-		Some(Callable::RFn(rfn)) if rfn == Std::borrow().ord_rfn.unwrap() => deq.sort(),
+		Some(Callable::RFn(ref rfn))
+			if Root::ptr_eq(rfn, Std::borrow().ord_rfn.as_ref().unwrap()) => deq.sort(),
 		Some(ord) => {
 			deq.sort_by(|v0, v1| {
-				match glsp::call(&ord, &[v0, v1])? {
+				match glsp::call(&ord, (v0, v1,))? {
 					Val::Sym(LT_SYM) => Ok(Ordering::Less),
 					Val::Sym(NUM_EQ_SYM) => Ok(Ordering::Equal),
 					Val::Sym(GT_SYM) => Ok(Ordering::Greater),
@@ -842,7 +843,7 @@ fn retain(callable: Callable, deque: Deque) -> GResult<()> {
 
 	while in_i < deque.len() {
 		let val = deque.get::<Val>(in_i)?;
-		let result: Val = glsp::call(&callable, &[&val])?;
+		let result: Val = glsp::call(&callable, (&val,))?;
 		if result.is_truthy() {
 			if in_i != out_i {
 				deque.set(out_i, val)?;
@@ -953,15 +954,15 @@ where
 	Ok(())
 }
 
-fn str(args: &[Val]) -> Root<Str> {
+fn str(args: Rest<Val>) -> Root<Str> {
 	let mut st = glsp::str();
-	build_msg(&mut st, args, true).unwrap();
+	build_msg(&mut st, &args, true).unwrap();
 	st
 }
 
-fn template_str(args: &[Val]) -> Root<Str> {
+fn template_str(args: Rest<Val>) -> Root<Str> {
 	let mut st = glsp::str();
-	build_msg(&mut st, args, true).unwrap();
+	build_msg(&mut st, &args, true).unwrap();
 	st
 }
 
@@ -1022,7 +1023,7 @@ fn parse_1(text: &str, filename: Option<&str>) -> GResult<Val> {
 	glsp::parse_1(text, filename)
 }
 
-fn unparse(args: &[Val]) -> GResult<String> {
+fn unparse(args: Rest<Val>) -> GResult<String> {
 	use std::fmt::Write;
 	
 	let mut builder = String::new();
@@ -1058,13 +1059,13 @@ impl<'a, T: io::Write> fmt::Write for IoFmtAdapter<'a, T> {
 	}
 }
 
-fn pr(args: &[Val]) {
-	build_msg(IoFmtAdapter(&mut PrWriter), args, true).ok();
+fn pr(args: Rest<Val>) {
+	build_msg(IoFmtAdapter(&mut PrWriter), &*args, true).ok();
 	PrWriter.flush().ok();
 }
 
-fn prn(args: &[Val]) {
-	build_msg(IoFmtAdapter(&mut PrWriter), args, true).ok();
+fn prn(args: Rest<Val>) {
+	build_msg(IoFmtAdapter(&mut PrWriter), &*args, true).ok();
 	writeln!(PrWriter).ok();
 }
 
@@ -1072,13 +1073,13 @@ fn pretty_prn(arg: Val) {
 	writeln!(PrWriter, "{:#}", arg).ok();
 }
 
-fn epr(args: &[Val]) {
-	build_msg(IoFmtAdapter(&mut EprWriter), args, true).ok();
+fn epr(args: Rest<Val>) {
+	build_msg(IoFmtAdapter(&mut EprWriter), &*args, true).ok();
 	EprWriter.flush().ok();
 }
 
-fn eprn(args: &[Val]) {
-	build_msg(IoFmtAdapter(&mut EprWriter), args, true).ok();
+fn eprn(args: Rest<Val>) {
+	build_msg(IoFmtAdapter(&mut EprWriter), &*args, true).ok();
 	writeln!(EprWriter).ok();
 }
 
@@ -1230,20 +1231,20 @@ fn containsp(haystack: &Str, needle: Val) -> GResult<bool> {
 	Ok(false)
 }
 
-fn tab(entries: &[(Val, Val)]) -> GResult<Root<Tab>> {
+fn tab(entries: Rest<(Val, Val)>) -> GResult<Root<Tab>> {
 	let tab = glsp::tab_with_capacity(entries.len());
 
-	for &(ref key, ref val) in entries {
+	for &(ref key, ref val) in &entries {
 		tab.set(key, val)?;
 	}
 	
 	Ok(tab)
 }
 
-fn extend(tab: Root<Tab>, entries: &[(Val, Val)]) -> GResult<()> {
+fn extend(tab: Root<Tab>, entries: Rest<(Val, Val)>) -> GResult<()> {
 	ensure!(tab.can_mutate(), "attempted to mutate an immutable tab");
 
-	for &(ref key, ref val) in entries {
+	for &(ref key, ref val) in &entries {
 		tab.set(key, val)?;
 	}
 	

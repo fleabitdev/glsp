@@ -163,7 +163,7 @@ Used as a parameter or return value by [`glsp::bind_macro`](fn.bind_macro.html),
 #[derive(Clone, Debug)]
 pub enum Expander {
 	GFn(Root<GFn>),
-	RFn(RFn)
+	RFn(Root<RFn>)
 }
 
 /**
@@ -694,7 +694,7 @@ fn maybe_call_expander(
 		let args = SmallVec::<[Val; 16]>::from_iter(arr.iter().skip(1));
 
 		let result = match expander {
-			Expander::RFn(rfn) => {
+			Expander::RFn(ref rfn) => {
 				let override_name = if overridden {
 					Some(rfn.name())
 				} else {
