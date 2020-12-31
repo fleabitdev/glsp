@@ -4,7 +4,7 @@ use super::code::{GFn};
 use super::collections::{Arr, DequeAccess, DequeOps, Tab};
 use super::engine::{glsp, Guard, Sym, stock_syms::*, ToSym, with_heap, with_vm};
 use super::error::{GResult};
-use super::gc::{Allocate, Gc, GcHeader, Slot, Root, Visitor};
+use super::gc::{Allocate, Raw, Header, Slot, Root, Visitor};
 use super::iter::{GIter, GIterState};
 use super::val::{Val};
 use super::wrap::{CallableOps, FromVal, IntoCallArgs, IntoVal};
@@ -21,7 +21,7 @@ the `class` macro converts its input into a raw-class tab (which is a fairly str
 of its fields, except that the state hierarchy is flattened and any toplevel items are bundled into
 a `Main` state). it expands to a call to (%make-class the-raw-class-tab). any method bodies and 
 field/const initializers receive some light preprocessing for @ forms, etc., and then emit a
-(fn) form which is passed to the next stages as a Gc<GFn>.
+(fn) form which is passed to the next stages as a Raw<GFn>.
 
 make-class converts its input raw-class tab into a RawClass struct (again, pretty much a one-to-one
 translation). for each mixin, that mixin's RawClass is applied to the target RawClass, mutating it.
@@ -43,8 +43,8 @@ the type [`Root<Obj>`](struct.Root.html).
 */
 
 pub struct Obj {
-	header: GcHeader,
-	class: Gc<Class>,
+	header: Header,
+	class: Raw<Class>,
 	storage: RefCell<Option<ObjStorage>> //None for a killed obj
 }
 
@@ -59,7 +59,7 @@ struct ObjStorage {
 	states_enabled: u32,
 
 	//we need this field to generate a `self` argument when obj.call() is invoked from rust code
-	gc_self: Gc<Obj>
+	raw_self: Raw<Obj>
 }
 
 /**
@@ -74,7 +74,7 @@ the type [`Root<Class>`](struct.Root.html).
 */
 
 pub struct Class {
-	header: GcHeader,
+	header: Header,
 	name: Option<Sym>,
 	is_mixin: bool,
 
@@ -93,7 +93,7 @@ pub struct Class {
 
 	//we store references to the class' mixins in no particular order, since we only use this 
 	//field to implement the (is?) function.
-	is: FnvHashSet<Gc<Class>>,
+	is: FnvHashSet<Raw<Class>>,
 
 	//likewise, we can store states in no particular order, since all of the state-priority 
 	//information is available in `State`, `field_stack` and `met_stack`.
@@ -163,7 +163,7 @@ enum MetBinding {
 	//a method which does not participate in stacking. the u8 is the state index. the GFn can
 	//be called directly, passing in a `self` Slot::Obj as its first parameter, and a
 	//`next_base_index` (int or nil) as the second parameter if the bool flag is true.
-	Simple(u8, Gc<GFn>, bool),
+	Simple(u8, Raw<GFn>, bool),
 
 	//a method which may be stacked. works similar to StackableField, except that the only two
 	//options are "end of stack" or "method binding"
@@ -185,7 +185,7 @@ enum FieldStackEntry {
 //see MetBinding::Stackable, above
 #[derive(Clone)]
 enum MetStackEntry {
-	Met(u8, Gc<GFn>, bool),
+	Met(u8, Raw<GFn>, bool),
 	End
 }
 
@@ -236,7 +236,7 @@ impl Class {
 		//neither of which can actually be checked for an unmixed mixin!)
 		if raw_class.is_mixin {
 			Ok(Class {
-				header: GcHeader::new(),
+				header: Header::new(),
 				name: raw_class.name,
 				is_mixin: true,
 
@@ -395,7 +395,7 @@ impl Class {
 	Equivalent to [`[cls iter]`](https://gamelisp.rs/std/access).
 	*/
 	pub fn access_giter(class: &Root<Class>, giter: &Root<GIter>) -> Root<GIter> {
-		glsp::giter(GIterState::AccessClass(class.to_gc(), giter.to_gc()))
+		glsp::giter(GIterState::AccessClass(class.to_raw(), giter.to_raw()))
 	}
 
 	/**
@@ -433,7 +433,7 @@ impl Class {
 	Equivalent to [`(class-has-mixin? cls mixin)`](https://gamelisp.rs/std/class-has-mixin-p).
 	*/
 	pub fn has_mixin(&self, mixin: &Root<Class>) -> bool {
-		self.is.contains(mixin.as_gc())
+		self.is.contains(mixin.as_raw())
 	}
 
 	/**
@@ -495,7 +495,7 @@ impl CallableOps for Root<Class> {
 	}
 }
 
-impl CallableOps for Gc<Class> {
+impl CallableOps for Raw<Class> {
 	fn receive_call(&self, arg_count: usize) -> GResult<Val> {
 		self.root().receive_call(arg_count)
 	}
@@ -526,7 +526,7 @@ enum LookupMut<'a> {
 }
 
 pub(crate) struct MetLookup {
-	pub(crate) gfn: Gc<GFn>,
+	pub(crate) gfn: Raw<GFn>,
 	pub(crate) requires_next_index: bool,
 	pub(crate) next_index: Option<u16>
 }
@@ -540,8 +540,8 @@ impl Obj {
 		        class.name.unwrap());
 
 		let obj = Obj {
-			header: GcHeader::new(),
-			class: Gc::from_root(class),
+			header: Header::new(),
+			class: Raw::from_root(class),
 			storage: RefCell::new(None)
 		};
 
@@ -551,7 +551,7 @@ impl Obj {
 		*root.storage.borrow_mut() = Some(ObjStorage {
 			fields: vec![Slot::Nil; class.field_count],
 			states_enabled: 0,
-			gc_self: root.to_gc()
+			raw_self: root.to_raw()
 		});
 
 		with_heap(|heap| heap.memory_usage_barrier(&*root, prev_usage, root.memory_usage()));
@@ -903,7 +903,7 @@ impl Obj {
 	Equivalent to [`[ob iter]`](https://gamelisp.rs/std/access).
 	*/
 	pub fn access_giter(obj: &Root<Obj>, giter: &Root<GIter>) -> Root<GIter> {
-		glsp::giter(GIterState::AccessObj(obj.to_gc(), giter.to_gc()))
+		glsp::giter(GIterState::AccessObj(obj.to_raw(), giter.to_raw()))
 	}
 
 	//returns the information required for vm.rs to invoke a method. the first Slot is always a 
@@ -1053,7 +1053,7 @@ impl Obj {
 			let mut stacks = vm.stacks.borrow_mut();
 			let starting_len = stacks.regs.len();
 
-			stacks.regs.push(Slot::Obj(self.storage.borrow().as_ref().unwrap().gc_self.clone()));
+			stacks.regs.push(Slot::Obj(self.storage.borrow().as_ref().unwrap().raw_self.clone()));
 
 			if met_lookup.requires_next_index {
 				let next_index_slot = match met_lookup.next_index {
@@ -1408,12 +1408,12 @@ impl PartialEq<Root<Obj>> for Obj {
 //-------------------------------------------------------------------------------------------------
 
 impl Allocate for Obj {
-	fn header(&self) -> &GcHeader {
+	fn header(&self) -> &Header {
 		&self.header
 	}
 
-	fn visit_gcs<V: Visitor>(&self, visitor: &mut V) {
-		visitor.visit_gc(&self.class);
+	fn visit_raws<V: Visitor>(&self, visitor: &mut V) {
+		visitor.visit_raw(&self.class);
 		
 		let storage_ref = self.storage.borrow();
 		if let Some(ref storage) = *storage_ref {
@@ -1421,11 +1421,11 @@ impl Allocate for Obj {
 				visitor.visit_slot(field);
 			}
 
-			visitor.visit_gc(&storage.gc_self);
+			visitor.visit_raw(&storage.raw_self);
 		}
 	}
 
-	fn clear_gcs(&self) {
+	fn clear_raws(&self) {
 		*self.storage.borrow_mut() = None;
 	}
 
@@ -1440,24 +1440,24 @@ impl Allocate for Obj {
 }
 
 impl Allocate for Class {
-	fn header(&self) -> &GcHeader {
+	fn header(&self) -> &Header {
 		&self.header
 	}
 
-	fn visit_gcs<V: Visitor>(&self, visitor: &mut V) {
+	fn visit_raws<V: Visitor>(&self, visitor: &mut V) {
 		for binding in self.bindings.values() {
 			match *binding {
 				Binding::SimpleField(_, _) => (),
 				Binding::SimpleConst(_, ref val) => visitor.visit_slot(val),
 				Binding::StackableField(_) => (),
-				Binding::Met(MetBinding::Simple(_, ref gfn, _)) => visitor.visit_gc(gfn),
+				Binding::Met(MetBinding::Simple(_, ref gfn, _)) => visitor.visit_raw(gfn),
 				Binding::Met(MetBinding::Stackable(_, _)) => (),
 				Binding::Prop(ref getter, ref setter) => {
 					if let Some(MetBinding::Simple(_, ref gfn, _)) = *getter {
-						visitor.visit_gc(gfn);
+						visitor.visit_raw(gfn);
 					}
 					if let Some(MetBinding::Simple(_, ref gfn, _)) = *setter {
-						visitor.visit_gc(gfn);
+						visitor.visit_raw(gfn);
 					}
 				}
 			}
@@ -1473,19 +1473,19 @@ impl Allocate for Class {
 
 		for entry in &self.met_stack {
 			match *entry {
-				MetStackEntry::Met(_, ref gfn, _) => visitor.visit_gc(gfn),
+				MetStackEntry::Met(_, ref gfn, _) => visitor.visit_raw(gfn),
 				MetStackEntry::End => ()
 			}
 		}
 
 		for class in &self.is {
-			visitor.visit_gc(class);
+			visitor.visit_raw(class);
 		}
 
 		for state in self.states.values() {
 			for met_binding in state.init.iter().chain(state.finis.iter()) {
 				match *met_binding {
-					MetBinding::Simple(_, ref gfn, _) => visitor.visit_gc(gfn),
+					MetBinding::Simple(_, ref gfn, _) => visitor.visit_raw(gfn),
 					MetBinding::Stackable(_, _) => ()
 				}
 			}
@@ -1493,11 +1493,11 @@ impl Allocate for Class {
 
 		if let Some(raw_class) = self.raw_class.as_ref() {
 			for class in &raw_class.mixins {
-				visitor.visit_gc(class);
+				visitor.visit_raw(class);
 			}
 
 			for raw_init in raw_class.inits.iter().chain(raw_class.finis.iter()) {
-				visitor.visit_gc(&raw_init.gfn);
+				visitor.visit_raw(&raw_init.gfn);
 			}
 
 			for binding in &raw_class.bindings {
@@ -1505,23 +1505,23 @@ impl Allocate for Class {
 					RawBindee::Field => (),
 					RawBindee::PreConst(ref gfn) => {
 						if let Some(ref gfn) = *gfn {
-							visitor.visit_gc(gfn)
+							visitor.visit_raw(gfn)
 						}
 					}
 					RawBindee::Const(ref slot) => visitor.visit_slot(slot),
 
-					RawBindee::Met(ref gfn) => visitor.visit_gc(gfn),
-					RawBindee::Wrap(_, ref gfn) => visitor.visit_gc(gfn),
-					RawBindee::WildcardWrap(ref gfn) => visitor.visit_gc(gfn), 
+					RawBindee::Met(ref gfn) => visitor.visit_raw(gfn),
+					RawBindee::Wrap(_, ref gfn) => visitor.visit_raw(gfn),
+					RawBindee::WildcardWrap(ref gfn) => visitor.visit_raw(gfn), 
 
 					RawBindee::Prop(_, _, ref get, ref set) |
 					RawBindee::WrapProp(_, _, _, ref get, ref set) |
 					RawBindee::WildcardWrapProp(_, _, ref get, ref set) => {
 						if let Some(ref get) = *get {
-							visitor.visit_gc(get);
+							visitor.visit_raw(get);
 						}
 						if let Some(ref set) = *set {
-							visitor.visit_gc(set);
+							visitor.visit_raw(set);
 						}
 					}
 				}
@@ -1529,7 +1529,7 @@ impl Allocate for Class {
 		}
 	}
 
-	fn clear_gcs(&self) {
+	fn clear_raws(&self) {
 		//deliberate no-op
 	}
 
@@ -1538,7 +1538,7 @@ impl Allocate for Class {
 		let basic = self.bindings.capacity() * size_of::<(Sym, Binding)>()
 		+ self.field_stack.capacity() * size_of::<FieldStackEntry>()
 		+ self.met_stack.capacity() * size_of::<MetStackEntry>()
-		+ self.is.capacity() * size_of::<Gc<Class>>()
+		+ self.is.capacity() * size_of::<Raw<Class>>()
 		+ self.states.capacity() * size_of::<(Sym, State)>();
 
 		let mut states = 0usize;
@@ -1550,7 +1550,7 @@ impl Allocate for Class {
 
 		let raw_class = if let Some(raw_class) = self.raw_class.as_ref() {
 			let mut raw = size_of::<RawClass>() +
-			raw_class.mixins.capacity() * size_of::<Vec<Gc<Class>>>() +
+			raw_class.mixins.capacity() * size_of::<Vec<Raw<Class>>>() +
 			raw_class.states.capacity() * size_of::<State>() +
 			raw_class.bindings.capacity() * size_of::<RawBinding>() +
 			raw_class.inits.capacity() * size_of::<RawInit>() +
@@ -1579,7 +1579,7 @@ impl Allocate for Class {
 struct RawClass {
 	name: Option<Sym>,
 	is_mixin: bool,
-	mixins: Vec<Gc<Class>>,
+	mixins: Vec<Raw<Class>>,
 	states: Vec<State>,
 	bindings: Vec<RawBinding>,
 	inits: Vec<RawInit>,
@@ -1606,17 +1606,17 @@ struct RawBinding {
 #[derive(Clone)]
 enum RawBindee {
 	Field,
-	PreConst(Option<Gc<GFn>>),
+	PreConst(Option<Raw<GFn>>),
 	Const(Slot),
 
-	Met(Gc<GFn>), //met_gfn
-	Wrap(Sym, Gc<GFn>), // qualified_dst, met_gfn
-	WildcardWrap(Gc<GFn>), // met_gfn
+	Met(Raw<GFn>), //met_gfn
+	Wrap(Sym, Raw<GFn>), // qualified_dst, met_gfn
+	WildcardWrap(Raw<GFn>), // met_gfn
 	
 	//all start with qualified_get, qualified_set. then...
-	Prop(Sym, Sym, Option<Gc<GFn>>, Option<Gc<GFn>>), //get_gfn, set_gfn
-	WrapProp(Sym, Sym, Sym, Option<Gc<GFn>>, Option<Gc<GFn>>), // qualified_dst, get_gfn, set_gfn
-	WildcardWrapProp(Sym, Sym, Option<Gc<GFn>>, Option<Gc<GFn>>), // get_gfn, set_gfn
+	Prop(Sym, Sym, Option<Raw<GFn>>, Option<Raw<GFn>>), //get_gfn, set_gfn
+	WrapProp(Sym, Sym, Sym, Option<Raw<GFn>>, Option<Raw<GFn>>), // qualified_dst, get_gfn, set_gfn
+	WildcardWrapProp(Sym, Sym, Option<Raw<GFn>>, Option<Raw<GFn>>), // get_gfn, set_gfn
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -1640,7 +1640,7 @@ impl RawBindee {
 #[derive(Clone)]
 struct RawInit {
 	state_name: Sym, //Main for init, init-mixin, fini, or fini-mixin
-	gfn: Gc<GFn>,
+	gfn: Raw<GFn>,
 	requires_next_index: bool
 }
 
@@ -1666,11 +1666,11 @@ impl RawClass {
 	fn from_tab(tab: &Tab) -> GResult<RawClass> {
 		let name = tab.get_if_present::<_, Sym>(NAME_SYM)?;
 		let is_mixin = tab.get::<_, bool>(MIXINP_SYM)?;
-		let mixins = tab.get::<_, Vec<Gc<Class>>>(MIXIN_SYM)?;
+		let mixins = tab.get::<_, Vec<Raw<Class>>>(MIXIN_SYM)?;
 
 		let mut states = Vec::<State>::new();
-		let states_arr = tab.get::<_, Gc<Arr>>(STATES_SYM)?;
-		for maybe_state_tab in states_arr.iter_to::<Gc<Tab>>() {
+		let states_arr = tab.get::<_, Raw<Arr>>(STATES_SYM)?;
+		for maybe_state_tab in states_arr.iter_to::<Raw<Tab>>() {
 			let state_tab = maybe_state_tab?;
 
 			ensure!(states.len() <= 32, "{} states in a class, but the limit is 31",
@@ -1690,8 +1690,8 @@ impl RawClass {
 			.map(|(i, state)| (state.name, i as u8)));
 
 		let mut bindings = Vec::<RawBinding>::new();
-		let bindings_arr: Gc<Arr> = tab.get(BINDINGS_SYM)?;
-		for maybe_arr in bindings_arr.iter_to::<Gc<Arr>>() {
+		let bindings_arr: Raw<Arr> = tab.get(BINDINGS_SYM)?;
+		for maybe_arr in bindings_arr.iter_to::<Raw<Arr>>() {
 			let arr = maybe_arr?;
 
 			ensure!(arr.len() >= 4);
@@ -1753,16 +1753,16 @@ impl RawClass {
 		}
 
 		let mut inits = Vec::<RawInit>::new();
-		let inits_arr: Gc<Arr> = tab.get(INITS_SYM)?;
+		let inits_arr: Raw<Arr> = tab.get(INITS_SYM)?;
 		for i in 0 .. inits_arr.len() {
-			let (state_name, gfn, requires_next_index): (Sym, Gc<GFn>, bool) = inits_arr.get(i)?;
+			let (state_name, gfn, requires_next_index): (Sym, Raw<GFn>, bool) = inits_arr.get(i)?;
 			inits.push(RawInit { state_name, gfn, requires_next_index });
 		}
 
 		let mut finis = Vec::<RawInit>::new();
-		let finis_arr: Gc<Arr> = tab.get(FINIS_SYM)?;
+		let finis_arr: Raw<Arr> = tab.get(FINIS_SYM)?;
 		for i in 0 .. finis_arr.len() {
-			let (state_name, gfn): (Sym, Gc<GFn>) = finis_arr.get(i)?;
+			let (state_name, gfn): (Sym, Raw<GFn>) = finis_arr.get(i)?;
 			finis.push(RawInit { state_name, gfn, requires_next_index: false });
 		}
 
@@ -1836,7 +1836,7 @@ impl RawClass {
 		Ok(())
 	}
 
-	fn apply_mixin(&mut self, mixin: Gc<Class>) -> GResult<()> {
+	fn apply_mixin(&mut self, mixin: Raw<Class>) -> GResult<()> {
 		let raw_mixin = mixin.raw_class.as_ref().unwrap();
 
 		//copy over all of the inits and finis
@@ -1889,7 +1889,7 @@ impl RawClass {
 //so we use this struct to store some persistent state
 struct ClassBuilder {
 	raw_class: Box<RawClass>,
-	is: FnvHashSet<Gc<Class>>,
+	is: FnvHashSet<Raw<Class>>,
 	states: FnvHashMap<Sym, State>,
 	bindings: FnvHashMap<Sym, Binding>,
 	field_count: u16,
@@ -2523,7 +2523,7 @@ impl ClassBuilder {
 
 	fn into_class(self) -> Class {
 		Class {
-			header: GcHeader::new(),
+			header: Header::new(),
 			name: self.raw_class.name,
 			is_mixin: self.raw_class.is_mixin,
 

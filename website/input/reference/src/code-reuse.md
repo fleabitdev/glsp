@@ -316,3 +316,44 @@ parameter. States make it easy to compartmentalize the class into two sub-types.
 	    (const weapon-name 'pike)
 	    (met select-action ()
 	      ...)))
+
+
+## Aside: Why Not ECS?
+
+The Entity-Component-System pattern (ECS) is currently very popular among Rust game developers.
+
+With strict use of an ECS, entities are completely refactored into small, independent components. 
+All game code must be written in terms of those components, rather than directly manipulating 
+individual entities. In exchange for this inconvenience, ECS provides excellent performance.
+
+Architecturally speaking, ECS is an appropriate choice for games with intricate, complex 
+rule systems. The ECS will encourage you to generalise anything which can possibly
+be generalised; this can reduce the risk that your game's complexity will spiral out of
+control. Herbert Wolverson demonstrates the advantages of this approach in his excellent 
+[roguelike tutorial](https://bfnightly.bracketproductions.com/).
+
+However, ECS carries a major disadvantage: it makes it more difficult to write code
+which *isn't* generalised.
+
+Let's suppose you were recreating Super Mario Bros. 3 using an ECS, and you needed to program 
+the behaviour of [the final boss, Bowser](https://youtu.be/L7aJxY65QDc?t=145). Bowser has an 
+attack which isn't seen anywhere else in the game: he leaps into the air and strikes downwards, 
+destroying any scenery beneath him. When he finally breaks through the floor, there's a special 
+sound effect, the screen shakes, and the exit door opens. The uniqueness of this attack is what 
+makes the battle so exciting!
+
+In practice, the simplest way to make all of this work with a strict ECS would be to define a 
+`BowserComponent` and `BowserSystem`, both of which are only ever used by this single entity. 
+They would almost certainly be more difficult to write, and have worse performance, compared to 
+a naive object-oriented approach. If most of your entities are as unique as Bowser, defining a 
+new `System` for each of them would be tedious.
+
+GameLisp is designed for games in which most entities are "special" in some way; games where each 
+entity's unique features are best described using code, rather than plain data. Because this 
+type of game tends to be a poor fit for the ECS pattern, GameLisp wasn't designed with ECS in 
+mind. Trying to integrate GameLisp with a pure, strict ECS would be unwise.
+
+However, many games take the middle road: they define a few generalised entity features using 
+an ECS, while still permitting individual entities to be scripted using a more traditional 
+object-oriented approach. For those games, GameLisp would be a good choice. A few technical 
+challenges are discussed in [Section 2](rglobal.md#using-gamelisp-with-ecs).

@@ -24,8 +24,8 @@ use super::code::{Coro, GFn};
 use super::collections::{Arr, DequeAccess, DequeOps, IntoElement, Str, Tab};
 use super::error::{GResult};
 use super::eval::{Env, EnvMode, Expander, Expansion};
-use super::gc::{Allocate, Heap, Gc, GcHeader, Slot, Root, Visitor};
-use super::iter::{GcCallable, GIter, GIterState, Iterable, IterableOps};
+use super::gc::{Allocate, Gc, GcVisitor, Heap, Raw, Header, Slot, Root, Visitor};
+use super::iter::{RawCallable, GIter, GIterState, Iterable, IterableOps};
 use super::parse::{Parser};
 use super::transform::{KnownOp, known_ops};
 use super::val::{Num, Val};
@@ -48,7 +48,6 @@ use super::{code::Stay, compile::{Action, Recording}};
 
 thread_local! {
 	static ACTIVE_ENGINE: RefCell<Option<Rc<EngineStorage>>> = RefCell::new(None);
-	pub(crate) static ACTIVE_ENGINE_ID: Cell<Option<u8>> = Cell::new(None);
 
 	//a bitset used for assigning engine ids. one bit for each possible id; the bit is set if an 
 	//engine is currently using that id. it's an error for more than 256 engines to coexist
@@ -361,7 +360,7 @@ impl Drop for Engine {
 			Ok(())
 		});
 
-		free_engine_id(self.0.id);
+		free_engine_id(self.0.heap.engine_id);
 
 		//this should be guaranteed, i think, since engine.run() borrows the Engine so that it
 		//can't be dropped, and there should be no other source for an Rc<EngineStorage>.
@@ -370,7 +369,6 @@ impl Drop for Engine {
 }
 
 struct EngineStorage {
-	id: u8,
 	heap: Heap,
 	vm: Vm,
 
@@ -444,8 +442,7 @@ impl Engine {
 		let filenames = vec!["".into()];
 
 		let engine = Engine(Rc::new(EngineStorage {
-			id: alloc_engine_id().expect("more than 256 simultaneous Runtimes"),
-			heap: Heap::new(),
+			heap: Heap::new(alloc_engine_id().expect("more than 256 simultaneous Runtimes")),
 			vm: Vm::new(),
 
 			pr_writer: RefCell::new(Box::new(stdout())),
@@ -490,19 +487,12 @@ impl Engine {
 		F: FnOnce() -> GResult<R>
 	{
 		let old_active_engine = ACTIVE_ENGINE.with(|ref_cell| {
-			ref_cell.replace(Some(self.0.clone()))
-		});
-
-		let old_engine_id = ACTIVE_ENGINE_ID.with(|cell| {
-			cell.replace(Some(self.0.id))
+			ref_cell.replace(Some(Rc::clone(&self.0)))
 		});
 
 		let _guard = Guard::new(|| {
 			ACTIVE_ENGINE.with(|ref_cell| {
 				ref_cell.replace(old_active_engine);
-			});
-			ACTIVE_ENGINE_ID.with(|cell| {
-				cell.set(old_engine_id);
 			});
 		});
 
@@ -706,22 +696,22 @@ the type [`Root<RFn>`](struct.Root.html).
 */
 
 pub struct RFn {
-	header: GcHeader,
+	header: Header,
 
 	pub(crate) name: Cell<Option<Sym>>,
 	wrapped_fn: Box<dyn WrappedCall>
 }
 
 impl Allocate for RFn {
-	fn header(&self) -> &GcHeader {
+	fn header(&self) -> &Header {
 		&self.header
 	}
 
-	fn visit_gcs<V: Visitor>(&self, _visitor: &mut V) {
+	fn visit_raws<V: Visitor>(&self, _visitor: &mut V) {
 		//deliberate no-op
 	}
 
-	fn clear_gcs(&self) {
+	fn clear_raws(&self) {
 		//deliberate no-op
 	}
 
@@ -752,7 +742,7 @@ impl CallableOps for Root<RFn> {
 	}
 }
 
-impl CallableOps for Gc<RFn> {
+impl CallableOps for Raw<RFn> {
 	#[inline(always)]
 	fn receive_call(&self, arg_count: usize) -> GResult<Val> {
 		Ok(glsp::call_rfn(&self.root(), arg_count)?.root())
@@ -774,11 +764,12 @@ pub struct Filename(NonZeroU32);
 /**
 Define a struct which contains a collection of symbols.
 
-Caching symbols in a struct has better performance than calling [`glsp::sym`](fn.sym.html), and
+Caching symbols in a struct has better performance than calling [`sym!`](macro.sym.html), and
 it's more convenient than storing `Sym` fields in your own structs directly.
 
-The struct defines a method `fn new() -> GResult<Self>` which initializes each field by passing
-the given string literal to [`glsp::sym`](fn.sym.html).
+The struct defines a constructor `fn new() -> Self`, which initializes each field by passing
+the given string literal to [`glsp::sym`](fn.sym.html). If any of the string literals are invalid 
+symbols, the constructor will panic.
 
 	syms! {
 		#[derive(Clone)]
@@ -818,10 +809,10 @@ macro_rules! syms {
 
 		impl $struct_name {
 			#[allow(unused_variables)]
-			$struct_vis fn new() -> $crate::GResult<Self> {
-				Ok($struct_name {
-					$($name: $crate::sym($contents)?,)*
-				})
+			$struct_vis fn new() -> Self {
+				$struct_name {
+					$($name: $crate::sym($contents).unwrap(),)*
+				}
 			}
 		}
 	);
@@ -845,7 +836,7 @@ macro_rules! sym {
 }
 
 //-------------------------------------------------------------------------------------------------
-// RGlobal, RData, RRoot
+// RGlobal, RData, RClassBuilder
 //-------------------------------------------------------------------------------------------------
 
 /**
@@ -894,7 +885,7 @@ both Rust and GameLisp.
 		//the method can now be called globally from GameLisp code
 		eval!(
 			"(draw-rect 10.0 10.0 64.0 64.0 0xff0000)"
-		);
+		)?;
 	}
 */
 
@@ -992,7 +983,8 @@ See [`RClassBuilder`](struct.RClassBuilder.html) for more details.
 
 pub struct RClass {
 	name: Sym,
-	bindings: FnvHashMap<Sym, RBinding>
+	bindings: FnvHashMap<Sym, RBinding>,
+	trace: Option<Box<dyn Fn(&dyn Any, &mut GcVisitor)>>
 }
 
 enum RBinding {
@@ -1031,18 +1023,19 @@ they can't be cloned, and they can't be compared for equality.
 
 	//now, whenever an rdata is constructed from a ggez::Image,
 	//it will have a GameLisp api
-	glsp::bind_global("example", Image::new(ctx, "example.png")?)?;
+	glsp::bind_global("boulder", Image::new(ctx, "boulder.png")?)?;
 
 	eval!("
-		(prn [example 'width] [example 'height])
-		(.draw example)
-	");
+		(prn [boulder 'width] [boulder 'height])
+		(.draw boulder)
+	")?;
 */
 
 #[must_use]
 pub struct RClassBuilder<T> {
 	name: Option<Sym>,
 	bindings: FnvHashMap<Sym, RBinding>,
+	trace: Option<Box<dyn Fn(&dyn Any, &mut GcVisitor)>>,
 
 	phantom: PhantomData<T>
 }
@@ -1068,6 +1061,7 @@ impl<T: 'static> RClassBuilder<T> {
 		RClassBuilder {
 			name,
 			bindings: FnvHashMap::default(),
+			trace: None,
 			phantom: PhantomData
 		}
 	}
@@ -1082,8 +1076,8 @@ impl<T: 'static> RClassBuilder<T> {
 
 	`RClassBuilder::new()` will attempt to auto-generate an unprefixed name by processing the 
 	result of [`type_name::<T>()`](https://doc.rust-lang.org/std/any/fn.type_name.html). 
-	This will silently fail for generic types, references, arrays, and types with lifetime 
-	parameters; for those types, you must provide a name manually.
+	This will silently fail for generic types, references, arrays, tuples, and types with 
+	lifetime parameters; for those types, you must provide a name manually.
 
 	This method panics if `name` is not a valid symbol.
 	*/
@@ -1211,6 +1205,49 @@ impl<T: 'static> RClassBuilder<T> {
 	}
 
 	/**
+	Registers a function used by the garbage collector to visit any [`Gc`](struct.Gc.html) 
+	pointers owned by this object.
+
+	If an `RData` type stores any `Gc` pointers, but it doesn't specify an accurate `trace` method 
+	which visits all of its owned `Gc` pointers, then the pointed-to objects may be unpredictably 
+	deallocated, causing [`Gc::upgrade`](struct.Gc.html#method.upgrade) to fail.
+
+	The callback should *only* iterate through any `Gc`s, `GcVal`s and `RGc`s which are directly 
+	owned by the object, passing each of them to the [`GcVisitor`](struct.GcVisitor.html).
+	Interacting with GameLisp in any other way is likely to trigger a panic.
+
+	See also [`glsp::write_barrier`](fn.write_barrier.html).
+
+		struct UnitList {
+			units: Vec<RGc<Unit>>
+		}
+
+		impl UnitList {
+			fn trace(&self, visitor: &mut GcVisitor) {
+				for unit in &self.units {
+					visitor.visit_rgc(unit);
+				}
+			}
+
+			fn add_unit(&mut self, unit: RRoot<Unit>) {
+				self.units.push(unit.downgrade());
+				glsp::write_barrier(self);
+			}
+		}
+
+		RClassBuilder::<UnitList>::new()
+			.trace(UnitList::trace)
+			.build();
+	*/
+	pub fn trace(mut self, f: fn(&T, &mut GcVisitor)) -> RClassBuilder<T> {
+		self.trace = Some(Box::new(move |any: &dyn Any, visitor: &mut GcVisitor| {
+			f(&any.downcast_ref::<RefCell<T>>().unwrap().borrow(), visitor)
+		}));
+
+		self
+	}
+
+	/**
 	Finalizes the `RClass` and registers it with the active `Runtime`.
 
 	Panics if the `RClass`'s name has not been specified, if its name has already been used
@@ -1219,7 +1256,8 @@ impl<T: 'static> RClassBuilder<T> {
 	pub fn build(self) {
 		glsp::add_rclass::<T>(RClass {
 			name: self.name.expect("RClass has no name"),
-			bindings: self.bindings
+			bindings: self.bindings,
+			trace: self.trace
 		});
 	}
 }
@@ -1251,7 +1289,7 @@ by GameLisp scripts.
 */
 
 pub struct RData {
-	header: GcHeader,
+	header: Header,
 
 	//the outer RefCell could potentially be replaced with a Cell, but it might cause rustc
 	//to miss some optimizations, it would be much more clunky, and it would only reduce
@@ -1261,20 +1299,46 @@ pub struct RData {
 
 	//just like Obj, we need this field so that we can generate a `self` argument when 
 	//rdata.call() is invoked from rust code
-	gc_self: Cell<Option<Gc<RData>>>
+	raw_self: Cell<Option<Raw<RData>>>
 }
 
 impl Allocate for RData {
-	fn header(&self) -> &GcHeader {
+	fn header(&self) -> &Header {
 		&self.header
 	}
 
-	fn visit_gcs<V: Visitor>(&self, visitor: &mut V) {
-		visitor.visit_gc(&self.gc_self());
+	fn visit_raws<V: Visitor>(&self, visitor: &mut V) {
+		visitor.visit_raw(&self.raw_self());
+
+		let storage = self.storage.borrow();
+		if let Some(rc_any) = storage.as_ref() {
+			let rc_any = Rc::clone(rc_any);
+			drop(storage);
+
+			let mut gc_visitor = GcVisitor(visitor);
+
+			if let Some(rclass) = self.rclass.as_ref() {
+				if let Some(trace) = rclass.trace.as_ref() {
+
+					//we take some steps to prevent the user-defined `trace` callback from
+					//interfering with the Heap; see gc.md for more details
+					with_heap(|heap| {
+						let _root_storage = heap.root_storage.borrow();
+						ACTIVE_ENGINE.with(|active_engine_ref_cell| {
+							let _active_engine = active_engine_ref_cell.borrow();
+
+							panic::catch_unwind(AssertUnwindSafe(|| {
+								trace(&*rc_any, &mut gc_visitor);
+							})).ok();
+						});
+					});
+				}
+			}
+		}
 	}
 
-	fn clear_gcs(&self) {
-		self.gc_self.set(None);
+	fn clear_raws(&self) {
+		self.raw_self.set(None);
 	}
 
 	fn owned_memory_usage(&self) -> usize {
@@ -1326,10 +1390,10 @@ impl<T> DerefMut for RRefMut<T> {
 impl RData {
 	pub(crate) fn new<T: 'static>(rdata: T, rclass: Option<Rc<RClass>>) -> RData {
 		RData {
-			header: GcHeader::new(),
+			header: Header::new(),
 			storage: RefCell::new(Some(Rc::new(RefCell::new(rdata)))),
 			rclass,
-			gc_self: Cell::new(None)
+			raw_self: Cell::new(None)
 		}
 	}
 
@@ -1521,10 +1585,10 @@ impl RData {
 		}
 	}
 
-	fn gc_self(&self) -> Gc<RData> {
-		let gc_self = self.gc_self.take();
-		self.gc_self.set(gc_self.clone());
-		gc_self.unwrap()
+	fn raw_self(&self) -> Raw<RData> {
+		let raw_self = self.raw_self.take();
+		self.raw_self.set(raw_self.clone());
+		raw_self.unwrap()
 	}
 
 	/**
@@ -1533,7 +1597,7 @@ impl RData {
 	Equivalent to [`[rdata iter]`](https://gamelisp.rs/std/access).
 	*/
 	pub fn access_giter(rdata: &Root<RData>, giter: &Root<GIter>) -> Root<GIter> {
-		glsp::giter(GIterState::AccessRData(rdata.to_gc(), giter.to_gc()))
+		glsp::giter(GIterState::AccessRData(rdata.to_raw(), giter.to_raw()))
 	}
 
 	/**
@@ -1568,7 +1632,7 @@ impl RData {
 		match self.rclass.as_ref().and_then(|rclass| rclass.bindings.get(&sym)) {
 			Some(RBinding::Prop(Some(ref rfn), _)) => {
 				with_vm(|vm| {
-					vm.stacks.borrow_mut().regs.push(Slot::RData(self.gc_self()));
+					vm.stacks.borrow_mut().regs.push(Slot::RData(self.raw_self()));
 					Ok(Some(R::from_val(&rfn.receive_call(1)?)?))
 				})
 			}
@@ -1609,7 +1673,7 @@ impl RData {
 			Some(RBinding::Prop(_, Some(ref rfn))) => {
 				with_vm(|vm| {
 					let mut stacks = vm.stacks.borrow_mut();
-					stacks.regs.push(Slot::RData(self.gc_self()));
+					stacks.regs.push(Slot::RData(self.raw_self()));
 					stacks.regs.push(val.into_slot()?);
 					drop(stacks);
 
@@ -1664,7 +1728,7 @@ impl RData {
 					let mut stacks = vm.stacks.borrow_mut();
 					let starting_len = stacks.regs.len();
 
-					stacks.regs.push(Slot::RData(self.gc_self()));
+					stacks.regs.push(Slot::RData(self.raw_self()));
 					args.into_call_args(&mut stacks.regs)?;
 
 					let arg_count = stacks.regs.len() - starting_len;
@@ -1696,7 +1760,7 @@ impl RData {
 	pub(crate) fn get_method(&self, key: Sym) -> Option<(Slot, bool, bool, Slot)> {
 		match self.rclass.as_ref().and_then(|rclass| rclass.bindings.get(&key)) {
 			Some(&RBinding::Met(ref rfn)) => {
-				Some((Slot::RFn(rfn.to_gc()), true, false, Slot::Nil))
+				Some((Slot::RFn(rfn.to_raw()), true, false, Slot::Nil))
 			}
 			_ => None
 		}
@@ -1734,8 +1798,13 @@ impl PartialEq<Root<RData>> for RData {
 	}
 }
 
+
+//-------------------------------------------------------------------------------------------------
+// RRoot, RGc
+//-------------------------------------------------------------------------------------------------
+
 /**
-A strongly-typed reference to an [`RData`](struct.RData.html).
+A strongly-typed pointer to an [`RData`](struct.RData.html).
 
 Equivalent to a [`Root<RData>`](struct.Root.html), but it enforces that the `RData` must contain
 a value of type `T`.
@@ -1794,12 +1863,17 @@ impl<T> RRoot<T> {
 		Root::ptr_eq(&rr0.0, &rr1.0)
 	}
 
-	pub(crate) fn to_gc(&self) -> Gc<RData> {
-		self.0.to_gc()
+	///Constructs a new [strongly-typed weak pointer](struct.RGc.html) to the `RData`.
+	pub fn downgrade(&self) -> RGc<T> {
+		RGc(self.0.downgrade(), PhantomData)
 	}
 
-	pub(crate) fn into_gc(self) -> Gc<RData> {
-		self.0.into_gc()
+	pub(crate) fn to_raw(&self) -> Raw<RData> {
+		self.0.to_raw()
+	}
+
+	pub(crate) fn into_raw(self) -> Raw<RData> {
+		self.0.into_raw()
 	}
 
 	///Equivalent to [`RData::borrow`](struct.RData.html#method.borrow).
@@ -1833,7 +1907,6 @@ impl<T> RRoot<T> {
 	}
 }
 
-
 impl<T: 'static> RRoot<T> {
 	/**
 	Constructs an `RRoot<T>` from a `Root<RData>`.
@@ -1848,6 +1921,42 @@ impl<T: 'static> RRoot<T> {
 	///Equivalent to [`RData::take`](struct.RData.html#method.take).
 	pub fn take(&self) -> GResult<T> {
 		self.0.take()
+	}
+}
+
+/**
+A strongly-typed, weakly-rooted pointer to an [`RData`](struct.RData.html).
+
+Equivalent to a [`Gc<RData>`](struct.Gc.html), but it enforces that the `RData` must contain
+a value of type `T`.
+
+`RGc` is to [`Gc`](struct.Gc.html) as [`RRoot`](struct.RRoot.html) is to 
+[`Root`](struct.Root.html). For more details, consult the documentation of those types.
+
+Construct an `RGc` by calling [`RRoot::downgrade`](struct.RRoot.html#method.downgrade). 
+The `RGc` itself is an opaque struct which can't do anything useful. Instead, convert it 
+to an `RRoot` by calling its [`upgrade`](#method.upgrade) method.
+*/
+
+pub struct RGc<T>(pub(crate) Gc<RData>, PhantomData<Rc<RefCell<T>>>);
+
+impl<T> Clone for RGc<T> {
+	fn clone(&self) -> RGc<T> {
+		RGc(self.0.clone(), PhantomData)
+	}
+}
+
+impl<T> RGc<T> {
+	/**
+	Attempts to construct an [`RRoot`](struct.RRoot.html) based on this `RGc`.
+
+	Returns `None` if this `RGc` points to a heap-allocated object which has been
+	deallocated by the garbage collector. To prevent this, use 
+	[`glsp::write_barrier`](fn.write_barrier.html) and
+	[`RClassBuilder::trace`](struct.RClassBuilder.html#method.trace).
+	*/
+	pub fn upgrade(&self) -> Option<RRoot<T>> {
+		self.0.upgrade().map(|root| RRoot(root, PhantomData))
 	}
 }
 
@@ -2406,7 +2515,7 @@ pub mod glsp {
 		with_engine(|engine| {
 			let rclass = engine.rclasses.borrow().get(&rdata.type_id()).cloned();
 			let root = glsp::alloc(RData::new(rdata, rclass));
-			root.gc_self.set(Some(root.to_gc()));
+			root.raw_self.set(Some(root.to_raw()));
 			root
 		})
 	}
@@ -2417,8 +2526,8 @@ pub mod glsp {
 	This function is a shorthand for
 	[`RRoot::<T>::new(glsp::rdata(rdata))`](struct.RRoot.html#method.new).
 	*/
-	pub fn rroot<T: 'static>(rdata: T) -> GResult<RRoot<T>> {
-		Ok(RRoot::new(glsp::rdata(rdata)))
+	pub fn rroot<T: 'static>(rdata: T) -> RRoot<T> {
+		RRoot::new(glsp::rdata(rdata))
 	}
 
 	/**
@@ -2623,7 +2732,7 @@ pub mod glsp {
 		Wrapper<ArgsWithTag, Ret, F>: WrappedCall + 'static
 	{
 		glsp::alloc(RFn {
-			header: GcHeader::new(),
+			header: Header::new(),
 
 			name: Cell::new(None),
 			wrapped_fn: wrap(f)
@@ -3101,9 +3210,9 @@ pub mod glsp {
 
 	#[doc(hidden)]
 	#[inline]
-	pub fn alloc_gc<T: Allocate>(t: T) -> Gc<T> {
+	pub fn alloc_raw<T: Allocate>(t: T) -> Raw<T> {
 		with_engine(|engine| {
-			engine.heap.alloc_gc(t)
+			engine.heap.alloc_raw(t)
 		})
 	}
 
@@ -3327,7 +3436,7 @@ pub mod glsp {
 			1 => glsp::giter(GIterState::Once1(Slot::from_val(&args[0]))),
 			_ => {
 				let arr = glsp::arr_from_iter(args.iter()).unwrap();
-				glsp::giter(GIterState::OnceN(arr.to_gc()))
+				glsp::giter(GIterState::OnceN(arr.to_raw()))
 			}
 		}
 	}
@@ -3335,7 +3444,7 @@ pub mod glsp {
 	/** Equivalent to [`(once-with f)`](https://gamelisp.rs/std/once-with). */
 
 	pub fn once_with(callable: Callable) -> Root<GIter> {
-		glsp::giter(GIterState::OnceWith(GcCallable::from_callable(&callable)))
+		glsp::giter(GIterState::OnceWith(RawCallable::from_callable(&callable)))
 	}
 
 	/** Equivalent to [`(repeat ..args)`](https://gamelisp.rs/std/repeat). */
@@ -3346,7 +3455,7 @@ pub mod glsp {
 			1 => Ok(glsp::giter(GIterState::Repeat1(Slot::from_val(&args[0])))),
 			_ => {
 				let arr = glsp::arr_from_iter(args.iter()).unwrap();
-				Ok(glsp::giter(GIterState::RepeatN(arr.to_gc(), 0, (arr.len() - 1) as u32)))
+				Ok(glsp::giter(GIterState::RepeatN(arr.to_raw(), 0, (arr.len() - 1) as u32)))
 			}
 		}
 	}
@@ -3354,14 +3463,14 @@ pub mod glsp {
 	/** Equivalent to [`(repeat-with f)`](https://gamelisp.rs/std/repeat-with). */
 
 	pub fn repeat_with(callable: Callable) -> Root<GIter> {
-		glsp::giter(GIterState::RepeatWith(GcCallable::from_callable(&callable)))
+		glsp::giter(GIterState::RepeatWith(RawCallable::from_callable(&callable)))
 	}
 
 	/** Equivalent to [`(chunks len src-arr)`](https://gamelisp.rs/std/chunks). */
 
 	pub fn chunks(chunk_len: usize, src_arr: &Root<Arr>) -> GResult<Root<GIter>> {
 		ensure!(chunk_len > 0, "cannot split an array into chunks of length 0");
-		Ok(glsp::giter(GIterState::Chunks(chunk_len as u32, src_arr.shallow_clone().to_gc())))
+		Ok(glsp::giter(GIterState::Chunks(chunk_len as u32, src_arr.shallow_clone().to_raw())))
 	}
 
 	/** Equivalent to [`(chunks-exact len src-arr)`](https://gamelisp.rs/std/chunks-exact). */
@@ -3372,14 +3481,14 @@ pub mod glsp {
 		let len = src_arr.len() - (src_arr.len() % chunk_len);
 		let arr = glsp::arr_from_iter(src_arr.iter().take(len)).unwrap();
 
-		Ok(glsp::giter(GIterState::Chunks(chunk_len as u32, arr.to_gc())))
+		Ok(glsp::giter(GIterState::Chunks(chunk_len as u32, arr.to_raw())))
 	}
 
 	/** Equivalent to [`(rchunks len src-arr)`](https://gamelisp.rs/std/rchunks). */
 
 	pub fn rchunks(chunk_len: usize, src_arr: &Root<Arr>) -> GResult<Root<GIter>> {
 		ensure!(chunk_len > 0, "cannot split an array into chunks of length 0");
-		Ok(glsp::giter(GIterState::RChunks(chunk_len as u32, src_arr.shallow_clone().to_gc())))
+		Ok(glsp::giter(GIterState::RChunks(chunk_len as u32, src_arr.shallow_clone().to_raw())))
 	}
 
 	/** Equivalent to [`(rchunks-exact len src-arr)`](https://gamelisp.rs/std/rchunks-exact). */
@@ -3390,122 +3499,122 @@ pub mod glsp {
 		let to_skip = src_arr.len() % chunk_len;
 		let arr = glsp::arr_from_iter(src_arr.iter().skip(to_skip)).unwrap();
 
-		Ok(glsp::giter(GIterState::RChunks(chunk_len as u32, arr.to_gc())))
+		Ok(glsp::giter(GIterState::RChunks(chunk_len as u32, arr.to_raw())))
 	}
 
 	/** Equivalent to [`(windows len src-arr)`](https://gamelisp.rs/std/windows). */
 
 	pub fn windows(window_len: usize, src_arr: &Root<Arr>) -> GResult<Root<GIter>> {
 		ensure!(window_len > 0, "cannot split an array into windows of length 0");
-		Ok(glsp::giter(GIterState::Windows(window_len as u32, src_arr.shallow_clone().to_gc())))
+		Ok(glsp::giter(GIterState::Windows(window_len as u32, src_arr.shallow_clone().to_raw())))
 	}
 
 	/** Equivalent to [`(lines st)`](https://gamelisp.rs/std/lines). */
 
 	pub fn lines(st: &Root<Str>) -> Root<GIter> {
-		glsp::giter(GIterState::Lines(st.shallow_clone().to_gc()))
+		glsp::giter(GIterState::Lines(st.shallow_clone().to_raw()))
 	}
 
 	/** Equivalent to [`(split st split-at)`](https://gamelisp.rs/std/split). */
 
 	pub fn split(src: &Root<Str>, split_at: &Root<Str>) -> Root<GIter> {
-		glsp::giter(GIterState::Split(src.shallow_clone().to_gc(),
-		                              split_at.shallow_clone().to_gc()))
+		glsp::giter(GIterState::Split(src.shallow_clone().to_raw(),
+		                              split_at.shallow_clone().to_raw()))
 	}
 
 	/** Equivalent to [`(rev base)`](https://gamelisp.rs/std/rev). */
 
 	pub fn rev(base: &Root<GIter>) -> GResult<Root<GIter>> {
 		ensure!(base.is_double_ended(), "{} iterators are not double-ended", base.state_name());
-		Ok(glsp::giter(GIterState::Rev(base.to_gc())))
+		Ok(glsp::giter(GIterState::Rev(base.to_raw())))
 	}
 
 	/** Equivalent to [`(enumerate base)`](https://gamelisp.rs/std/enumerate). */
 
 	pub fn enumerate(base: &Root<GIter>) -> Root<GIter> {
-		glsp::giter(GIterState::Enumerate(base.to_gc(), 0))
+		glsp::giter(GIterState::Enumerate(base.to_raw(), 0))
 	}
 
 	/** Equivalent to [`(cloned base)`](https://gamelisp.rs/std/cloned). */
 
 	pub fn cloned(base: &Root<GIter>) -> Root<GIter> {
-		glsp::giter(GIterState::Cloned(base.to_gc()))
+		glsp::giter(GIterState::Cloned(base.to_raw()))
 	}
 
 	/** Equivalent to [`(deep-cloned base)`](https://gamelisp.rs/std/deep-cloned). */
 
 	pub fn deep_cloned(base: &Root<GIter>) -> Root<GIter> {
-		glsp::giter(GIterState::DeepCloned(base.to_gc()))
+		glsp::giter(GIterState::DeepCloned(base.to_raw()))
 	}
 
 	/** Equivalent to [`(step-by n base)`](https://gamelisp.rs/std/step-by). */
 
 	pub fn step_by(step_by: usize, base: &Root<GIter>) -> GResult<Root<GIter>> {
 		ensure!(step_by > 0, "cannot step an iterator by 0");
-		Ok(glsp::giter(GIterState::StepBy(step_by as u32, base.to_gc())))
+		Ok(glsp::giter(GIterState::StepBy(step_by as u32, base.to_raw())))
 	}
 
 	/** Equivalent to [`(map f base)`](https://gamelisp.rs/std/map). */
 
 	pub fn map(callable: &Callable, base: &Root<GIter>) -> Root<GIter> {
-		glsp::giter(GIterState::Map(GcCallable::from_callable(callable), base.to_gc()))
+		glsp::giter(GIterState::Map(RawCallable::from_callable(callable), base.to_raw()))
 	}
 
 	/** Equivalent to [`(filter f base)`](https://gamelisp.rs/std/filter). */
 
 	pub fn filter(callable: &Callable, base: &Root<GIter>) -> Root<GIter> {
-		glsp::giter(GIterState::Filter(GcCallable::from_callable(callable), base.to_gc()))
+		glsp::giter(GIterState::Filter(RawCallable::from_callable(callable), base.to_raw()))
 	}
 
 	/** Equivalent to [`(zip ..args)`](https://gamelisp.rs/std/zip). */
 
 	pub fn zip(iterables: &[Iterable]) -> Root<GIter> {
 		let arr = glsp::arr_from_iter(iterables.iter().map(|iterable| iterable.giter())).unwrap();
-		glsp::giter(GIterState::Zip(arr.to_gc()))
+		glsp::giter(GIterState::Zip(arr.to_raw()))
 	}
 
 	/** Equivalent to [`(chain ..args)`](https://gamelisp.rs/std/chain). */
 
 	pub fn chain(iterables: &[Iterable]) -> Root<GIter> {
 		let arr = glsp::arr_from_iter(iterables.iter().map(|iterable| iterable.giter())).unwrap();
-		glsp::giter(GIterState::Chain(arr.to_gc()))
+		glsp::giter(GIterState::Chain(arr.to_raw()))
 	}
 
 	/** Equivalent to [`(flatten base)`](https://gamelisp.rs/std/flatten). */
 
 	pub fn flatten(base: &Root<GIter>) -> Root<GIter> {
-		glsp::giter(GIterState::Flatten(base.to_gc(), None))
+		glsp::giter(GIterState::Flatten(base.to_raw(), None))
 	}
 
 	/** Equivalent to [`(cycle base)`](https://gamelisp.rs/std/cycle). */
 
 	pub fn cycle(base: &Root<GIter>) -> Root<GIter> {
-		glsp::giter(GIterState::Cycle(Some(base.to_gc()), glsp::arr().to_gc(), 0))
+		glsp::giter(GIterState::Cycle(Some(base.to_raw()), glsp::arr().to_raw(), 0))
 	}
 
 	/** Equivalent to [`(take n base)`](https://gamelisp.rs/std/take). */
 
 	pub fn take(n: usize, base: &Root<GIter>) -> Root<GIter> {
-		glsp::giter(GIterState::Take(n as u32, base.to_gc()))
+		glsp::giter(GIterState::Take(n as u32, base.to_raw()))
 	}
 
 	/** Equivalent to [`(take-while f base)`](https://gamelisp.rs/std/take-while). */
 
 	pub fn take_while(callable: &Callable, base: &Root<GIter>) -> Root<GIter> {
-		glsp::giter(GIterState::TakeWhile(GcCallable::from_callable(callable), base.to_gc()))
+		glsp::giter(GIterState::TakeWhile(RawCallable::from_callable(callable), base.to_raw()))
 	}
 
 	/** Equivalent to [`(skip n base)`](https://gamelisp.rs/std/skip). */
 
 	pub fn skip(n: usize, base: &Root<GIter>) -> Root<GIter> {
-		glsp::giter(GIterState::Skip(n as u32, base.to_gc()))
+		glsp::giter(GIterState::Skip(n as u32, base.to_raw()))
 	}
 
 	/** Equivalent to [`(skip-while f base)`](https://gamelisp.rs/std/skip-while). */
 
 	pub fn skip_while(callable: &Callable, base: &Root<GIter>) -> Root<GIter> {
-		let gc_callable = GcCallable::from_callable(callable);
-		glsp::giter(GIterState::SkipWhile(Some(gc_callable), base.to_gc()))
+		let raw_callable = RawCallable::from_callable(callable);
+		glsp::giter(GIterState::SkipWhile(Some(raw_callable), base.to_raw()))
 	}
 
 	//---------------------------------------------------------------------------------------------
@@ -3558,6 +3667,29 @@ pub mod glsp {
 	pub fn gc_ghost_bytes() -> usize {
 		with_engine(|engine| {
 			engine.heap.ghost_memory_usage()
+		})
+	}
+
+	/**
+	Notifies the garbage collector that an `RData` has been mutated.
+
+	You don't need to call this function for every mutation. It only needs to be called when the 
+	`RData` now owns [`Gc`](struct.Gc.html) pointers which it didn't own before the mutation.
+
+	Under those circumstances, the `RData` must be passed to `glsp::write_barrier` at least 
+	once before the next call to [`glsp::gc`](fn.gc.html).
+
+	If `glsp::write_barrier` is not called, then the `glsp::gc` call might invalidate
+	the `RData`'s `Gc` pointers, causing [`Gc::upgrade`](struct.Gc.html#method.upgrade) 
+	to return `None`.
+	*/
+	pub fn write_barrier(rdata: &Root<RData>) {
+
+		//todo: once we support Allocate::raw_self(), this function's parameter could be
+		//&RData rather than &Root<RData>
+
+		with_engine(|engine| {
+			engine.heap.write_barrier_rdata(rdata);
 		})
 	}
 
@@ -3643,6 +3775,17 @@ pub mod glsp {
 			glsp::load(filename)
 		}
 	}
+
+	/** Equivalent to [`(load-str text)`](https://gamelisp.rs/std/load-str). */
+
+	pub fn load_str(text: &str) -> GResult<Val> {
+		glsp::push_frame(Frame::GlspApi(GlspApiName::LoadStr, None));
+		let _guard = Guard::new(|| glsp::pop_frame());
+
+		let vals = glsp::parse_all(&text, None)?;
+		eval::eval(&vals, None, false)
+	}
+
 
 	/**
 	Loads a file and serializes its compiled bytecode to a `Vec<u8>`.
@@ -3880,7 +4023,7 @@ pub mod glsp {
 	/** Equivalent to [`(coro-run co arg)`](https://gamelisp.rs/std/coro-run). */
 
 	pub fn coro_run(coro: &Root<Coro>, resume_arg: Option<Val>) -> GResult<Val> {
-		glsp::push_frame(Frame::GlspCoroRun(coro.to_gc()));
+		glsp::push_frame(Frame::GlspCoroRun(coro.to_raw()));
 		let _guard = Guard::new(|| glsp::pop_frame());
 
 		with_engine(|engine| {

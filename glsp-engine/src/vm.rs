@@ -13,7 +13,7 @@ use super::engine::{
 	stock_syms::*, Sym, with_heap
 };
 use super::error::{GError, GResult};
-use super::gc::{Allocate, Gc, Slot, Root};
+use super::gc::{Allocate, Raw, Slot, Root};
 use super::iter::{GIterLen, IterableOps};
 use super::transform::{Predicate};
 use super::val::{Val, float_total_eq, float_total_cmp};
@@ -52,7 +52,7 @@ pub(crate) struct Vm {
 
 pub(crate) struct Stacks {
 	pub(crate) regs: Vec<Slot>,
-	stays: Vec<Option<Gc<Stay>>>,
+	stays: Vec<Option<Raw<Stay>>>,
 	defers: Vec<usize>
 }
 
@@ -65,13 +65,13 @@ pub(crate) enum Frame {
 
 	//the `glsp::call` and `glsp::coro_run` apis.
 	GlspCall(Option<Sym>),
-	GlspCoroRun(Gc<Coro>),
+	GlspCoroRun(Raw<Coro>),
 
 	//an invocation of a macro-expander, for example nested within glsp::expand(), glsp::require(),
 	//or (load). the arr is the form being expanded - inspecting the arr will reveal the callsite
 	//(arr.span()) and the macro's name (arr.get(0)). when an expander override fn is passed to
 	//glsp::expand_1() or (expand-1), the second field is its name.
-	Expand(Gc<Arr>, Option<Option<Sym>>),
+	Expand(Raw<Arr>, Option<Option<Sym>>),
 
 	//a vm Instr which recursively invokes call(): Call2, OpCallMet, etc. the first field is a 
 	//copy of the callee, and the second field is the callsite.
@@ -212,7 +212,7 @@ impl Vm {
 
 			for stay in &stacks.stays {
 				if let Some(ref stay) = *stay {
-					heap.traverse_stack_gc(stay);
+					heap.traverse_stack_raw(stay);
 				}
 			}
 
@@ -222,8 +222,8 @@ impl Vm {
 				match frame {
 					GlspApi(_, _) => (),
 					GlspCall(_) => (),
-					GlspCoroRun(coro) => heap.traverse_stack_gc(coro),
-					Expand(arr, _) => heap.traverse_stack_gc(arr),
+					GlspCoroRun(coro) => heap.traverse_stack_raw(coro),
+					Expand(arr, _) => heap.traverse_stack_raw(arr),
 					Call(slot, _) => heap.traverse_stack_slot(slot),
 					Instr(_, _) => (),
 					OpInstr(_, _) => (),
@@ -413,7 +413,7 @@ fn exec_bytecode(
 	stacks.stays.extend(bytecode.start_stays.iter().map(|stay_source| {
 		match stay_source {
 			StaySource::Empty => None,
-			StaySource::PreExisting(gc_stay) => Some(gc_stay.clone()),
+			StaySource::PreExisting(raw_stay) => Some(raw_stay.clone()),
 			StaySource::Captured(_) => unreachable!(),
 			StaySource::Param(_) => unreachable!()
 		}
@@ -428,12 +428,12 @@ fn exec_bytecode(
 
 	//invoke the interpreter
 	drop(stacks);
-	match interpret(vm, bytecode.to_gc(), instr_n, base_reg, base_stay) {
+	match interpret(vm, bytecode.to_raw(), instr_n, base_reg, base_stay) {
 		Ok(InterpretResult::Return(slot)) => Ok(slot.root()),
 		Ok(InterpretResult::Yield(_, _, _)) => unreachable!(),
 		Ok(InterpretResult::EndDefer) => unreachable!(),
 		Err(mut error) => {
-			run_defers(vm, bytecode.to_gc(), base_reg, base_stay, base_defer, &mut error);
+			run_defers(vm, bytecode.to_raw(), base_reg, base_stay, base_defer, &mut error);
 			Err(error)
 		}
 	}
@@ -451,7 +451,7 @@ fn exec_gfn(
 		vm, 
 		vm.stacks.borrow_mut(), 
 		0,
-		Slot::GFn(gfn.to_gc()),
+		Slot::GFn(gfn.to_raw()),
 		arg_count,
 		None
 	)?;
@@ -677,7 +677,7 @@ fn call<'a>(
 		Slot::Class(class) => {
 			drop(stacks);
 
-			Ok(Slot::Obj(Gc::from_root(&glsp::call_class(&class.root(), arg_count)?)))
+			Ok(Slot::Obj(Raw::from_root(&glsp::call_class(&class.root(), arg_count)?)))
 		}
 		Slot::GFn(gfn) if gfn.yields() => {
 			let mut regs = Vec::with_capacity(gfn.lambda.bytecode.start_regs.len());
@@ -694,7 +694,7 @@ fn call<'a>(
 				callsite
 			)?;
 
-			let coro = glsp::alloc_gc(Coro::new(gfn, regs, stays));
+			let coro = glsp::alloc_raw(Coro::new(gfn, regs, stays));
 			coro.write_barrier();
 
 			Ok(Slot::Coro(coro))
@@ -750,7 +750,7 @@ fn call<'a>(
 #[inline]
 fn wrangle_args_and_stays(
 	regs: &mut Vec<Slot>,
-	stays: &mut Vec<Option<Gc<Stay>>>,
+	stays: &mut Vec<Option<Raw<Stay>>>,
 	arg_count: usize,
 	gfn: &GFn,
 	callsite: Option<Span>
@@ -783,7 +783,7 @@ fn wrangle_args_and_stays(
 			let stay = match *source {
 				StaySource::Empty => None,
 				StaySource::Param(i) => {
-					Some(glsp::alloc_gc(Stay::new(regs[base_reg + i as usize].clone())))
+					Some(glsp::alloc_raw(Stay::new(regs[base_reg + i as usize].clone())))
 				}
 				StaySource::Captured(capture_id) => {
 					Some(gfn.captured_stays[capture_id as usize].clone())
@@ -803,7 +803,7 @@ fn wrangle_args_and_stays(
 //run any pending defers, after a call to interpret() returns Err(_)
 fn run_defers(
 	vm: &Vm,
-	bytecode: Gc<Bytecode>,
+	bytecode: Raw<Bytecode>,
 	base_reg: usize,
 	base_stay: usize,
 	base_defer: usize,
@@ -843,7 +843,7 @@ const RECURSION_LIMIT: u32 = 256;
 
 fn interpret(
 	vm: &Vm,
-	bytecode: Gc<Bytecode>,
+	bytecode: Raw<Bytecode>,
 	mut instr_n: usize,
 	base_reg: usize,
 	base_stay: usize
@@ -979,7 +979,7 @@ fn interpret(
 			stay!(stay_id).clone().unwrap().set(reg!(src_reg).clone());
 		}
 		Instr::MakeStay(src_reg, stay_id) => {
-			stay!(stay_id) = Some(glsp::alloc_gc(Stay::new(reg!(src_reg).clone())));
+			stay!(stay_id) = Some(glsp::alloc_raw(Stay::new(reg!(src_reg).clone())));
 		}
 		Instr::MakeGFn(dst_reg, lambda_id) => {
 			let lambda = &bytecode.lambdas[lambda_id as usize];
@@ -987,7 +987,7 @@ fn interpret(
 				stay!(stay_id).clone().unwrap()
 			}));
 
-			reg!(dst_reg) = Slot::GFn(glsp::alloc_gc(GFn::new(lambda, captures)));
+			reg!(dst_reg) = Slot::GFn(glsp::alloc_raw(GFn::new(lambda, captures)));
 		}
 		Instr::Call0(dst_reg, callee_reg) => {
 			let callee = reg!(callee_reg).clone();
@@ -1411,10 +1411,10 @@ fn interpret(
 		}
 		Instr::OpIter(dst_reg, arg_reg) => {
 			let giter = match &reg!(arg_reg) {
-				Slot::Arr(arr) => arr.giter().to_gc(),
-				Slot::Str(st) => st.giter().to_gc(),
-				Slot::Tab(tab) => tab.giter().to_gc(),
-				Slot::Coro(coro) => coro.giter().to_gc(),
+				Slot::Arr(arr) => arr.giter().to_raw(),
+				Slot::Str(st) => st.giter().to_raw(),
+				Slot::Tab(tab) => tab.giter().to_raw(),
+				Slot::Coro(coro) => coro.giter().to_raw(),
 				Slot::GIter(giter) => giter.clone(),
 				slot => bail_op!(ITER_SYM, "attempted to iterate {}", slot.a_type_name())
 			};
@@ -1581,7 +1581,7 @@ fn interpret(
 							_ => unreachable!()
 						};
 
-						reg!(dst_reg) = Slot::GIter(giter.into_gc());
+						reg!(dst_reg) = Slot::GIter(giter.into_raw());
 					}
 				}
 				Slot::Tab(ref tab) => {
@@ -1618,7 +1618,7 @@ fn interpret(
 						};
 
 						let giter = Obj::access_giter(&obj.root(), &src_giter);
-						reg!(dst_reg) = Slot::GIter(giter.into_gc());
+						reg!(dst_reg) = Slot::GIter(giter.into_raw());
 					}
 				}
 				Slot::RData(ref rdata) => {
@@ -1644,7 +1644,7 @@ fn interpret(
 						};
 
 						let giter = RData::access_giter(&rdata.root(), &src_giter);
-						reg!(dst_reg) = Slot::GIter(giter.into_gc());
+						reg!(dst_reg) = Slot::GIter(giter.into_raw());
 					}
 				}
 				Slot::Class(ref class) => {
@@ -1666,7 +1666,7 @@ fn interpret(
 						};
 
 						let giter = Class::access_giter(&class.root(), &src_giter);
-						reg!(dst_reg) = Slot::GIter(giter.into_gc());
+						reg!(dst_reg) = Slot::GIter(giter.into_raw());
 					}	
 				}
 				slot => bail_op!(ACCESS_SYM, "attempted to index {}", slot.a_type_name())
@@ -1868,7 +1868,7 @@ fn interpret(
 			};
 
 			arr.set_span(glsp::new_arr_span(Some(cur_span)));
-			reg!(dst_reg) = Slot::Arr(arr.into_gc());
+			reg!(dst_reg) = Slot::Arr(arr.into_raw());
 		}
 		Instr::OpCallMet(dst_reg, arg0_reg, arg_count) => {
 			if arg_count < 2 {

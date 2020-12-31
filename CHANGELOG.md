@@ -5,12 +5,17 @@
 ### Added
 
 - Added the `sym!` macro, as a convenient alternative to `glsp::sym(x).unwrap()`
+- Added `glsp::load_str` and `(load-str)`, as a convenient alternative to `parse-all`
+  followed by `eval-multi`
 - Defined a total ordering for floats: NaNs now compare equal to other NaNs, and compare greater 
   than all non-NaN numbers
 - Added `sort` and `sort_by` methods to the `DequeOps` trait
 - Added `is_representable` and `is_serializable` methods to `Arr`, `Tab`, `Sym` and `Val`
 - Added the `glsp::is_representable_sym` function
 - The `backquote!` macro can now unquote local variables by reference, `~&var_name`
+- Added `Gc` weak pointers (along with `GcVal`, `RGc`, `RClassBuilder::trace` and 
+  `glsp::write_barrier`) to permit `RData` to store pointers to other heap-allocated objects
+- The reference manual now suggests a `+` suffix for functions which `yield`
 
 ### Changed
 
@@ -43,6 +48,7 @@
 - The `coin-flip` function has been removed
 - `glsp::is_valid_sym_str` has been renamed to `glsp::is_valid_sym`
 - `IntoVal`, `FromVal` and `IntoCallArgs` are now implemented for arrays of any length
+- The `syms!` macro now defines a `new()` method which returns `Self`, rather than `GResult<Self>`
 
 ### Fixed
 

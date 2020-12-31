@@ -117,8 +117,7 @@ subsequent execution, the overhead is roughly one microsecond per `eval!()` call
 
 The input is macro-expanded using a generic, empty [`Runtime`](struct.Runtime.html) which does not
 have access to any of your own macros. The only macros you can use in `eval!()` are those provided 
-by GameLisp's standard library, or those defined within the `eval!()` form itself
-
+by GameLisp's standard library, or those defined within the `eval!()` form itself.
 */
 
 #[proc_macro]

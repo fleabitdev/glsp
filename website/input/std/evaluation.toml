@@ -192,7 +192,7 @@ text = ""
 			(defn example (a b (? c))
 			  (prn a b c))
 
-			(prn (arg-limits example)) ; prints 2 3
+			(prn (arg-limits example)) ; prints (2 3)
 	"""
 
 [[apis]]
@@ -410,6 +410,21 @@ text = ""
 		the final form is returned, or `#n` when `vals` is an empty array.
 
 		[0]: ../reference/macros.html#toplevel-scopes
+	"""
+
+[[apis]]
+	filename = "load-str"
+	starts-subcategory = "Evaluation"
+	kinds = ["fn"]
+	args = ["text str"]
+	returns = "val"
+	see-also = ["load", "eval-multi", "parse-all"]
+	text = """
+		Parses and evaluates a string.
+
+		This API only exists for convenience. It's equivalent to:
+
+			(eval-multi (parse-all text))
 	"""
 
 [[apis]]

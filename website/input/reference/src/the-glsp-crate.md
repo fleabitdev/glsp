@@ -27,15 +27,15 @@ each individual GameLisp runtime is entirely single-threaded.
 
 ## The Active Runtime
 
-Unusually for a Rust library, the `glsp` crate uses [`thread_local` variables][0] internally. 
+Unusually for a Rust library, the `glsp` crate uses [`thread_local` storage][0] internally. 
 This means that there's no need to pass around a context object (aka "God object"), because that 
 would make the crate much less convenient to use.
 
 [0]: https://doc.rust-lang.org/std/macro.thread_local.html
 
-Instead, each thread has a hidden `thread_local` variable which points to its active `Runtime`. 
-The `rt.run(...)` method sets `rt` to be the active `Runtime`, executes an arbitrary closure, 
-and then restores the `Runtime` which was previously active, if any.
+Instead, each thread has a hidden `thread_local` pointer to its active `Runtime`. The `rt.run(...)`
+method sets `rt` to be the active `Runtime`, executes an arbitrary closure, and then restores the 
+`Runtime` which was previously active, if any.
 
 The `glsp` crate contains a large number of free functions, like [`glsp::sym`], which 
 manipulate the active `Runtime` via that `thread_local` pointer. If these functions are called 
@@ -106,11 +106,12 @@ data when there's no active `Runtime`, and you should never move GameLisp data f
 to another.
 
 For example, if you return a `Val` from `Runtime::run`, and then attempt to print it, your
-program will panic. If you construct a symbol in one `Runtime`, and then attempt to print it
-while a different `Runtime` is active, your program is likely to print an incorrect name.
+program will panic. If you construct a symbol in one `Runtime`, and attempt to compare it
+to a symbol from a different `Runtime`, the comparison may return a false positive or false
+negative.
 
 Moving data between `Runtimes` is always memory-safe, but the results are otherwise undefined.
-Under some circumstances, in order to preserve memory safety, GameLisp may be forced to 
+Under some rare circumstances, in order to preserve memory safety, GameLisp may be forced to 
 [abort the process]!
 
 [abort the process]: https://doc.rust-lang.org/std/process/fn.abort.html

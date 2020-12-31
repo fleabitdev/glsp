@@ -1,7 +1,7 @@
 use glsp::{
 	arr, Arr, bail, bail_at, Class, DequeAccess, DequeOps, 
 	ensure, ensure_at, EnvMode, Expander, Expansion, FromVal, GFn,
-	GResult, IntoVal, Obj, Rest, Root, Span, Sym, stock_syms::*, Tab, Val
+	GResult, Obj, Rest, Root, Span, Sym, stock_syms::*, Tab, Val
 };
 use glsp_proc_macros::{backquote};
 use smallvec::{SmallVec};
@@ -929,8 +929,6 @@ fn process_class_state(
 	if let Some(parent_name) = parent {
 		tab_form.set(PARENT_SYM, parent_name)?;
 	}
-
-	println!("!!! {}", fsm_sibling_names.into_slot().unwrap());
 
 	tab_form.set(NAME_SYM, state_name)?;
 	tab_form.set(ENABLED_BY_DEFAULTP_SYM, enabled_by_default)?;

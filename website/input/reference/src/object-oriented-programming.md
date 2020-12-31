@@ -259,7 +259,7 @@ its storage. Trying to access a field or call a method on a killed object is an 
 
 	  (fini
 	    (for entity in (query-entities 'within-distance 50 @self)
-	      (.hit 150 'necrotic))))
+	      (.hit entity 150 'necrotic))))
 
 	(let mandrake (Mandrake spawn-coords))
 	(obj-kill! mandrake)

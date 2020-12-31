@@ -38,16 +38,16 @@ captures a list of stay-indexes from the current stack frame. These are the same
 by the `LoadStay` and `SetStay` instrs. Note that `MakeGFn` doesn't allocate any new `Stays` - 
 it just collects a set of references to `Stays` which already exist.
 
-The `Vm` maintains a stack of `Option<Gc<Stay>>s`, which grows and shrinks alongside the register
+The `Vm` maintains a stack of `Option<Raw<Stay>>s`, which grows and shrinks alongside the register
 stack as fns are called and returned. When a `GFn` is called...
 	
 - We push a `None` placeholder to the stack for each local variable binding within this fn 
   which will potentially be promoted to a `Stay` using `MakeStay`
 
-- We immediately promote some parameter local variables to the heap, pushing `Some(gc_stay)` for
-  each of them
+- We immediately promote some parameter local variables to the heap, pushing `Some(raw_stay)` 
+  for each of them
 
-- We push `Some(gc_stay)` for each captured `Gc<Stay>` from the `GFn` which is being called.
+- We push `Some(raw_stay)` for each captured `Raw<Stay>` from the `GFn` which is being called.
 
 If a local variable is captured by a `(fn)` which is nested within another `(fn)`, then the local
 variable will emit `MakeStay` as normal; the outer `(fn)` will capture it as though it's referenced 

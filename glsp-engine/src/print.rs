@@ -13,7 +13,7 @@ use super::collections::{Arr, DequeAccess, DequeOps, Str, Tab};
 use super::engine::{glsp, RData, RFn, Span, Sym, stock_syms::*};
 use super::error::{GResult};
 use super::eval::{Expander};
-use super::gc::{Allocate, Gc, Root, Slot};
+use super::gc::{Allocate, Raw, Root, Slot};
 use super::iter::{GIter};
 use super::val::{Val};
 use super::wrap::{CallableOps, IntoVal};
@@ -298,7 +298,7 @@ macro_rules! impl_forwarding_debug {
 
 impl_forwarding_debug!(Arr, Tab, GIter, Sym, Obj, Class, GFn, RFn, Coro, RData);
 
-// Root, Gc
+// Root, Raw
 //------------------------------
 
 impl<T: Allocate + Display> Display for Root<T> {
@@ -319,19 +319,19 @@ impl<T: Allocate> Pointer for Root<T> {
 	}
 }
 
-impl<T: Allocate + Display> Display for Gc<T> {
+impl<T: Allocate + Display> Display for Raw<T> {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		(**self).fmt(f)
 	}
 }
 
-impl<T: Allocate + Debug> Debug for Gc<T> {
+impl<T: Allocate + Debug> Debug for Raw<T> {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		(**self).fmt(f)
 	}
 }
 
-impl<T: Allocate> Pointer for Gc<T> {
+impl<T: Allocate> Pointer for Raw<T> {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		Pointer::fmt(&(&**self as *const T), f)
 	}

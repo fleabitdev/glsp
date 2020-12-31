@@ -14,7 +14,7 @@ use std::mem::{size_of};
 use std::ops::{Bound, RangeBounds};
 use super::engine::{glsp, Guard, Span, with_heap};
 use super::error::{GError, GResult};
-use super::gc::{Allocate, GcHeader, Slot, Root, Visitor};
+use super::gc::{Allocate, Header, Slot, Root, Visitor};
 use super::iter::{GIter, GIterState};
 use super::val::{Val};
 use super::wrap::{FromVal, IntoVal};
@@ -798,23 +798,23 @@ the type [`Root<Arr>`](struct.Root.html).
 */
 
 pub struct Arr {
-	header: GcHeader,
+	header: Header,
 	span: Cell<Span>,
 	vec: RefCell<VecDeque<Slot>>
 }
 
 impl Allocate for Arr {
-	fn header(&self) -> &GcHeader {
+	fn header(&self) -> &Header {
 		&self.header
 	}
 
-	fn visit_gcs<V: Visitor>(&self, visitor: &mut V) {
+	fn visit_raws<V: Visitor>(&self, visitor: &mut V) {
 		for slot in self.vec.borrow().iter() {
 			visitor.visit_slot(slot);
 		}
 	}
 
-	fn clear_gcs(&self) {
+	fn clear_raws(&self) {
 		self.vec.borrow_mut().clear()
 	}
 
@@ -827,7 +827,7 @@ impl Allocate for Arr {
 impl Arr {
 	pub(crate) fn new() -> Arr {
 		Arr {
-			header: GcHeader::new(), 
+			header: Header::new(), 
 			span: Cell::new(Span::default()),
 			vec: RefCell::new(VecDeque::new())
 		}
@@ -835,7 +835,7 @@ impl Arr {
 
 	pub(crate) fn with_capacity(capacity: usize) -> Arr {
 		Arr {
-			header: GcHeader::new(), 
+			header: Header::new(), 
 			span: Cell::new(Span::default()),
 			vec: RefCell::new(VecDeque::with_capacity(capacity))
 		}
@@ -852,7 +852,7 @@ impl Arr {
 		}
 
 		Ok(Arr {
-			header: GcHeader::new(),
+			header: Header::new(),
 			span: Cell::new(Span::default()),
 			vec: RefCell::new(vec)
 		})
@@ -870,7 +870,7 @@ impl Arr {
 		}
 
 		Ok(Arr {
-			header: GcHeader::new(), 
+			header: Header::new(), 
 			span: Cell::new(Span::default()),
 			vec: RefCell::new(vec)
 		})
@@ -931,7 +931,7 @@ impl Arr {
 	Equivalent to [`[ar iter]`](https://gamelisp.rs/std/access).
 	*/
 	pub fn access_giter(arr: &Root<Arr>, giter: &Root<GIter>) -> Root<GIter> {
-		glsp::giter(GIterState::AccessArr(arr.to_gc(), giter.to_gc()))
+		glsp::giter(GIterState::AccessArr(arr.to_raw(), giter.to_raw()))
 	}
 
 	#[doc(hidden)]
@@ -1825,20 +1825,20 @@ the type [`Root<Str>`](struct.Root.html).
 */
 
 pub struct Str {
-	header: GcHeader,
+	header: Header,
 	storage: RefCell<StrStorage>
 }
 
 impl Allocate for Str {
-	fn header(&self) -> &GcHeader {
+	fn header(&self) -> &Header {
 		&self.header
 	}
 
-	fn visit_gcs<V: Visitor>(&self, _visitor: &mut V) {
+	fn visit_raws<V: Visitor>(&self, _visitor: &mut V) {
 		//deliberate no-op
 	}
 
-	fn clear_gcs(&self) {
+	fn clear_raws(&self) {
 		//deliberate no-op
 	}
 
@@ -1875,7 +1875,7 @@ macro_rules! str {
 impl Str {
 	pub(crate) fn new() -> Str {
 		Str {
-			header: GcHeader::new(),
+			header: Header::new(),
 			storage: RefCell::new(StrStorage::Str1(VecDeque::new()))
 		}
 	}
@@ -1901,7 +1901,7 @@ impl Str {
 		};
 
 		Str {
-			header: GcHeader::new(),
+			header: Header::new(),
 			storage: RefCell::new(storage)
 		}
 	}
@@ -1925,14 +1925,14 @@ impl Str {
 		}
 
 		Ok(Str {
-			header: GcHeader::new(),
+			header: Header::new(),
 			storage: RefCell::new(storage)
 		})
 	}
 
 	pub(crate) fn with_capacity(capacity: usize) -> Str {
 		Str {
-			header: GcHeader::new(),
+			header: Header::new(),
 			storage: RefCell::new(StrStorage::Str1(VecDeque::with_capacity(capacity)))
 		}
 	}
@@ -1993,7 +1993,7 @@ impl Str {
 	Equivalent to [`[st iter]`](https://gamelisp.rs/std/access).
 	*/
 	pub fn access_giter(st: &Root<Str>, giter: &Root<GIter>) -> Root<GIter> {
-		glsp::giter(GIterState::AccessStr(st.to_gc(), giter.to_gc()))
+		glsp::giter(GIterState::AccessStr(st.to_raw(), giter.to_raw()))
 	}
 
 	///Pushes all of the characters from a `&str` to the end of this string.
@@ -3053,23 +3053,23 @@ the type [`Root<Tab>`](struct.Root.html).
 */
 
 pub struct Tab {
-	header: GcHeader,
+	header: Header,
 	map: RefCell<FnvHashMap<Slot, Slot>>
 }
 
 impl Allocate for Tab {
-	fn header(&self) -> &GcHeader {
+	fn header(&self) -> &Header {
 		&self.header
 	}
 
-	fn visit_gcs<V: Visitor>(&self, visitor: &mut V) {
+	fn visit_raws<V: Visitor>(&self, visitor: &mut V) {
 		for (internal_key, internal_value) in self.map.borrow().iter() {
 			visitor.visit_slot(internal_key);
 			visitor.visit_slot(internal_value);
 		}
 	}
 
-	fn clear_gcs(&self) {
+	fn clear_raws(&self) {
 		self.map.borrow_mut().clear()
 	}
 
@@ -3185,7 +3185,7 @@ macro_rules! tab {
 impl Tab {
 	pub(crate) fn new() -> Tab {
 		Tab {
-			header: GcHeader::new(),
+			header: Header::new(),
 			map: RefCell::new(FnvHashMap::default())
 		}
 	}
@@ -3204,14 +3204,14 @@ impl Tab {
 		}
 
 		Ok(Tab {
-			header: GcHeader::new(),
+			header: Header::new(),
 			map: RefCell::new(map)
 		})
 	}
 
 	pub(crate) fn with_capacity(capacity: usize) -> Tab {
 		Tab {
-			header: GcHeader::new(),
+			header: Header::new(),
 			map: RefCell::new(FnvHashMap::with_capacity_and_hasher(capacity, Default::default()))
 		}
 	}
@@ -3523,7 +3523,7 @@ impl Tab {
 			arr.push(key.unwrap()).unwrap();
 		}
 
-		glsp::giter(GIterState::TabKeys(arr.to_gc()))
+		glsp::giter(GIterState::TabKeys(arr.to_raw()))
 	}
 
 	/**
@@ -3537,7 +3537,7 @@ impl Tab {
 			arr.push(value.unwrap()).unwrap();
 		}
 		
-		glsp::giter(GIterState::TabValues(arr.to_gc()))
+		glsp::giter(GIterState::TabValues(arr.to_raw()))
 	}
 
 	/**

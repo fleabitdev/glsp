@@ -116,6 +116,7 @@ pub fn init(sandboxed: bool) -> GResult<()> {
 	glsp::bind_rfn("deep-clone", &deep_clone)?;
 	glsp::bind_rfn("freeze!", &freeze)?;
 	glsp::bind_rfn("deep-freeze!", &deep_freeze)?;
+	glsp::bind_rfn("load-str", &load_str)?;
 	glsp::bind_rfn("eval", &eval)?;
 	glsp::bind_rfn("eval-multi", &eval_multi)?;
 	glsp::bind_rfn("no-op", &no_op)?;
@@ -651,6 +652,10 @@ fn clone(arg: Val) -> GResult<Val> {
 
 fn deep_clone(arg: Val) -> GResult<Val> {
 	arg.deep_clone()
+}
+
+fn load_str(text: &str) -> GResult<Val> {
+	glsp::load_str(text)
 }
 
 fn eval(val: Val, env_mode: Option<EnvMode>) -> GResult<Val> {

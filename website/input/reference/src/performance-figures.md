@@ -112,19 +112,20 @@ for either Rust or GameLisp, speaking from experience:
 - For binary file-format parsing, rendering, audio mixing, image processing, vertex processing, 
   spatial data structures, collisions, physics simulation, and particle effects, Rust is the 
   obvious winner.
-  	- That being said, you can definitely manage those parts of your engine using GameLisp. 
-  	  Your `.zip` file parser might be implemented in Rust, but your resource manager could be 
-  	  implemented in GameLisp. Your physics simulator might be implemented in Rust, but you 
-  	  could also have a `PhysicsRect` mixin which hooks an entity into the physics system.
+    
+    - That being said, you can definitely manage those parts of your engine using GameLisp. 
+      Your `.zip` file parser might be implemented in Rust, but your resource manager could be 
+      implemented in GameLisp. Your physics simulator might be implemented in Rust, but you 
+      could also have a `PhysicsRect` mixin which hooks an entity into the physics system.
 
     - GameLisp can also be useful for prototyping. For example, if your game procedurally generates
       its levels, you could use GameLisp to freely experiment with different algorithms, and then 
       reimplement the final algorithm in Rust.
 
 - Your main loop might belong in Rust, depending on how complicated it is.
-	- If your game uses an entity-component system, the bulk of the ECS should definitely be 
-	  implemented in Rust. Good performance is more-or-less the entire point of an ECS.
-	  Consider implementing a `Script` component which owns a GameLisp object and invokes callbacks 
-	  on it - or perhaps even one component for each callback, like `UpdateScript` and `DrawScript`.
+    
+    - In particular, one way to achieve good performance would be to combine a Rust ECS 
+      library with more traditional, object-oriented GameLisp scripting. We discussed some 
+      specifics in [Section 2](rglobal.md#using-gamelisp-with-ecs).
 
 - For entity behaviour scripting and cutscene scripting, GameLisp is the obvious choice.

@@ -14,6 +14,10 @@ functions/methods which perform any other kind of destructive mutation, and the 
 boolean variables and for functions/methods which return booleans. For conversions, consider
 using `src->dst` for a function or `->dst` for a method.
 
+The `+` suffix should be used for functions/methods which yield. In the unlikely event that
+a yielding method performs an assignment or a destructive mutation, the `=` or `!` suffix
+should be omitted.
+
 `lower-kebab-case` is used for local variables, `let-fn` functions, `let-macro` macros, built-in 
 functions, built-in macros, class fields, class clauses, and keyword symbols like `'ok`. If you're 
 defining a function or macro which is intended to be very global, such as a new control-flow macro 

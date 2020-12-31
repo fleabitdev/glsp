@@ -701,7 +701,7 @@ fn maybe_call_expander(
 					None
 				};
 
-				glsp::push_frame(Frame::Expand(arr.to_gc(), override_name));
+				glsp::push_frame(Frame::Expand(arr.to_raw(), override_name));
 				let _guard = Guard::new(|| glsp::pop_frame());
 
 				glsp::call(rfn, &args[..])
@@ -713,7 +713,7 @@ fn maybe_call_expander(
 					None
 				};
 
-				glsp::push_frame(Frame::Expand(arr.to_gc(), override_name));
+				glsp::push_frame(Frame::Expand(arr.to_raw(), override_name));
 				let _guard = Guard::new(|| glsp::pop_frame());
 
 				glsp::call(gfn, &args[..])

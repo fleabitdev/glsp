@@ -2,7 +2,7 @@ use smallvec::{SmallVec};
 use std::{i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, slice, str};
 use std::any::{type_name};
 use std::cell::{Ref};
-use std::cmp::{Ordering};
+use std::cmp::{min, Ordering};
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::convert::{TryFrom, TryInto};
 use std::error::{Error};
@@ -23,7 +23,7 @@ use super::engine::{
 };
 use super::error::{GError, GResult};
 use super::eval::{EnvMode, Expander};
-use super::gc::{Gc, Root, Slot};
+use super::gc::{Raw, Root, Slot};
 use super::iter::{GIter, Iterable, GIterLen};
 use super::val::{Num, Val};
 
@@ -487,7 +487,7 @@ impl<T: IntoVal, E: ErrorMarker + StaticMarker> IntoVal for Result<T, E> {
 					let g_err: GError = *dyn_err_boxed.downcast::<GError>().unwrap();
 					Err(g_err)
 				} else {
-					Err(error!("IntoVal encountered {}::Err", type_name::<E>()).with_source(err))
+					Err(error!("IntoVal encountered {}", type_name::<E>()).with_source(err))
 				}
 			}
 		}
@@ -603,7 +603,7 @@ macro_rules! impl_into_val_root {
 			#[doc(hidden)]
 			#[inline]
 			fn into_slot(self) -> GResult<Slot> {
-				Ok(Slot::$t(self.into_gc()))
+				Ok(Slot::$t(self.into_raw()))
 			}
 		}
 		
@@ -616,7 +616,7 @@ macro_rules! impl_into_val_root {
 			#[doc(hidden)]
 			#[inline]
 			fn into_slot(self) -> GResult<Slot> {
-				Ok(Slot::$t((*self).to_gc()))
+				Ok(Slot::$t((*self).to_raw()))
 			}
 		}
 		
@@ -629,11 +629,11 @@ macro_rules! impl_into_val_root {
 			#[doc(hidden)]
 			#[inline]
 			fn into_slot(self) -> GResult<Slot> {
-				Ok(Slot::$t((*self).to_gc()))
+				Ok(Slot::$t((*self).to_raw()))
 			}
 		}
 
-		impl IntoVal for Gc<$t> {
+		impl IntoVal for Raw<$t> {
 			#[inline]
 			fn into_val(self) -> GResult<Val> {
 				Ok(Val::$t(self.into_root()))
@@ -668,7 +668,7 @@ impl<T> IntoVal for RRoot<T> {
 	#[doc(hidden)]
 	#[inline]
 	fn into_slot(self) -> GResult<Slot> {
-		Ok(Slot::RData(self.into_gc()))
+		Ok(Slot::RData(self.into_raw()))
 	}
 }
 
@@ -681,7 +681,7 @@ impl<'a, T> IntoVal for &'a RRoot<T> {
 	#[doc(hidden)]
 	#[inline]
 	fn into_slot(self) -> GResult<Slot> {
-		Ok(Slot::RData((*self).to_gc()))
+		Ok(Slot::RData((*self).to_raw()))
 	}
 }
 
@@ -694,7 +694,7 @@ impl<'a, T> IntoVal for &'a mut RRoot<T> {
 	#[doc(hidden)]
 	#[inline]
 	fn into_slot(self) -> GResult<Slot> {
-		Ok(Slot::RData((*self).to_gc()))
+		Ok(Slot::RData((*self).to_raw()))
 	}
 }
 
@@ -711,8 +711,8 @@ impl IntoVal for Deque {
 	#[inline]
 	fn into_slot(self) -> GResult<Slot> {
 		match self {
-			Deque::Arr(root) => Ok(Slot::Arr(root.into_gc())),
-			Deque::Str(root) => Ok(Slot::Str(root.into_gc()))
+			Deque::Arr(root) => Ok(Slot::Arr(root.into_raw())),
+			Deque::Str(root) => Ok(Slot::Str(root.into_raw()))
 		}
 	}
 }
@@ -731,9 +731,9 @@ impl IntoVal for Callable {
 	#[inline]
 	fn into_slot(self) -> GResult<Slot> {
 		match self {
-			Callable::GFn(root) => Ok(Slot::GFn(root.into_gc())),
-			Callable::RFn(root) => Ok(Slot::RFn(root.into_gc())),
-			Callable::Class(root) => Ok(Slot::Class(root.into_gc()))
+			Callable::GFn(root) => Ok(Slot::GFn(root.into_raw())),
+			Callable::RFn(root) => Ok(Slot::RFn(root.into_raw())),
+			Callable::Class(root) => Ok(Slot::Class(root.into_raw()))
 		}
 	}
 }
@@ -751,8 +751,8 @@ impl IntoVal for Expander {
 	#[inline]
 	fn into_slot(self) -> GResult<Slot> {
 		match self {
-			Expander::GFn(root) => Ok(Slot::GFn(root.into_gc())),
-			Expander::RFn(root) => Ok(Slot::RFn(root.into_gc()))
+			Expander::GFn(root) => Ok(Slot::GFn(root.into_raw())),
+			Expander::RFn(root) => Ok(Slot::RFn(root.into_raw()))
 		}
 	}
 }
@@ -773,11 +773,11 @@ impl IntoVal for Iterable {
 	#[inline]
 	fn into_slot(self) -> GResult<Slot> {
 		match self {
-			Iterable::Arr(root) => Ok(Slot::Arr(root.into_gc())),
-			Iterable::Str(root) => Ok(Slot::Str(root.into_gc())),
-			Iterable::Tab(root) => Ok(Slot::Tab(root.into_gc())),
-			Iterable::GIter(root) => Ok(Slot::GIter(root.into_gc())),
-			Iterable::Coro(root) => Ok(Slot::Coro(root.into_gc()))
+			Iterable::Arr(root) => Ok(Slot::Arr(root.into_raw())),
+			Iterable::Str(root) => Ok(Slot::Str(root.into_raw())),
+			Iterable::Tab(root) => Ok(Slot::Tab(root.into_raw())),
+			Iterable::GIter(root) => Ok(Slot::GIter(root.into_raw())),
+			Iterable::Coro(root) => Ok(Slot::Coro(root.into_raw()))
 		}
 	}
 }
@@ -1375,20 +1375,20 @@ macro_rules! impl_from_val_root(
 				#[inline]
 				fn from_slot(slot: &Slot) -> GResult<Self> {
 					match *slot {
-						Slot::$variant(ref gc) => Ok(gc.root()),
+						Slot::$variant(ref raw) => Ok(raw.root()),
 						ref slot => bail!("expected {}, received {}", 
 						                  stringify!(Root<$t>), slot.a_type_name())
 					}
 				}
 			}
 
-			impl FromVal for Gc<$t> {
+			impl FromVal for Raw<$t> {
 				#[inline]
 				fn from_val(val: &Val) -> GResult<Self> {
 					match *val {
-						Val::$variant(ref root) => Ok(root.as_gc().clone()),
+						Val::$variant(ref root) => Ok(root.as_raw().clone()),
 						ref val => bail!("expected {}, received {}", 
-						                 stringify!(Gc<$t>), val.a_type_name())
+						                 stringify!(Raw<$t>), val.a_type_name())
 					}
 				}
 
@@ -1396,9 +1396,9 @@ macro_rules! impl_from_val_root(
 				#[inline]
 				fn from_slot(slot: &Slot) -> GResult<Self> {
 					match *slot {
-						Slot::$variant(ref gc) => Ok(gc.clone()),
+						Slot::$variant(ref raw) => Ok(raw.clone()),
 						ref slot => bail!("expected {}, received {}", 
-						                  stringify!(Gc<$t>), slot.a_type_name())
+						                  stringify!(Raw<$t>), slot.a_type_name())
 					}
 				}
 			}
@@ -1432,7 +1432,7 @@ impl<T: StaticMarker> FromVal for RRoot<T> {
 	#[inline]
 	fn from_slot(slot: &Slot) -> GResult<RRoot<T>> {
 		match slot {
-			Slot::RData(gc) => Ok(RRoot::new(gc.root())),
+			Slot::RData(raw) => Ok(RRoot::new(raw.root())),
 			val => bail!("expected RRoot<{}>, received {}", type_name::<T>(), val.a_type_name())
 		}
 	}
@@ -1593,8 +1593,8 @@ impl FromVal for Deque {
 	#[inline]
 	fn from_slot(slot: &Slot) -> GResult<Self> {
 		match *slot {
-			Slot::Arr(ref gc) => Ok(Deque::Arr(gc.root())),
-			Slot::Str(ref gc) => Ok(Deque::Str(gc.root())),
+			Slot::Arr(ref raw) => Ok(Deque::Arr(raw.root())),
+			Slot::Str(ref raw) => Ok(Deque::Str(raw.root())),
 			ref slot => bail!("expected Deque, received {}", slot.a_type_name())
 		}
 	}
@@ -1615,9 +1615,9 @@ impl FromVal for Callable {
 	#[inline]
 	fn from_slot(slot: &Slot) -> GResult<Self> {
 		match *slot {
-			Slot::GFn(ref gc) => Ok(Callable::GFn(gc.root())),
-			Slot::RFn(ref gc) => Ok(Callable::RFn(gc.root())),
-			Slot::Class(ref gc) => Ok(Callable::Class(gc.root())),
+			Slot::GFn(ref raw) => Ok(Callable::GFn(raw.root())),
+			Slot::RFn(ref raw) => Ok(Callable::RFn(raw.root())),
+			Slot::Class(ref raw) => Ok(Callable::Class(raw.root())),
 			ref slot => bail!("expected Callable, received {}", slot.a_type_name())
 		}
 	}
@@ -1637,8 +1637,8 @@ impl FromVal for Expander {
 	#[inline]
 	fn from_slot(slot: &Slot) -> GResult<Self> {
 		match *slot {
-			Slot::GFn(ref gc) => Ok(Expander::GFn(gc.root())),
-			Slot::RFn(ref gc) => Ok(Expander::RFn(gc.root())),
+			Slot::GFn(ref raw) => Ok(Expander::GFn(raw.root())),
+			Slot::RFn(ref raw) => Ok(Expander::RFn(raw.root())),
 			ref slot => bail!("expected Expander, received {}", slot.a_type_name())
 		}
 	}
@@ -1661,11 +1661,11 @@ impl FromVal for Iterable {
 	#[inline]
 	fn from_slot(slot: &Slot) -> GResult<Self> {
 		match slot {
-			Slot::Arr(gc) => Ok(Iterable::Arr(gc.root())),
-			Slot::Str(gc) => Ok(Iterable::Str(gc.root())),
-			Slot::Tab(gc) => Ok(Iterable::Tab(gc.root())),
-			Slot::GIter(gc) => Ok(Iterable::GIter(gc.root())),
-			Slot::Coro(gc) => Ok(Iterable::Coro(gc.root())),
+			Slot::Arr(raw) => Ok(Iterable::Arr(raw.root())),
+			Slot::Str(raw) => Ok(Iterable::Str(raw.root())),
+			Slot::Tab(raw) => Ok(Iterable::Tab(raw.root())),
+			Slot::GIter(raw) => Ok(Iterable::GIter(raw.root())),
+			Slot::Coro(raw) => Ok(Iterable::Coro(raw.root())),
 			slot => bail!("expected Iterable, received {}", slot.a_type_name())
 		}
 	}
@@ -1944,133 +1944,6 @@ where
 
 
 //-------------------------------------------------------------------------------------------------
-// MoveRData
-//-------------------------------------------------------------------------------------------------
-
-/*
-/**
-An implementation detail of the [`MoveRData`](trait.MoveRData.html) trait.
-*/
-
-#[rustc_specialization_trait]
-pub trait IntoRData {
-	fn into_rdata(self) -> GResult<Val> where Self: 'static;
-}
-
-impl<T> IntoRData for T {
-	#[inline]
-	default fn into_rdata(self) -> GResult<Val> where Self: 'static {
-		//Ok(Val::RData(glsp::rdata(self)))
-		todo!()
-	}
-}
-
-impl<T: IntoRData> IntoRData for Option<T> {
-	#[inline]
-	fn into_rdata(self) -> GResult<Val> where Self: 'static {
-		match self {
-			Some(result) => result.into_rdata(),
-			None => Ok(Val::Nil)
-		}
-	}
-}
-
-impl<T: IntoRData, E: ErrorMarker> IntoRData for Result<T, E> {
-	#[inline]
-	fn into_rdata(self) -> GResult<Val> where Self: 'static {
-		match self {
-			Ok(result) => result.into_rdata(),
-			Err(err) => Ok(Val::Nil)
-		}
-	}
-}
-*/
-
-/*
-/**
-A function which can be wrapped, converting its return value to `Root<RData>`.
-
-When binding a function so that it can be called from GameLisp (for example, using 
-`glsp::bind_rfn`), the function's return type must implement `ToVal`, which precisely defines
-how it should be converted into a GameLisp value. The `move_rdata()` method enables you to bypass 
-this requirement. It automatically moves the function's return value onto the garbage-collected 
-heap, returning it as a `Root<RData>` instead.
-
-For example, let's suppose you want to give your GameLisp scripts the ability to work with
-Rust's standard `File` type:
-
-	//this won't compile, because File doesn't implement ToVal,
-	//and you have no way to implement ToVal for File
-	glsp::bind_rfn("open", &fs::open)?;
-
-	//this compiles. the File will be returned as an rdata
-	glsp::bind_rfn("open", &fs::open.move_rdata())?;
-
-You GameLisp code then has the ability to open a new `File`:
-	
-```
-(let file (open "example.txt"))
-(ensure (rdata? file))
-(ensure (is? file 'File))
-```
-
-When `move_rdata()` is used to wrap a function which returns `Result<T, E>` or `Option<T>`, only 
-the `T` is moved onto the garbage-collected heap - not the `Result` or `Option` as a whole. In the 
-case of `Option`, the wrapper will return `Val::Nil` when the wrapped function returns `None`.
-Nested use of `Result` and `Option` is supported.
-*/
-
-pub trait MoveRData<Args> {
-	fn move_rdata(self) -> Box<dyn Fn<Args, Output = GResult<Val>>>;
-}
-
-impl<T, Args> MoveRData<Args> for T
-where
-	T: Fn<Args> + 'static,
-	T::Output: IntoRData + 'static
-{
-	fn move_rdata(self) -> Box<dyn Fn<Args, Output = GResult<Val>>> {
-		struct Forwarder<F>(F);
-
-		impl<F, A> FnOnce<A> for Forwarder<F>
-		where
-			F: FnOnce<A>,
-			F::Output: IntoRData + 'static
-		{
-			type Output = GResult<Val>;
-
-			extern "rust-call" fn call_once(self, args: A) -> GResult<Val> {
-				self.0.call_once(args).into_rdata()
-			}
-		}
-
-		impl<F, A> FnMut<A> for Forwarder<F>
-		where
-			F: FnMut<A>,
-			F::Output: IntoRData + 'static
-		{
-			extern "rust-call" fn call_mut(&mut self, args: A) -> GResult<Val> {
-				self.0.call_mut(args).into_rdata()
-			}
-		}
-
-		impl<F, A> Fn<A> for Forwarder<F>
-		where
-			F: Fn<A>,
-			F::Output: IntoRData + 'static
-		{
-			extern "rust-call" fn call(&self, args: A) -> GResult<Val> {
-				self.0.call(args).into_rdata()
-			}
-		}
-		
-		Box::new(Forwarder::<Self>(self))
-	}
-}
-*/
-
-
-//-------------------------------------------------------------------------------------------------
 // FromArg, FromArgRef
 //-------------------------------------------------------------------------------------------------
 
@@ -2226,7 +2099,7 @@ or `&mut T` as appropriate.
 	eval!("
 		(add-integers 42)
 		(add-integers 10 20 30 40 50)
-	");
+	")?;
 
 	//or from Rust
 	Rest::with([20, 30, 40, 50].iter().copied(), |rest| {
@@ -2342,8 +2215,8 @@ impl<'r, T: FromVal> FromArg for Rest<'r, T> {
 		*/
 
 		Ok((
-			SmallVec::from_iter(args[i..].iter().cloned()),
-			Some(SmallVec::with_capacity(args.len() - i))
+			SmallVec::from_iter(args[min(i, args.len())..].iter().cloned()),
+			Some(SmallVec::with_capacity(args.len().saturating_sub(i)))
 		))
 	}
 
@@ -2378,7 +2251,7 @@ impl<'r, T: FromVal> FromArg for &'r [T] {
 		pushes to the reg stack, causing a panic
 		*/
 
-		Ok((args[0].clone(), SmallVec::with_capacity(args.len() - i)))
+		Ok((args[i].clone(), SmallVec::with_capacity(args.len() - i)))
 	}
 
 	#[inline]
@@ -2617,7 +2490,7 @@ macro_rules! impl_pointee_from_arg_ref {
 				#[inline]
 				fn from_arg<'a>(temp: &'a mut DynTemp<$pointee>) -> GResult<&'a $pointee> {
 					match temp {
-						DynTemp::Slot(Slot::$pointee(ref gc)) => Ok(&**gc),
+						DynTemp::Slot(Slot::$pointee(ref raw)) => Ok(&**raw),
 						DynTemp::Slot(val) => {
 							bail!(
 								"expected &{}, received {}", 
@@ -3019,17 +2892,17 @@ pub trait CallableOps: callable_ops_private::Sealed {
 }
 
 mod callable_ops_private {
-	use crate::{class::Class, code::GFn, engine::RFn, gc::{Gc, Root}, wrap::Callable}; 
+	use crate::{class::Class, code::GFn, engine::RFn, gc::{Raw, Root}, wrap::Callable}; 
 
 	pub trait Sealed { }
 
 	impl Sealed for Callable { }
 	impl Sealed for Root<RFn> { }
-	impl Sealed for Gc<RFn> { }
+	impl Sealed for Raw<RFn> { }
 	impl Sealed for Root<Class> { }
-	impl Sealed for Gc<Class> { }
+	impl Sealed for Raw<Class> { }
 	impl Sealed for Root<GFn> { }
-	impl Sealed for Gc<GFn> { }
+	impl Sealed for Raw<GFn> { }
 }
 
 impl CallableOps for Callable {

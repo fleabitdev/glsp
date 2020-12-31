@@ -10,7 +10,7 @@ use std::iter::{repeat_with};
 use super::code::{Bytecode, Instr, Lambda, ParamMap, Stay, StaySource};
 use super::engine::{Filename, glsp, Span, SpanStorage, Sym};
 use super::error::{GResult};
-use super::gc::{GcHeader, Slot, Root};
+use super::gc::{Header, Slot, Root};
 use super::val::{Val};
 
 /*
@@ -43,7 +43,7 @@ we register each SpanStorage back into the spans database, then it's a cheap arr
 convert each DenseSpan back into a normal Span.
 
 we perform a similar transformation to convert Filenames into DenseFilenames, and to preserve
-the identity of Gc<Stay>s (rather than serializing each Gc<Stay> as though it has exclusive 
+the identity of Raw<Stay>s (rather than serializing each Raw<Stay> as though it has exclusive 
 ownership of a distinct allocation).
 
 Bytecodes are not actually mutable, so Chunks store DenseBytecode and DenseLambda types
@@ -408,7 +408,7 @@ impl DenseStaySource {
 			DenseStaySource::Param(id) => StaySource::Param(*id),
 			DenseStaySource::Captured(id) => StaySource::Captured(*id),
 			DenseStaySource::PreExisting(dense_stay) => {
-				StaySource::PreExisting(dense_stay.to_stay(conv).into_gc())
+				StaySource::PreExisting(dense_stay.to_stay(conv).into_raw())
 			}
 		}
 	}
@@ -460,7 +460,7 @@ impl DenseBytecode {
 		} = self;
 
 		glsp::alloc(Bytecode {
-			header: GcHeader::new(),
+			header: Header::new(),
 			instrs,
 			spans: spans.iter().map(|span| span.to_span(conv)).collect(),
 			start_regs: start_regs.iter().map(Slot::from_val).collect(),
@@ -469,7 +469,7 @@ impl DenseBytecode {
 			scratch_count,
 			literal_count,
 			lambdas: lambdas.into_iter().map(|dense_lambda| {
-				dense_lambda.into_lambda(conv).into_gc()
+				dense_lambda.into_lambda(conv).into_raw()
 			}).collect(),
 			defers
 		})
@@ -506,9 +506,9 @@ impl DenseLambda {
 		} = self;
 
 		glsp::alloc(Lambda {
-			header: GcHeader::new(),
+			header: Header::new(),
 
-			bytecode: dense_bytecode.into_bytecode(conv).into_gc(),
+			bytecode: dense_bytecode.into_bytecode(conv).into_raw(),
 			param_map,
 			name,
 			captures,

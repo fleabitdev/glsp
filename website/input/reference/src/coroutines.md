@@ -6,8 +6,8 @@ Coroutines are defined using the [`yield`](../std/yield) special form. When `yie
 within a function, that function pauses its execution, and control flow returns to the caller. 
 Later, [`coro-run`](../std/coro-run) can be used to resume the coroutine, which causes execution 
 to restart from the `yield` form.
-	
-	(defn example ()
+
+	(defn example+ ()
 	  (pr "first ")
 	  (yield)
 	  (prn "third"))
@@ -15,7 +15,7 @@ to restart from the `yield` form.
 	; invoking a function which contains a (yield) does not start its execution.
 	; instead, it returns a coroutine which is paused at the start of the
 	; function's body.
-	(let coroutine (example))
+	(let coroutine (example+))
 
 	(coro-run coroutine) ; executes up until the yield
 	(pr "second ")
@@ -30,23 +30,23 @@ cases, when no value is specified it defaults to `#n`.
 	
 	; this coroutine returns values to its caller. note that coroutines can
 	; receive arguments, just like a normal function call
-	(defn increment-forever (n)
+	(defn increment-forever+ (n)
 	  (loop
 	    (yield n)
 	    (inc! n)))
 
-	(let co (increment-forever 100))
+	(let co (increment-forever+ 100))
 
 	(prn (coro-run co)) ; prints 100
 	(prn (coro-run co)) ; prints 101
 	(prn (coro-run co)) ; prints 102
 
 	; this coroutine receives values from its caller
-	(defn overly-elaborate-prn ()
+	(defn overly-elaborate-prn+ ()
 	  (loop
 	    (prn (yield))))
 
-	(let co (overly-elaborate-prn))
+	(let co (overly-elaborate-prn+))
 	(coro-run co) ; run until the first (yield)...
 
 	(coro-run co 'alpha) ; the coroutine prints alpha
@@ -55,6 +55,10 @@ cases, when no value is specified it defaults to `#n`.
 
 [`fn-yields?`](../std/fn-yields-p) will tell you whether or not a function will create a
 coroutine when called.
+
+By convention, functions which `yield` have `+` appended to the end of their name. This helps
+to prevent mistakes when refactoring a non-yielding function into a yielding function, or 
+vice-versa.
 
 
 ## Life-Cycle of a Coroutine
@@ -87,7 +91,7 @@ This can be used to implement custom iterators:
 	; a coroutine-based implementation of the `lines` function. copies 
 	; a string and then splits it into individual lines, yielding one 
 	; line at a time. once there are no lines left, it returns.
-	(defn lines (source-str)
+	(defn lines+ (source-str)
 	  (let st (clone source-str))
 	  (while (> (len st) 0)
 	    (let pos (position st \newline))
@@ -100,7 +104,7 @@ This can be used to implement custom iterators:
 	      	(pop-start! st)
 	        (yield line)))))
 
-	(prn (arr ..(lines "aaa\nbbb\nccc"))) ; prints ("aaa" "bbb" "ccc")
+	(prn (arr ..(lines+ "aaa\nbbb\nccc"))) ; prints ("aaa" "bbb" "ccc")
 
 
 ## Stackful and Stackless Coroutines
@@ -128,7 +132,7 @@ inside it.
 	
 	; a coroutine which keeps yielding until some event is triggered,
 	; and then returns
-	(defn wait-until-trigger (trigger-name)
+	(defn wait-until-trigger+ (trigger-name)
 	  (until (trigger-set? trigger-name)
 	    (yield)))
 
@@ -136,8 +140,8 @@ inside it.
 	; resumed once per frame. it will do nothing until the 'can-move event 
 	; has been triggered, and then it will horizontally slide towards the 
 	; target x coordinate, bit by bit, until it has been reached.
-	(defn move-to (self x-target)
-	  (yield-from (wait-until-trigger 'can-move))
+	(defn move-to+ (self x-target)
+	  (yield-from (wait-until-trigger+ 'can-move))
 
 	  (until (= [self 'x] x-target)
 	    (seek! [self 'x] x-target 1.5)
@@ -194,15 +198,15 @@ Cramming all of this state into a single event-handler function is a real challe
 
 The equivalent coroutine is a beauty:
 	
-	(defn run-cutscene (self)
-	  (yield-from (speak self "You don't understand! I just have..."))
-	  (yield-from (walk-to-point self (waypoint 'dramatic-pause)))
+	(defn run-cutscene+ (self)
+	  (yield-from (speak+ self "You don't understand! I just have..."))
+	  (yield-from (walk-to-point+ self (waypoint 'dramatic-pause)))
 	  (start-sound 'howling-wind)
-	  (yield-from (wait-secs 3.0))
-	  (yield-from (speak self "...too many Incredibly Deep Feelings.")))
+	  (yield-from (wait-secs+ 3.0))
+	  (yield-from (speak+ self "...too many Incredibly Deep Feelings.")))
 
 All of that state which we had to manually store elsewhere is now implicit in the coroutine.
-The child functions would be simpler, too: the coroutine `walk-to-point` is likely to be much
+The child functions would be simpler, too: the coroutine `walk-to-point+` is likely to be much
 easier to implement, compared to the function `step-towards-point`. Our coroutine even has 
 slightly better performance! Previously we were calling `(waypoint)` every frame because it would 
 have been too much effort to cache it, but the coroutine makes it obvious that rechecking the 

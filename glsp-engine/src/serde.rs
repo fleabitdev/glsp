@@ -9,7 +9,7 @@ use std::{fmt};
 use std::rc::{Rc};
 use super::collections::{Arr, DequeOps, Str, Tab};
 use super::engine::{glsp, Sym};
-use super::gc::{Allocate, Gc, Slot, Root};
+use super::gc::{Allocate, Raw, Slot, Root};
 use super::val::{Val};
 
 /*
@@ -94,7 +94,7 @@ impl<T: Allocate + Serialize> Serialize for Root<T> {
 	}
 }
 
-impl<T: Allocate + Serialize> Serialize for Gc<T> {
+impl<T: Allocate + Serialize> Serialize for Raw<T> {
 	fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
 		self.root().serialize(s)
 	}

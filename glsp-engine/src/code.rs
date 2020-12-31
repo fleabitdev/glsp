@@ -7,7 +7,7 @@ use std::mem::{size_of};
 use super::ast::{ParamList};
 use super::engine::{glsp, Span, Sym, with_heap};
 use super::error::{GError, GResult};
-use super::gc::{Allocate, Gc, GcHeader, Root, Slot, Visitor};
+use super::gc::{Allocate, Raw, Header, Root, Slot, Visitor};
 use super::transform::{Predicate};
 use super::val::{Val};
 use super::wrap::{CallableOps};
@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 #[doc(hidden)]
 pub struct Bytecode {
-	pub(crate) header: GcHeader,
+	pub(crate) header: Header,
 	pub(crate) instrs: Vec<Instr>,
 	pub(crate) spans: Vec<Span>,
 	pub(crate) start_regs: Vec<Slot>,
@@ -25,7 +25,7 @@ pub struct Bytecode {
 	pub(crate) local_count: u8,
 	pub(crate) scratch_count: u8,
 	pub(crate) literal_count: u8,
-	pub(crate) lambdas: Vec<Gc<Lambda>>,
+	pub(crate) lambdas: Vec<Raw<Lambda>>,
 	pub(crate) defers: Vec<usize>
 }
 
@@ -42,7 +42,7 @@ pub(crate) enum StaySource {
 
 	//a Some(stay) which already existed at the time that this Bytecode was compiled. we
 	//currently use this type of stay to support toplevel (let) forms
-	PreExisting(Gc<Stay>)
+	PreExisting(Raw<Stay>)
 }
 
 impl Debug for StaySource {
@@ -58,9 +58,9 @@ impl Debug for StaySource {
 
 #[doc(hidden)]
 pub struct Lambda {
-	pub(crate) header: GcHeader,
+	pub(crate) header: Header,
 	
-	pub(crate) bytecode: Gc<Bytecode>,
+	pub(crate) bytecode: Raw<Bytecode>,
 	pub(crate) param_map: ParamMap,
 	pub(crate) name: Option<Sym>,
 	pub(crate) yields: bool,
@@ -87,15 +87,15 @@ represented by the type [`Root<GFn>`](struct.Root.html).
 */
 
 pub struct GFn {
-	header: GcHeader,
-	pub(crate) lambda: Gc<Lambda>,
-	pub(crate) captured_stays: Vec<Gc<Stay>>
+	header: Header,
+	pub(crate) lambda: Raw<Lambda>,
+	pub(crate) captured_stays: Vec<Raw<Stay>>
 }
 
 impl GFn {
-	pub(crate) fn new(lambda: &Gc<Lambda>, captured_stays: Vec<Gc<Stay>>) -> GFn {
+	pub(crate) fn new(lambda: &Raw<Lambda>, captured_stays: Vec<Raw<Stay>>) -> GFn {
 		GFn {
-			header: GcHeader::new(),
+			header: Header::new(),
 			lambda: lambda.clone(),
 			captured_stays
 		}
@@ -128,7 +128,7 @@ impl CallableOps for Root<GFn> {
 	}
 }
 
-impl CallableOps for Gc<GFn> {
+impl CallableOps for Raw<GFn> {
 	fn receive_call(&self, arg_count: usize) -> GResult<Val> {
 		glsp::call_gfn(&self.root(), arg_count)
 	}
@@ -148,14 +148,14 @@ impl CallableOps for Gc<GFn> {
 //away, at least in "unsafe-internals" mode.
 #[doc(hidden)]
 pub struct Stay {
-	header: GcHeader,
+	header: Header,
 	slot: Cell<Slot>
 }
 
 impl Stay {
 	pub(crate) fn new(slot: Slot) -> Stay {
 		Stay {
-			header: GcHeader::new(),
+			header: Header::new(),
 			slot: Cell::new(slot)
 		}
 	}
@@ -187,7 +187,7 @@ the type [`Root<Coro>`](struct.Root.html).
 */
 
 pub struct Coro {
-	header: GcHeader,
+	header: Header,
 	pub(crate) state: Cell<PrivCoroState>,
 	pub(crate) storage: RefCell<CoroStorage>
 }
@@ -217,26 +217,26 @@ pub(crate) enum PrivCoroState {
 
 pub(crate) struct CoroStorage {
 	//this is only None in the Recycling state
-	pub(crate) gfn: Option<Gc<GFn>>,
+	pub(crate) gfn: Option<Raw<GFn>>,
 
 	pub(crate) instr: usize,
 
 	//in any state other than Newborn or Paused, these Vecs are present but empty.
 	pub(crate) regs: Vec<Slot>,
-	pub(crate) stays: Vec<Option<Gc<Stay>>>,
+	pub(crate) stays: Vec<Option<Raw<Stay>>>,
 	pub(crate) defers: Vec<usize>
 }
 
 impl Coro {
 	pub(crate) fn new(
-		gfn: Gc<GFn>, 
+		gfn: Raw<GFn>, 
 		regs: Vec<Slot>, 
-		stays: Vec<Option<Gc<Stay>>>
+		stays: Vec<Option<Raw<Stay>>>
 	) -> Coro {
 		assert!(gfn.yields());
 
 		Coro {
-			header: GcHeader::new(),
+			header: Header::new(),
 			state: Cell::new(PrivCoroState::Newborn),
 			storage: RefCell::new(CoroStorage {
 				gfn: Some(gfn),
@@ -293,11 +293,11 @@ impl Coro {
 }
 
 impl Allocate for Bytecode {
-	fn header(&self) -> &GcHeader {
+	fn header(&self) -> &Header {
 		&self.header
 	}
 	
-	fn visit_gcs<V: Visitor>(&self, visitor: &mut V) {
+	fn visit_raws<V: Visitor>(&self, visitor: &mut V) {
 		let local_end_i = self.local_count as usize;
 		for local_init in &self.start_regs[..local_end_i] {
 			visitor.visit_slot(local_init);
@@ -314,16 +314,16 @@ impl Allocate for Bytecode {
 
 		for stay_source in &self.start_stays {
 			if let StaySource::PreExisting(stay) = stay_source {
-				visitor.visit_gc(stay);
+				visitor.visit_raw(stay);
 			}
 		}
 
 		for lambda in &self.lambdas {
-			visitor.visit_gc(lambda);
+			visitor.visit_raw(lambda);
 		}
 	}
 
-	fn clear_gcs(&self) {
+	fn clear_raws(&self) {
 		//deliberate no-op
 	}
 
@@ -332,21 +332,21 @@ impl Allocate for Bytecode {
 		+ self.spans.capacity() * size_of::<Span>()
 		+ self.start_regs.capacity() * size_of::<Slot>()
 		+ self.start_stays.capacity() * size_of::<StaySource>()
-		+ self.lambdas.capacity() * size_of::<Gc<Lambda>>()
+		+ self.lambdas.capacity() * size_of::<Raw<Lambda>>()
 		+ self.defers.capacity() * size_of::<usize>()
 	}
 }
 
 impl Allocate for Lambda {
-	fn header(&self) -> &GcHeader {
+	fn header(&self) -> &Header {
 		&self.header
 	}
 	
-	fn visit_gcs<V: Visitor>(&self, visitor: &mut V) {
-		visitor.visit_gc(&self.bytecode);
+	fn visit_raws<V: Visitor>(&self, visitor: &mut V) {
+		visitor.visit_raw(&self.bytecode);
 	}
 
-	fn clear_gcs(&self) {
+	fn clear_raws(&self) {
 		//deliberate no-op
 	}
 
@@ -356,36 +356,36 @@ impl Allocate for Lambda {
 }
 
 impl Allocate for GFn {
-	fn header(&self) -> &GcHeader {
+	fn header(&self) -> &Header {
 		&self.header
 	}
 
-	fn visit_gcs<V: Visitor>(&self, visitor: &mut V) {
-		visitor.visit_gc(&self.lambda);
+	fn visit_raws<V: Visitor>(&self, visitor: &mut V) {
+		visitor.visit_raw(&self.lambda);
 		for stay in &self.captured_stays {
-			visitor.visit_gc(stay)
+			visitor.visit_raw(stay)
 		}
 	}
 
-	fn clear_gcs(&self) {
+	fn clear_raws(&self) {
 		//deliberate no-op
 	}
 
 	fn owned_memory_usage(&self) -> usize {
-		self.captured_stays.capacity() * size_of::<Gc<Stay>>()
+		self.captured_stays.capacity() * size_of::<Raw<Stay>>()
 	}
 }
 
 impl Allocate for Stay {
-	fn header(&self) -> &GcHeader {
+	fn header(&self) -> &Header {
 		&self.header
 	}
 	
-	fn visit_gcs<V: Visitor>(&self, visitor: &mut V) {
+	fn visit_raws<V: Visitor>(&self, visitor: &mut V) {
 		visitor.visit_slot(&self.get());
 	}
 
-	fn clear_gcs(&self) {
+	fn clear_raws(&self) {
 		self.slot.set(Slot::Nil);
 	}
 
@@ -395,15 +395,15 @@ impl Allocate for Stay {
 }
 
 impl Allocate for Coro {
-	fn header(&self) -> &GcHeader {
+	fn header(&self) -> &Header {
 		&self.header
 	}
 	
-	fn visit_gcs<V: Visitor>(&self, visitor: &mut V) {
+	fn visit_raws<V: Visitor>(&self, visitor: &mut V) {
 		let storage = self.storage.borrow();
 
 		if let Some(ref gfn) = storage.gfn {
-			visitor.visit_gc(gfn);
+			visitor.visit_raw(gfn);
 		}
 
 		for slot in &storage.regs {
@@ -412,12 +412,12 @@ impl Allocate for Coro {
 
 		for stay in &storage.stays {
 			if let Some(ref stay) = *stay {
-				visitor.visit_gc(stay);
+				visitor.visit_raw(stay);
 			}
 		}
 	}
 
-	fn clear_gcs(&self) {
+	fn clear_raws(&self) {
 		self.state.set(PrivCoroState::Recycling);
 
 		let mut storage = self.storage.borrow_mut();
@@ -431,7 +431,7 @@ impl Allocate for Coro {
 		let storage = self.storage.borrow();
 
 		storage.regs.capacity() * size_of::<Slot>() +
-		storage.stays.capacity() * size_of::<Gc<Stay>>() +
+		storage.stays.capacity() * size_of::<Raw<Stay>>() +
 		storage.defers.capacity() * size_of::<usize>()
 	}
 }
@@ -552,7 +552,7 @@ impl ParamMap {
 				});
 				arr.set_span(glsp::new_arr_span(callsite));
 
-				regs.push(Slot::Arr(arr.into_gc()));
+				regs.push(Slot::Arr(arr.into_raw()));
 			} else {
 				regs.truncate(rest_base_index);
 			}

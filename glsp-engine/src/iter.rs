@@ -6,7 +6,7 @@ use super::code::{Coro, CoroState, GFn};
 use super::collections::{Arr, DequeAccess, DequeOps, Str, Tab};
 use super::engine::{glsp, RData, RFn, with_heap};
 use super::error::{GResult};
-use super::gc::{Allocate, Gc, GcHeader, Root, Slot, Visitor};
+use super::gc::{Allocate, Raw, Header, Root, Slot, Visitor};
 use super::val::{Val};
 use super::wrap::{Callable, FromVal};
 
@@ -28,104 +28,104 @@ generally have much better performance.
 */
 
 pub struct GIter {
-	header: GcHeader,
+	header: Header,
 	pub(crate) state: RefCell<GIterState>
 }
 
 impl Allocate for GIter {
-	fn header(&self) -> &GcHeader {
+	fn header(&self) -> &Header {
 		&self.header
 	}
 
-	fn clear_gcs(&self) {
+	fn clear_raws(&self) {
 		*self.state.borrow_mut() = GIterState::Finished;
 	}
 
-	fn visit_gcs<V: Visitor>(&self, v: &mut V) {
+	fn visit_raws<V: Visitor>(&self, v: &mut V) {
 		use GIterState::*;
 
 		match &*self.state.borrow() {
 			Finished | Empty => (),
 			RnExclusive(..) | RnInclusive(..) | RnOpen(..) => (),
 			FRnExclusive(..) | FRnInclusive(..) | FRnOpen(..) => (),
-			ArrElements(arr, ..) => v.visit_gc(arr),
-			StrElements(st, ..) => v.visit_gc(st),
-			TabEntries(arr) => v.visit_gc(arr),
-			TabKeys(arr) => v.visit_gc(arr),
-			TabValues(arr) => v.visit_gc(arr),
-			CoroResults(coro) => v.visit_gc(coro),
+			ArrElements(arr, ..) => v.visit_raw(arr),
+			StrElements(st, ..) => v.visit_raw(st),
+			TabEntries(arr) => v.visit_raw(arr),
+			TabKeys(arr) => v.visit_raw(arr),
+			TabValues(arr) => v.visit_raw(arr),
+			CoroResults(coro) => v.visit_raw(coro),
 			Once1(slot) => v.visit_slot(slot),
-			OnceN(arr) => v.visit_gc(arr),
-			OnceWith(callable) => visit_gc_callable(v, callable),
+			OnceN(arr) => v.visit_raw(arr),
+			OnceWith(callable) => visit_raw_callable(v, callable),
 			Repeat1(slot) => v.visit_slot(slot),
-			RepeatN(arr, ..) => v.visit_gc(arr),
-			RepeatWith(callable) => visit_gc_callable(v, callable),
+			RepeatN(arr, ..) => v.visit_raw(arr),
+			RepeatWith(callable) => visit_raw_callable(v, callable),
 			AccessArr(arr, iter) => {
-				v.visit_gc(arr);
-				v.visit_gc(iter);
+				v.visit_raw(arr);
+				v.visit_raw(iter);
 			}
 			AccessStr(st, iter) => {
-				v.visit_gc(st);
-				v.visit_gc(iter);
+				v.visit_raw(st);
+				v.visit_raw(iter);
 			}
 			AccessObj(obj, iter) => {
-				v.visit_gc(obj);
-				v.visit_gc(iter);
+				v.visit_raw(obj);
+				v.visit_raw(iter);
 			}
 			AccessRData(rdata, iter) => {
-				v.visit_gc(rdata);
-				v.visit_gc(iter);
+				v.visit_raw(rdata);
+				v.visit_raw(iter);
 			}
 			AccessClass(class, iter) => {
-				v.visit_gc(class);
-				v.visit_gc(iter);
+				v.visit_raw(class);
+				v.visit_raw(iter);
 			},
-			Chunks(_, arr) => v.visit_gc(arr),
-			RChunks(_, arr) => v.visit_gc(arr),
-			Windows(_, arr) => v.visit_gc(arr),
-			Lines(st) => v.visit_gc(st),
+			Chunks(_, arr) => v.visit_raw(arr),
+			RChunks(_, arr) => v.visit_raw(arr),
+			Windows(_, arr) => v.visit_raw(arr),
+			Lines(st) => v.visit_raw(st),
 			Split(src, split_at) => {
-				v.visit_gc(src);
-				v.visit_gc(split_at);
+				v.visit_raw(src);
+				v.visit_raw(split_at);
 			}
-			Rev(base) => v.visit_gc(base),
-			Enumerate(base, _) => v.visit_gc(base),
-			Cloned(base) => v.visit_gc(base),
-			DeepCloned(base) => v.visit_gc(base),
-			StepBy(_, base) => v.visit_gc(base),
+			Rev(base) => v.visit_raw(base),
+			Enumerate(base, _) => v.visit_raw(base),
+			Cloned(base) => v.visit_raw(base),
+			DeepCloned(base) => v.visit_raw(base),
+			StepBy(_, base) => v.visit_raw(base),
 			Map(callable, base) => {
-				visit_gc_callable(v, callable);
-				v.visit_gc(base);
+				visit_raw_callable(v, callable);
+				v.visit_raw(base);
 			}
 			Filter(callable, base) => {
-				visit_gc_callable(v, callable);
-				v.visit_gc(base);
+				visit_raw_callable(v, callable);
+				v.visit_raw(base);
 			}
-			Zip(arr) => v.visit_gc(arr),
-			Chain(arr) => v.visit_gc(arr),
+			Zip(arr) => v.visit_raw(arr),
+			Chain(arr) => v.visit_raw(arr),
 			Flatten(base, cur_giter) => {
-				v.visit_gc(base);
+				v.visit_raw(base);
 				if let Some(cur_giter) = cur_giter {
-					v.visit_gc(cur_giter);
+					v.visit_raw(cur_giter);
 				}
 			}
 			Cycle(base, collection, _) => {
 				if let Some(base) = base {
-					v.visit_gc(base);
+					v.visit_raw(base);
 				}
-				v.visit_gc(collection);
+				v.visit_raw(collection);
 			}
-			Take(_, base) => v.visit_gc(base),
+			Take(_, base) => v.visit_raw(base),
 			TakeWhile(callable, base) => {
-				visit_gc_callable(v, callable);
-				v.visit_gc(base);
+				visit_raw_callable(v, callable);
+				v.visit_raw(base);
 			}
-			Skip(_, base) => v.visit_gc(base),
+			Skip(_, base) => v.visit_raw(base),
 			SkipWhile(callable, base) => {
 				if let Some(callable) = callable {
-					visit_gc_callable(v, callable);
+					visit_raw_callable(v, callable);
 				}
-				v.visit_gc(base);
+				v.visit_raw(base);
 			}
 		}
 	}
@@ -160,7 +160,7 @@ impl DoubleEndedIterator for Root<GIter> {
 impl GIter {
 	pub(crate) fn new(state: GIterState) -> GIter {
 		GIter {
-			header: GcHeader::new(),
+			header: Header::new(),
 			state: RefCell::new(state)
 		}
 	}
@@ -422,7 +422,7 @@ impl GIter {
 		}
 	}
 
-	fn write_barrier<T: Allocate>(&self, dst: &Gc<T>) {
+	fn write_barrier<T: Allocate>(&self, dst: &Raw<T>) {
 		with_heap(|heap| heap.write_barrier(self, dst));
 	}
 
@@ -538,8 +538,8 @@ impl GIter {
 					None
 				}
 			}
-			OnceWith(ref gc_callable) => {
-				let result = glsp::call(&gc_callable.root(), &()).map(|val| Slot::from_val(&val));
+			OnceWith(ref raw_callable) => {
+				let result = glsp::call(&raw_callable.root(), &()).map(|val| Slot::from_val(&val));
 				*state_ref = Empty;
 				Some(result)
 			}
@@ -554,8 +554,8 @@ impl GIter {
 				}
 				Some(Ok(element))
 			}
-			RepeatWith(ref gc_callable) => {
-				Some(glsp::call(&gc_callable.root(), &()).map(|val| Slot::from_val(&val)))
+			RepeatWith(ref raw_callable) => {
+				Some(glsp::call(&raw_callable.root(), &()).map(|val| Slot::from_val(&val)))
 			}
 			AccessArr(ref arr, ref giter) => {
 				let item = giter.raw_next();
@@ -621,7 +621,7 @@ impl GIter {
 					for _ in 0 .. len {
 						chunk.push(arr.pop_start::<Slot>().unwrap()).unwrap();
 					}
-					Some(Ok(Slot::Arr(chunk.to_gc())))
+					Some(Ok(Slot::Arr(chunk.to_raw())))
 				}
 			}
 			RChunks(chunk_len, ref arr) => {
@@ -633,7 +633,7 @@ impl GIter {
 					for _ in 0 .. len {
 						chunk.push_start(arr.pop::<Slot>().unwrap()).unwrap();
 					}
-					Some(Ok(Slot::Arr(chunk.to_gc())))
+					Some(Ok(Slot::Arr(chunk.to_raw())))
 				}
 			}
 			Windows(window_len, ref arr) => {
@@ -645,7 +645,7 @@ impl GIter {
 						window.push(arr.get::<Slot>(i).unwrap()).unwrap();
 					}
 					arr.pop_start::<Slot>().unwrap();
-					Some(Ok(Slot::Arr(window.to_gc())))
+					Some(Ok(Slot::Arr(window.to_raw())))
 				}
 			}
 			Lines(ref st) => {
@@ -675,7 +675,7 @@ impl GIter {
 						accum.push(st.pop_start::<char>().unwrap()).unwrap();
 					}
 
-					Some(Ok(Slot::Str(accum.to_gc())))
+					Some(Ok(Slot::Str(accum.to_raw())))
 				}
 			}
 			Split(ref src, ref split_at) => {
@@ -702,7 +702,7 @@ impl GIter {
 						accum.push(src.pop_start::<char>().unwrap()).unwrap();
 					}
 
-					Some(Ok(Slot::Str(accum.to_gc())))
+					Some(Ok(Slot::Str(accum.to_raw())))
 				}
 			},
 			Rev(ref base) => base.raw_next_back(),
@@ -711,7 +711,7 @@ impl GIter {
 					Some(Ok(slot)) => {
 						let return_n = *n;
 						*n += 1;
-						Some(Ok(Slot::Arr(arr![return_n, slot].to_gc())))
+						Some(Ok(Slot::Arr(arr![return_n, slot].to_raw())))
 					}
 					err_or_none => err_or_none
 				}		
@@ -753,20 +753,20 @@ impl GIter {
 					err_or_none => err_or_none
 				}
 			}
-			Map(ref gc_callable, ref base) => {
+			Map(ref raw_callable, ref base) => {
 				match base.raw_next() {
 					Some(Ok(slot)) => {
-						let result = glsp::call(&gc_callable.root(), &[slot]);
+						let result = glsp::call(&raw_callable.root(), &[slot]);
 						Some(result.map(|val| Slot::from_val(&val)))
 					}
 					err_or_none => err_or_none
 				}
 			}
-			Filter(ref gc_callable, ref base) => {
+			Filter(ref raw_callable, ref base) => {
 				loop {
 					match base.raw_next() {
 						Some(Ok(slot)) => {
-							let result: Val = match glsp::call(&gc_callable.root(), (&slot,)) {
+							let result: Val = match glsp::call(&raw_callable.root(), (&slot,)) {
 								Ok(val) => val,
 								Err(err) => break Some(Err(err))
 							};
@@ -781,7 +781,7 @@ impl GIter {
 			}
 			Zip(ref arr) => {
 				let item = glsp::arr_with_capacity(arr.len());
-				let mut result = Some(Ok(Slot::Arr(item.to_gc())));
+				let mut result = Some(Ok(Slot::Arr(item.to_raw())));
 				for val in arr.iter() {
 					let giter = val.unwrap_giter();
 					match giter.raw_next() {
@@ -819,7 +819,7 @@ impl GIter {
 								}
 
 								let iterable = Iterable::from_val(&val).unwrap();
-								let new_giter = iterable.giter().to_gc();
+								let new_giter = iterable.giter().to_raw();
 								(*cur_giter) = Some(new_giter.clone());
 								self.write_barrier(&new_giter);
 							}
@@ -862,10 +862,10 @@ impl GIter {
 					base.raw_next()
 				}
 			}
-			TakeWhile(ref gc_callable, ref base) => {
+			TakeWhile(ref raw_callable, ref base) => {
 				match base.raw_next() {
 					Some(Ok(item)) => {
-						let result: GResult<Val> = glsp::call(&gc_callable.root(), (&item,));
+						let result: GResult<Val> = glsp::call(&raw_callable.root(), (&item,));
 						match result {
 							Ok(val) => {
 								if val.is_truthy() {
@@ -896,13 +896,13 @@ impl GIter {
 					}
 				}
 			}
-			SkipWhile(ref gc_callable, ref base) => {
-				if let Some(gc_callable) = gc_callable {
+			SkipWhile(ref raw_callable, ref base) => {
+				if let Some(raw_callable) = raw_callable {
 					loop {
 						match base.raw_next() {
 							Some(Ok(item)) => {
 								let result: GResult<Val> = glsp::call(
-									&gc_callable.root(),
+									&raw_callable.root(),
 									(&item,)
 								); 
 
@@ -1021,8 +1021,8 @@ impl GIter {
 					None
 				}
 			}
-			OnceWith(ref gc_callable) => {
-				let result = glsp::call(&gc_callable.root(), &()).map(|val| Slot::from_val(&val));
+			OnceWith(ref raw_callable) => {
+				let result = glsp::call(&raw_callable.root(), &()).map(|val| Slot::from_val(&val));
 				*state_ref = Empty;
 				Some(result)
 			}
@@ -1107,7 +1107,7 @@ impl GIter {
 					for _ in 0 .. len {
 						chunk.push_start(arr.pop::<Slot>().unwrap()).unwrap();
 					}
-					Some(Ok(Slot::Arr(chunk.to_gc())))
+					Some(Ok(Slot::Arr(chunk.to_raw())))
 				}
 			}
 			RChunks(chunk_len, ref arr) => {
@@ -1121,7 +1121,7 @@ impl GIter {
 					for _ in 0 .. len {
 						chunk.push(arr.pop_start::<Slot>().unwrap()).unwrap();
 					}
-					Some(Ok(Slot::Arr(chunk.to_gc())))
+					Some(Ok(Slot::Arr(chunk.to_raw())))
 				}
 			}
 			Windows(window_len, ref arr) => {
@@ -1133,7 +1133,7 @@ impl GIter {
 						window.push_start(arr.get::<Slot>(-(i as i32)).unwrap()).unwrap();
 					}
 					arr.pop::<Slot>().unwrap();
-					Some(Ok(Slot::Arr(window.to_gc())))
+					Some(Ok(Slot::Arr(window.to_raw())))
 				}
 			}
 			Lines(ref st) => {
@@ -1171,7 +1171,7 @@ impl GIter {
 						accum.push_start(last).unwrap();
 					}
 
-					Some(Ok(Slot::Str(accum.to_gc())))
+					Some(Ok(Slot::Str(accum.to_raw())))
 				}
 			}
 			Split(ref src, ref split_at) => {
@@ -1198,7 +1198,7 @@ impl GIter {
 						accum.push_start(src.pop::<char>().unwrap()).unwrap();
 					}
 
-					Some(Ok(Slot::Str(accum.to_gc())))
+					Some(Ok(Slot::Str(accum.to_raw())))
 				}
 			}
 			Rev(ref base) => base.raw_next(),
@@ -1230,20 +1230,20 @@ impl GIter {
 			StepBy(_, _) => { 
 				Some(Err(error!("step-by iterators are not double-ended")))
 			}
-			Map(ref gc_callable, ref base) => {
+			Map(ref raw_callable, ref base) => {
 				match base.raw_next_back() {
 					Some(Ok(slot)) => {
-						let result = glsp::call(&gc_callable.root(), &[slot]);
+						let result = glsp::call(&raw_callable.root(), &[slot]);
 						Some(result.map(|val| Slot::from_val(&val)))
 					}
 					err_or_none => err_or_none
 				}
 			}
-			Filter(ref gc_callable, ref base) => {
+			Filter(ref raw_callable, ref base) => {
 				loop {
 					match base.raw_next_back() {
 						Some(Ok(slot)) => {
-							let result: Val = match glsp::call(&gc_callable.root(), (&slot,)) {
+							let result: Val = match glsp::call(&raw_callable.root(), (&slot,)) {
 								Ok(val) => val,
 								Err(err) => break Some(Err(err))
 							};
@@ -1357,7 +1357,7 @@ pub enum GIterLen {
 	Unknown
 }
 
-//so that we don't have to track owned_memory_usage, we prefer Gc<Arr> over Vec<Slot> for storing
+//so that we don't have to track owned_memory_usage, we prefer Raw<Arr> over Vec<Slot> for storing
 //owned data. this has the added benefits of keeping the GIter struct small and making the
 //recycler more effective.
 #[derive(Clone)]
@@ -1382,50 +1382,50 @@ pub(crate) enum GIterState {
 	FRnInclusive(f32, f32, f32),
 	FRnOpen(f32, f32),
 
-	ArrElements(Gc<Arr>, u32, u32), //arr, start_offs, back_offs
-	StrElements(Gc<Str>, u32, u32), //str, start_offs, back_offs
-	TabEntries(Gc<Arr>),
-	TabKeys(Gc<Arr>),
-	TabValues(Gc<Arr>),
-	CoroResults(Gc<Coro>),
+	ArrElements(Raw<Arr>, u32, u32), //arr, start_offs, back_offs
+	StrElements(Raw<Str>, u32, u32), //str, start_offs, back_offs
+	TabEntries(Raw<Arr>),
+	TabKeys(Raw<Arr>),
+	TabValues(Raw<Arr>),
+	CoroResults(Raw<Coro>),
 
 	Once1(Slot),
-	OnceN(Gc<Arr>),
-	OnceWith(GcCallable),
+	OnceN(Raw<Arr>),
+	OnceWith(RawCallable),
 	Repeat1(Slot),
-	RepeatN(Gc<Arr>, u32, u32), //elems, next_i, next_back_i
-	RepeatWith(GcCallable),
+	RepeatN(Raw<Arr>, u32, u32), //elems, next_i, next_back_i
+	RepeatWith(RawCallable),
 
-	AccessArr(Gc<Arr>, Gc<GIter>),
-	AccessStr(Gc<Str>, Gc<GIter>),
-	AccessObj(Gc<Obj>, Gc<GIter>),
-	AccessRData(Gc<RData>, Gc<GIter>),
-	AccessClass(Gc<Class>, Gc<GIter>),
+	AccessArr(Raw<Arr>, Raw<GIter>),
+	AccessStr(Raw<Str>, Raw<GIter>),
+	AccessObj(Raw<Obj>, Raw<GIter>),
+	AccessRData(Raw<RData>, Raw<GIter>),
+	AccessClass(Raw<Class>, Raw<GIter>),
 
 	//todo: have Chunks, RChunks, Windows, Lines and Split stream the deque's contents 
 	//in like ArrElements, rather than shallow-cloning the source when they're constructed
-	Chunks(u32, Gc<Arr>),
-	RChunks(u32, Gc<Arr>),
-	Windows(u32, Gc<Arr>),
+	Chunks(u32, Raw<Arr>),
+	RChunks(u32, Raw<Arr>),
+	Windows(u32, Raw<Arr>),
 
-	Lines(Gc<Str>),
-	Split(Gc<Str>, Gc<Str>), //src, split_at
+	Lines(Raw<Str>),
+	Split(Raw<Str>, Raw<Str>), //src, split_at
 
-	Rev(Gc<GIter>),
-	Enumerate(Gc<GIter>, u32),
-	Cloned(Gc<GIter>),
-	DeepCloned(Gc<GIter>),
-	StepBy(u32, Gc<GIter>),
-	Map(GcCallable, Gc<GIter>),
-	Filter(GcCallable, Gc<GIter>),
-	Zip(Gc<Arr>),
-	Chain(Gc<Arr>),
-	Flatten(Gc<GIter>, Option<Gc<GIter>>), //base, cur_iter
-	Cycle(Option<Gc<GIter>>, Gc<Arr>, u32), //base, collection, next_i
-	Take(u32, Gc<GIter>), //remaining, base
-	TakeWhile(GcCallable, Gc<GIter>),
-	Skip(u32, Gc<GIter>), //remaining, base
-	SkipWhile(Option<GcCallable>, Gc<GIter>),
+	Rev(Raw<GIter>),
+	Enumerate(Raw<GIter>, u32),
+	Cloned(Raw<GIter>),
+	DeepCloned(Raw<GIter>),
+	StepBy(u32, Raw<GIter>),
+	Map(RawCallable, Raw<GIter>),
+	Filter(RawCallable, Raw<GIter>),
+	Zip(Raw<Arr>),
+	Chain(Raw<Arr>),
+	Flatten(Raw<GIter>, Option<Raw<GIter>>), //base, cur_iter
+	Cycle(Option<Raw<GIter>>, Raw<Arr>, u32), //base, collection, next_i
+	Take(u32, Raw<GIter>), //remaining, base
+	TakeWhile(RawCallable, Raw<GIter>),
+	Skip(u32, Raw<GIter>), //remaining, base
+	SkipWhile(Option<RawCallable>, Raw<GIter>),
 }
 
 impl GIterState {
@@ -1435,52 +1435,52 @@ impl GIterState {
 		//we perform just enough copying to ensure that result.raw_next() won't mutate `self`,
 		//taking care not to clone a non-owned arr/str/tab which is being iterated.
 		match self {
-			TabEntries(arr) => TabEntries(arr.shallow_clone().to_gc()),
-			TabKeys(arr) => TabKeys(arr.shallow_clone().to_gc()),
-			TabValues(arr) => TabValues(arr.shallow_clone().to_gc()),
+			TabEntries(arr) => TabEntries(arr.shallow_clone().to_raw()),
+			TabKeys(arr) => TabKeys(arr.shallow_clone().to_raw()),
+			TabValues(arr) => TabValues(arr.shallow_clone().to_raw()),
 
 			//can't do anything for CoroResults as yet (todo?), because coros can't be
 			//shallow-cloned. 
 
-			AccessArr(arr, giter) => AccessArr(arr.clone(), giter.shallow_clone().to_gc()),
-			AccessStr(st, giter) => AccessStr(st.clone(), giter.shallow_clone().to_gc()),
-			AccessObj(ob, giter) => AccessObj(ob.clone(), giter.shallow_clone().to_gc()),
-			AccessRData(rd, giter) => AccessRData(rd.clone(), giter.shallow_clone().to_gc()),
-			AccessClass(cl, giter) => AccessClass(cl.clone(), giter.shallow_clone().to_gc()),
+			AccessArr(arr, giter) => AccessArr(arr.clone(), giter.shallow_clone().to_raw()),
+			AccessStr(st, giter) => AccessStr(st.clone(), giter.shallow_clone().to_raw()),
+			AccessObj(ob, giter) => AccessObj(ob.clone(), giter.shallow_clone().to_raw()),
+			AccessRData(rd, giter) => AccessRData(rd.clone(), giter.shallow_clone().to_raw()),
+			AccessClass(cl, giter) => AccessClass(cl.clone(), giter.shallow_clone().to_raw()),
 
-			Chunks(len, arr) => Chunks(*len, arr.shallow_clone().to_gc()),
-			RChunks(len, arr) => RChunks(*len, arr.shallow_clone().to_gc()),
-			Windows(len, arr) => Windows(*len, arr.shallow_clone().to_gc()),
+			Chunks(len, arr) => Chunks(*len, arr.shallow_clone().to_raw()),
+			RChunks(len, arr) => RChunks(*len, arr.shallow_clone().to_raw()),
+			Windows(len, arr) => Windows(*len, arr.shallow_clone().to_raw()),
 
-			Lines(st) => Lines(st.shallow_clone().to_gc()),
-			Split(src, split_at) => Split(src.shallow_clone().to_gc(), split_at.clone()),
+			Lines(st) => Lines(st.shallow_clone().to_raw()),
+			Split(src, split_at) => Split(src.shallow_clone().to_raw(), split_at.clone()),
 
-			Rev(base) => Rev(base.shallow_clone().to_gc()),
-			Enumerate(base, n) => Enumerate(base.shallow_clone().to_gc(), *n),
-			Cloned(base) => Cloned(base.shallow_clone().to_gc()),
-			DeepCloned(base) => DeepCloned(base.shallow_clone().to_gc()),
-			StepBy(n, base) => StepBy(*n, base.shallow_clone().to_gc()),
-			Map(callable, base) => Map(callable.clone(), base.shallow_clone().to_gc()),
-			Filter(callable, base) => Filter(callable.clone(), base.shallow_clone().to_gc()),
-			Zip(arr) => Zip(arr.deep_clone().unwrap().to_gc()),
-			Chain(arr) => Chain(arr.deep_clone().unwrap().to_gc()),
+			Rev(base) => Rev(base.shallow_clone().to_raw()),
+			Enumerate(base, n) => Enumerate(base.shallow_clone().to_raw(), *n),
+			Cloned(base) => Cloned(base.shallow_clone().to_raw()),
+			DeepCloned(base) => DeepCloned(base.shallow_clone().to_raw()),
+			StepBy(n, base) => StepBy(*n, base.shallow_clone().to_raw()),
+			Map(callable, base) => Map(callable.clone(), base.shallow_clone().to_raw()),
+			Filter(callable, base) => Filter(callable.clone(), base.shallow_clone().to_raw()),
+			Zip(arr) => Zip(arr.deep_clone().unwrap().to_raw()),
+			Chain(arr) => Chain(arr.deep_clone().unwrap().to_raw()),
 			Flatten(base, cur_iter) => {
 				Flatten(
-					base.shallow_clone().to_gc(), 
-					cur_iter.as_ref().map(|cur_iter| cur_iter.shallow_clone().to_gc())
+					base.shallow_clone().to_raw(), 
+					cur_iter.as_ref().map(|cur_iter| cur_iter.shallow_clone().to_raw())
 				)
 			}
 			Cycle(base, arr, n) => {
 				Cycle(
-					base.as_ref().map(|base| base.shallow_clone().to_gc()), 
-					arr.shallow_clone().to_gc(), 
+					base.as_ref().map(|base| base.shallow_clone().to_raw()), 
+					arr.shallow_clone().to_raw(), 
 					*n
 				)
 			}
-			Take(n, base) => Take(*n, base.shallow_clone().to_gc()),
-			TakeWhile(callable, base) => TakeWhile(callable.clone(), base.shallow_clone().to_gc()),
-			Skip(n, base) => Skip(*n, base.shallow_clone().to_gc()),
-			SkipWhile(callable, base) => SkipWhile(callable.clone(), base.shallow_clone().to_gc()),
+			Take(n, base) => Take(*n, base.shallow_clone().to_raw()),
+			TakeWhile(callable, base) => TakeWhile(callable.clone(), base.shallow_clone().to_raw()),
+			Skip(n, base) => Skip(*n, base.shallow_clone().to_raw()),
+			SkipWhile(callable, base) => SkipWhile(callable.clone(), base.shallow_clone().to_raw()),
 
 			//everything else falls back to the auto-derived Clone impl
 			state => state.clone()
@@ -1489,35 +1489,35 @@ impl GIterState {
 }
 
 #[derive(Clone)]
-pub(crate) enum GcCallable {
-	RFn(Gc<RFn>),
-	GFn(Gc<GFn>),
-	Class(Gc<Class>),
+pub(crate) enum RawCallable {
+	RFn(Raw<RFn>),
+	GFn(Raw<GFn>),
+	Class(Raw<Class>),
 }
 
-impl GcCallable {
-	pub(crate) fn from_callable(callable: &Callable) -> GcCallable {
+impl RawCallable {
+	pub(crate) fn from_callable(callable: &Callable) -> RawCallable {
 		match callable {
-			Callable::RFn(rfn) => GcCallable::RFn(Gc::from_root(rfn)),
-			Callable::GFn(gfn) => GcCallable::GFn(Gc::from_root(gfn)),
-			Callable::Class(class) => GcCallable::Class(Gc::from_root(class))
+			Callable::RFn(rfn) => RawCallable::RFn(Raw::from_root(rfn)),
+			Callable::GFn(gfn) => RawCallable::GFn(Raw::from_root(gfn)),
+			Callable::Class(class) => RawCallable::Class(Raw::from_root(class))
 		}
 	}
 
 	pub(crate) fn root(&self) -> Callable {
 		match self {
-			GcCallable::RFn(rfn) => Callable::RFn(rfn.root()),
-			GcCallable::GFn(gfn) => Callable::GFn(gfn.root()),
-			GcCallable::Class(class) => Callable::Class(class.root())
+			RawCallable::RFn(rfn) => Callable::RFn(rfn.root()),
+			RawCallable::GFn(gfn) => Callable::GFn(gfn.root()),
+			RawCallable::Class(class) => Callable::Class(class.root())
 		}
 	}
 }
 
-fn visit_gc_callable<V: Visitor>(v: &mut V, gc_callable: &GcCallable) {
-	match gc_callable {
-		GcCallable::RFn(rfn) => v.visit_gc(rfn),
-		GcCallable::GFn(gfn) => v.visit_gc(gfn),
-		GcCallable::Class(class) => v.visit_gc(class)
+fn visit_raw_callable<V: Visitor>(v: &mut V, raw_callable: &RawCallable) {
+	match raw_callable {
+		RawCallable::RFn(rfn) => v.visit_raw(rfn),
+		RawCallable::GFn(gfn) => v.visit_raw(gfn),
+		RawCallable::Class(class) => v.visit_raw(class)
 	}
 }
 
@@ -1578,13 +1578,13 @@ impl IterableOps for Iterable {
 
 impl IterableOps for Root<Arr> {
 	fn giter(&self) -> Root<GIter> {
-		glsp::giter(GIterState::ArrElements(self.to_gc(), 0, 0))
+		glsp::giter(GIterState::ArrElements(self.to_raw(), 0, 0))
 	}
 }
 
 impl IterableOps for Root<Str> {
 	fn giter(&self) -> Root<GIter> {
-		glsp::giter(GIterState::StrElements(self.to_gc(), 0, 0))
+		glsp::giter(GIterState::StrElements(self.to_raw(), 0, 0))
 	}
 }
 
@@ -1596,13 +1596,13 @@ impl IterableOps for Root<Tab> {
 			arr.push(arr![key, value]).unwrap();
 		}
 
-		glsp::giter(GIterState::TabEntries(arr.to_gc()))
+		glsp::giter(GIterState::TabEntries(arr.to_raw()))
 	}
 }
 
 impl IterableOps for Root<Coro> {
 	fn giter(&self) -> Root<GIter> {
-		glsp::giter(GIterState::CoroResults(self.to_gc()))
+		glsp::giter(GIterState::CoroResults(self.to_raw()))
 	}
 }
 
@@ -1612,31 +1612,31 @@ impl IterableOps for Root<GIter> {
 	}
 }
 
-impl IterableOps for Gc<Arr> {
+impl IterableOps for Raw<Arr> {
 	fn giter(&self) -> Root<GIter> {
 		glsp::giter(GIterState::ArrElements(self.clone(), 0, 0))
 	}
 }
 
-impl IterableOps for Gc<Str> {
+impl IterableOps for Raw<Str> {
 	fn giter(&self) -> Root<GIter> {
 		glsp::giter(GIterState::StrElements(self.clone(), 0, 0))
 	}
 }
 
-impl IterableOps for Gc<Tab> {
+impl IterableOps for Raw<Tab> {
 	fn giter(&self) -> Root<GIter> {
 		self.root().giter()
 	}
 }
 
-impl IterableOps for Gc<Coro> {
+impl IterableOps for Raw<Coro> {
 	fn giter(&self) -> Root<GIter> {
 		glsp::giter(GIterState::CoroResults(self.clone()))
 	}
 }
 
-impl IterableOps for Gc<GIter> {
+impl IterableOps for Raw<GIter> {
 	fn giter(&self) -> Root<GIter> {
 		self.root()
 	}

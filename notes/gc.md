@@ -9,7 +9,7 @@ Our garbage-collector is designed to be a good fit for a "typical" video game us
 
 - Control is manually yielded to the GC once per frame. The mutator is expected to do a fairly 
   consistent amount of work from one frame to the next. In exchange, the programmer can expect 
-  each yield  point to take up a predictable amount of runtime, with no latency spikes.
+  each yield point to take up a predictable amount of runtime, with no latency spikes.
 
 	- Our goal is not to be perfectly consistent, but instead to be proportional to the 
 	  amount of new allocation each frame - if the programmer allocates twice as many bytes 
@@ -118,7 +118,7 @@ However, there's no way to forbid it entirely. `Box::leak`, and the `thread_loca
 both permit any `'static` type (like `Root`!) to be given an indefinite lifetime.
 
 `Syms` will just cause harmless undefined behaviour or out-of-bounds panics when moved 
-between `Runtimes`, but if a `Root` (or a `Gc` derived from it) is stored in a foreign `Heap`, 
+between `Runtimes`, but if a `Root` (or a `Raw` derived from it) is stored in a foreign `Heap`, 
 that would cause use-after-free bugs in `"unsafe-internals"` mode. For example...
 	
 - Store a `Root<Arr>` from `Heap` A in a `thread_local` variable
@@ -126,43 +126,43 @@ that would cause use-after-free bugs in `"unsafe-internals"` mode. For example..
 - Call an rfn from Heap B. Access the `thread_local`, and return the `Root<Arr>` from the rfn
 
 - Store the result of that rfn in a local variable within glsp (which will convert it to 
-  a `Gc<Arr>`, and store it in a `Slot::Arr` on the stack, which isn't write-barriered)
+  a `Raw<Arr>`, and store it in a `Slot::Arr` on the stack, which isn't write-barriered)
 
 - Mutate the `thread_local` using interior mutability, so that it no longer stores a 
   `Root<Arr>`
 
 - Call another rfn which drops `Heap` A's Runtime, causing the `Arr` referred to by the 
-  `Gc<Arr>` to be deallocated
+  `Raw<Arr>` to be deallocated
 
-- Execute an operation which dereferences the `Gc<Arr>` local variable, such as `[loc 0]`
+- Execute an operation which dereferences the `Raw<Arr>` local variable, such as `[loc 0]`
 
-We prevent this behaviour by aborting the process if a `Root` or `Gc` could outlive its
+We prevent this behaviour by aborting the process if a `Root` or `Raw` could outlive its
 originating `Heap`. We have to abort rather than panicking, because panics in Rust are recoverable 
 using `catch_unwind`. Specifically...
 	
 - If a `Heap` is dropped with at least one extant `Root`, we abort the process.
 
 	- This means that the only way for a `Root` to outlive its Heap is for it to be converted 
-	  into a `Gc`; since `Gc` is an undocumented type (which the user is completely forbidden
+	  into a `Raw`; since `Raw` is an undocumented type (which the user is completely forbidden
 	  from accessing, for safety reasons), this can only happen within the `glsp-engine` crate.
 
-- Whenever a `Root` is converted to a `Gc`, or a `Root` is created, cloned or dropped, if 
+- Whenever a `Root` is converted to a `Raw`, or a `Root` is created, cloned or dropped, if 
   the pointed-to object's originating `Runtime` ID differs from the active `Runtime` ID, we 
   abort the process.
 	
 	- If we didn't do this then we would need to screen every `Slot` that's passed to `vm.rs` 
 	  as an argument or return value - it would be a lot more complex, while also probably 
-	  leaking like a sieve. Checking the `Root`/`Gc` conversions is simple and safe.
+	  leaking like a sieve. Checking the `Root`/`Raw` conversions is simple and safe.
 	- This is only safe if there's no race condition which would allow the active `Runtime` 
-	  to change between creating a `Gc` or `Slot` and storing it on the active `Heap`. This 
+	  to change between creating a `Raw` or `Slot` and storing it on the active `Heap`. This 
 	  isn't currently plausible, but I suppose that could change in the future.
 
-- Finally, the write barrier tests for a mismatch between the `Heap` on which a `Gc` is
-  being stored, and the `Heap` to which the `Gc` points.
+- Finally, the write barrier tests for a mismatch between the `Heap` on which a `Raw` is
+  being stored, and the `Heap` to which the `Raw` points.
 
 	- This is necessary for the case where you have an active `Heap` A, a `Root<Arr>` pointing
 	  into `Heap` B, a `Root<GFn>` pointing into `Heap` A, and you call `the_arr.set(0, the_gfn)?`.
-	  This won't be caught by the `Root`-to-`Gc` conversion check, because the `Root<GFn>` matches 
+	  This won't be caught by the `Root`-to-`Raw` conversion check, because the `Root<GFn>` matches 
 	  the active `Heap`, even though it doesn't match the `Heap` on which it's about to be stored.
 
 I think I've covered everything, but security audits are always welcome!
@@ -174,12 +174,12 @@ have needed to be accessed anyway.
 
 ## Safe-Internals Mode
 
-We create a garbage collector in safe Rust by making the `Gc` smart pointer into a thin
+We create a garbage collector in safe Rust by making the `Raw` smart pointer into a thin
 wrapper over an `Rc`. We break reference cycles by using interior mutability to clear some types 
 when they become unreachable, rather than when they're actually dropped by Rust.
 
-This cycle-breaking is achieved in the `Gc::free()` function. In `"unsafe-internals"` mode, this
-is an actual deallocation. In safe mode, it uses internal mutability to remove `Gc` pointers
+This cycle-breaking is achieved in the `Raw::free()` function. In `"unsafe-internals"` mode, this
+is an actual deallocation. In safe mode, it uses internal mutability to remove `Raw` pointers
 from *some* types. We can't clear all types, because that would require interior mutability to
 be added to a number of types which don't need it, like `Bytecode`. However, it's safe to leave
 many types as they are, because they can never produce a reference cycle:
@@ -192,20 +192,40 @@ many types as they are, because they can never produce a reference cycle:
 - `Classes` only have their constant table, which is frozen before the `Class` itself exists.
 
 Currently, the main downside of this approach is that it could potentially cause ghost objects to
-be freed in a "chunky" fashion - that is, calling `Gc::free` for one object could potentially cause
+be freed in a "chunky" fashion - that is, calling `Raw::free` for one object could potentially cause
 a huge tree of objects to be deallocated all at once, causing a latency spike. The solution would
 be to clear reference cycles in one pass, and then actually free the ghost objects (deleting
-the final `Gc` which the `Heap` uses to refer to them, and therefore deallocating them) in
+the final `Raw` which the `Heap` uses to refer to them, and therefore deallocating them) in
 a separate pass.
 
 ## `"unsafe-internals"` Mode
 
-In `"unsafe-internals"` mode, `Gc` is just a thin wrapper over a raw pointer. This makes it
-very fast but also very unsafe - if there is an extant `Gc` for an object which is not
+In `"unsafe-internals"` mode, `Raw` is just a thin wrapper over a raw pointer. This makes it
+very fast but also very unsafe - if there is an extant `Raw` for an object which is not
 transitively reachable from a `Root`, use-after-free could occur. This invariant needs to be
 upheld manually.
 
-In order to mitigate the risk, we don't permit the user to access `Gc`, and we limit our own use 
-of `Gc`: at the time of writing, it's only used extensively in `vm.rs`, `collections.rs`, 
+In order to mitigate the risk, we don't permit the user to access `Raw`, and we limit our own use 
+of `Raw`: at the time of writing, it's only used extensively in `vm.rs`, `collections.rs`, 
 `class.rs` and `wrap.rs`. We use `Root` everywhere else, including throughout the stdlib, despite 
 the moderate performance cost from doing so.
+
+
+## Rooting
+
+While a `Root` exists which points to an object, we store an entry for that object in our
+`Vec<RootEntry>` collection, and we store the entry's index in the object's `Header`. At the
+start of each step, we iterate over the `Vec<RootEntry>`, marking any strongly-rooted objects.
+
+Weak roots (`Gc`s) aren't actually pointers. Instead, they store the index of a particular
+`RootEntry`. When an object is deallocated, it nullifies the pointer stored in its `RootEntry`,
+if any; from then on, `Gc::upgrade` will fail. `Gc::upgrade` also fails for objects in the ghost
+generation. The `RootEntry` itself isn't actually deleted until its last `Gc` is dropped.
+
+We guard some parts of `Heap` while tracing an `RData`, to guarantee a panic if the 
+user-defined callback tries to root, unroot, allocate memory, or start a new garbage collection 
+step. We also catch panics, so that the callback can't leave the garbage collector in an 
+incoherent state by terminating a collection step halfway through.
+
+When an `RData` stores `Root`s rather than `Gc`s, it's likely to cause severe memory leaks, but 
+I can't think of any other way that it might affect memory safety.

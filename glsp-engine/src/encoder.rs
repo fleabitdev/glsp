@@ -9,7 +9,7 @@ use super::code::{
 };
 use super::error::{GResult};
 use super::engine::{glsp, Span, Sym};
-use super::gc::{Gc, GcHeader, Slot, Root};
+use super::gc::{Raw, Header, Slot, Root};
 use super::transform::{
 	op_instr_0_args, op_instr_1_arg, op_instr_2_args, op_instr_3_args, op_instr_variadic
 };
@@ -359,7 +359,7 @@ impl Encoder {
 
 		ensure!(frame.stay_sources.len() < 256, "frame requires more than 256 stay sources");
 
-		frame.stay_sources.push(StaySource::PreExisting(stay.to_gc()));
+		frame.stay_sources.push(StaySource::PreExisting(stay.to_raw()));
 		return Ok((frame.stay_sources.len() - 1) as u8)
 	}
 
@@ -772,7 +772,7 @@ pub(crate) fn encode_fragment(
 	} = enc.frames.pop().unwrap();
 	
 	Ok(glsp::alloc(Bytecode {
-		header: GcHeader::new(),
+		header: Header::new(),
 		instrs, 
 		spans,
 		start_regs,
@@ -780,7 +780,7 @@ pub(crate) fn encode_fragment(
 		scratch_count: scratch_used as u8,
 		literal_count: literals.len() as u8,
 		start_stays: stay_sources,
-		lambdas: lambdas.iter().map(|root| Gc::from_root(root)).collect(),
+		lambdas: lambdas.iter().map(|root| Raw::from_root(root)).collect(),
 		defers
 	}))
 }
@@ -1247,9 +1247,9 @@ fn encode_node(enc: &mut Encoder, ast: &Ast, node: Id<Node>, dst: Reg) -> GResul
 			} = enc.frames.pop().unwrap();
 
 			let new_lambda = glsp::alloc(Lambda {
-				header: GcHeader::new(),
-				bytecode: Gc::from_root(&glsp::alloc(Bytecode {
-					header: GcHeader::new(),
+				header: Header::new(),
+				bytecode: Raw::from_root(&glsp::alloc(Bytecode {
+					header: Header::new(),
 					instrs,
 					spans,
 					start_regs,
@@ -1257,7 +1257,7 @@ fn encode_node(enc: &mut Encoder, ast: &Ast, node: Id<Node>, dst: Reg) -> GResul
 					local_count: local_inits.len() as u8,
 					scratch_count: scratch_used as u8,
 					literal_count: literals.len() as u8,
-					lambdas: lambdas.iter().map(|root| Gc::from_root(root)).collect(),
+					lambdas: lambdas.iter().map(|root| Raw::from_root(root)).collect(),
 					defers
 				})),
 				param_map: ParamMap::from_param_list(param_list, &arg_limits, node_span)?,

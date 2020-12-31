@@ -1,7 +1,7 @@
 use super::code::{Bytecode, Coro, GFn, Lambda, Stay};
 use super::collections::{Arr, DequeOps, Str, Tab};
 use super::class::{Class, Obj};
-use super::engine::{ACTIVE_ENGINE_ID, glsp, RData, RFn, Span, Sym, with_heap};
+use super::engine::{glsp, Guard, RData, RFn, RGc, Span, Sym, with_heap};
 use super::error::{GResult};
 use super::iter::{GIter, GIterState};
 use super::val::{Hashable, Val};
@@ -9,9 +9,10 @@ use super::wrap::{IntoVal};
 use std::{f32};
 use std::borrow::{Borrow};
 use std::cell::{Cell, RefCell, RefMut};
-use std::cmp::{max, Ordering};
+use std::cmp::{max, min, Ordering};
 use std::fmt::{self, Debug};
 use std::hash::{Hash, Hasher};
+use std::marker::{PhantomData};
 use std::mem::{size_of};
 use std::ops::{Deref};
 use std::process::{abort};
@@ -20,7 +21,11 @@ use std::process::{abort};
 //notes/gc.md for the details.
 
 
-// safe Gc<T> implementation
+//-------------------------------------------------------------------------------------------------
+// Raw
+//-------------------------------------------------------------------------------------------------
+
+// safe Raw<T> implementation
 //----------------------------------------------------------------------------
 
 #[cfg(not(feature = "unsafe-internals"))]
@@ -28,22 +33,22 @@ use std::rc::Rc;
 
 #[doc(hidden)]
 #[cfg(not(feature = "unsafe-internals"))]
-pub struct Gc<T: Allocate> {
+pub struct Raw<T: Allocate> {
 	rc: Rc<T>
 }
 
 #[cfg(not(feature = "unsafe-internals"))]
-impl<T: Allocate> Gc<T> {
+impl<T: Allocate> Raw<T> {
 	#[inline]
-	fn new(t: T) -> Gc<T> {
-		Gc {
+	fn new(t: T) -> Raw<T> {
+		Raw {
 			rc: Rc::new(t)
 		}
 	}
 
 	#[inline]
-	pub(crate) fn ptr_eq(gc0: &Gc<T>, gc1: &Gc<T>) -> bool {
-		Rc::ptr_eq(&gc0.rc, &gc1.rc)
+	pub(crate) fn ptr_eq(raw0: &Raw<T>, raw1: &Raw<T>) -> bool {
+		Rc::ptr_eq(&raw0.rc, &raw1.rc)
 	}
 
 	#[inline]
@@ -53,22 +58,22 @@ impl<T: Allocate> Gc<T> {
 
 	#[inline]
 	fn free(&self) {
-		self.clear_gcs()
+		self.clear_raws()
 	}
 }
 
 #[cfg(not(feature = "unsafe-internals"))]
-impl<T: Allocate> Clone for Gc<T> {
+impl<T: Allocate> Clone for Raw<T> {
 	#[inline]
-	fn clone(&self) -> Gc<T> {
-		Gc {
+	fn clone(&self) -> Raw<T> {
+		Raw {
 			rc: Rc::clone(&self.rc)
 		}
 	}
 }
 
 #[cfg(not(feature = "unsafe-internals"))]
-impl<T: Allocate> Deref for Gc<T> {
+impl<T: Allocate> Deref for Raw<T> {
 	type Target = T;
 
 	#[inline]
@@ -77,7 +82,7 @@ impl<T: Allocate> Deref for Gc<T> {
 	}
 }
 
-// unsafe Gc<T> implementation
+// unsafe Raw<T> implementation
 //----------------------------------------------------------------------------
 
 #[cfg(feature = "unsafe-internals")]
@@ -85,22 +90,22 @@ use std::ptr::NonNull;
 
 #[doc(hidden)]
 #[cfg(feature = "unsafe-internals")]
-pub struct Gc<T: Allocate> {
+pub struct Raw<T: Allocate> {
 	ptr: NonNull<T>
 }
 
 #[cfg(feature = "unsafe-internals")]
-impl<T: Allocate> Gc<T> {
+impl<T: Allocate> Raw<T> {
 	#[inline]
-	fn new(t: T) -> Gc<T> {
-		Gc {
+	fn new(t: T) -> Raw<T> {
+		Raw {
 			ptr: NonNull::new(Box::into_raw(Box::new(t))).unwrap()
 		}
 	}
 
 	#[inline]
-	pub(crate) fn ptr_eq(gc0: &Gc<T>, gc1: &Gc<T>) -> bool {
-		gc0.ptr == gc1.ptr
+	pub(crate) fn ptr_eq(raw0: &Raw<T>, raw1: &Raw<T>) -> bool {
+		raw0.ptr == raw1.ptr
 	}
 
 	#[inline]
@@ -117,17 +122,17 @@ impl<T: Allocate> Gc<T> {
 }
 
 #[cfg(feature = "unsafe-internals")]
-impl<T: Allocate> Clone for Gc<T> {
+impl<T: Allocate> Clone for Raw<T> {
 	#[inline]
-	fn clone(&self) -> Gc<T> {
-		Gc {
+	fn clone(&self) -> Raw<T> {
+		Raw {
 			ptr: self.ptr
 		}
 	}
 }
 
 #[cfg(feature = "unsafe-internals")]
-impl<T: Allocate> Deref for Gc<T> {
+impl<T: Allocate> Deref for Raw<T> {
 	type Target = T;
 
 	#[inline]
@@ -138,19 +143,19 @@ impl<T: Allocate> Deref for Gc<T> {
 	}
 }
 
-// common Gc<T> methods
+// common Raw<T> methods
 //----------------------------------------------------------------------------
 
-impl<T: Allocate> Gc<T> {
+impl<T: Allocate> Raw<T> {
 	#[inline]
-	pub(crate) fn from_root(root: &Root<T>) -> Gc<T> {
-		let engine_id = ACTIVE_ENGINE_ID.with(|id| id.get().unwrap());
+	pub(crate) fn from_root(root: &Root<T>) -> Raw<T> {
+		let engine_id = with_heap(|heap| heap.engine_id);
 		if engine_id != root.header().engine_id() {
 			eprintln!("attempted to move a Root to another Runtime - aborting process");
 			abort()
 		}
 
-		root.gc.clone()
+		root.raw.clone()
 	}
 
 	#[inline]
@@ -164,73 +169,87 @@ impl<T: Allocate> Gc<T> {
 	}
 
 	#[inline]
-	fn header(&self) -> &GcHeader {
+	fn header(&self) -> &Header {
 		(**self).header()
 	}
 }
 
-impl<T: Allocate> PartialEq for Gc<T> {
+impl<T: Allocate> PartialEq for Raw<T> {
 	#[inline]
-	fn eq(&self, other: &Gc<T>) -> bool {
+	fn eq(&self, other: &Raw<T>) -> bool {
 		self.as_usize() == other.as_usize()
 	}
 }
 
-impl<T: Allocate> Eq for Gc<T> { }
+impl<T: Allocate> Eq for Raw<T> { }
 
-impl<T: Allocate> Hash for Gc<T> {
+impl<T: Allocate> Hash for Raw<T> {
 	#[inline]
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.as_usize().hash(state)
 	}
 }
 
+
+//-------------------------------------------------------------------------------------------------
+// ErasedRaw
+//-------------------------------------------------------------------------------------------------
+
 macro_rules! erased_types {
 	($($type_name:ident),+) => (
 		
 		#[doc(hidden)]
 		pub trait Erase {
-			fn erase_gc(gc: Gc<Self>) -> ErasedGc where Self: Allocate;
+			fn erase_raw(raw: Raw<Self>) -> ErasedRaw where Self: Allocate;
+			fn unerase_raw(erased_raw: &ErasedRaw) -> Raw<Self> where Self: Allocate;
 		}
 
 		$(impl Erase for $type_name {
 			#[inline(always)]
-			fn erase_gc(gc: Gc<$type_name>) -> ErasedGc {
-				ErasedGc::$type_name(gc)
+			fn erase_raw(raw: Raw<$type_name>) -> ErasedRaw {
+				ErasedRaw::$type_name(raw)
+			}
+
+			#[inline(always)]
+			fn unerase_raw(erased_raw: &ErasedRaw) -> Raw<Self> {
+				match erased_raw {
+					ErasedRaw::$type_name(raw) => raw.clone(),
+					_ => panic!()
+				}
 			}
 		})+
 
 		#[doc(hidden)]
 		#[derive(Clone)]
-		pub enum ErasedGc {
-			$($type_name(Gc<$type_name>)),+
+		pub enum ErasedRaw {
+			$($type_name(Raw<$type_name>)),+
 		}
 
-		impl ErasedGc {
-			fn header(&self) -> &GcHeader {
+		impl ErasedRaw {
+			fn header(&self) -> &Header {
 				match *self {
-					$(ErasedGc::$type_name(ref gc) => &gc.header()),+
+					$(ErasedRaw::$type_name(ref raw) => &raw.header()),+
 				}
 			}
 		}
 
-		impl Debug for ErasedGc {
+		impl Debug for ErasedRaw {
 			fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 				match *self {
 					$(
-						ErasedGc::$type_name(ref gc) => {
-							write!(f, "ErasedGc::{}(0x{:x})", stringify!($type_name),
-							       (&**gc) as *const $type_name as usize)
+						ErasedRaw::$type_name(ref raw) => {
+							write!(f, "ErasedRaw::{}(0x{:x})", stringify!($type_name),
+							       (&**raw) as *const $type_name as usize)
 						}
 					)+
 				}
 			}
 		}
 
-		macro_rules! with_erased_gc {
-			($erased:expr, $gc_ident:ident, $body:expr) => (
+		macro_rules! with_erased_raw {
+			($erased:expr, $raw_ident:ident, $body:expr) => (
 				match $erased {
-					$(ErasedGc::$type_name(ref $gc_ident) => $body),+
+					$(ErasedRaw::$type_name(ref $raw_ident) => $body),+
 				}
 			);
 		}
@@ -253,76 +272,338 @@ erased_types!(
 	Lambda
 );
 
+
+//-------------------------------------------------------------------------------------------------
+// Root, RootStorage
+//-------------------------------------------------------------------------------------------------
+
 /**
 A pointer onto the garbage-collected heap.
 */
 
 pub struct Root<T: Allocate> {
-	pub(crate) gc: Gc<T>
+	pub(crate) raw: Raw<T>
 }
+
+/*
+i was tempted to align RootEntry to a power-of-two size to make indexing cheaper, but
+i suspect the increased memory/cache pressure wouldn't be worth it.
+*/
 
 #[derive(Debug)]
 struct RootEntry {
-	gc: ErasedGc,
-	root_count: usize
+	raw: Option<ErasedRaw>,
+	strong_count: u32,
+	weak_count: u32,
+
+	//null next/previous indexes are represented by 0
+	next_entry: u32,
+	prev_entry: u32
+}
+
+const NULL_ENTRY: u32 = 0;
+
+/*
+RootStorage maintains three collections in a single vec:
+	- a singly-linked list of vacant entries (strong_count = 0, weak_count = 0, raw = None)
+	- a doubly-linked list of strong entries (strong_count > 0, raw = Some(_))
+	- a non-iterable collection of weak entries (strong_count = 0, weak_count > 0, raw = ?)
+
+for vacant entries, next_entry contains junk data; for weak entries, both next_entry and
+prev_entry contain junk data. entry 0 is a placeholder, and its next_entry and prev_entry
+are always junk data - this eliminates a lot of branches.
+
+the storage vector grows in power-of-two increments, filling in any empty space with new 
+vacant entries.
+
+the main purpose of the linked lists is to keep root indexes stable (because Gc pointers
+actually store the root index, rather than pointing to the object itself).
+
+we considered some clever tricks to try to improve iteration performance (e.g. switching between
+vector and linked-list iteration depending on the vector's occupancy percentage, or reordering
+the linked lists during vector iteration so that they're sequential in memory), but that would
+add a lot of complexity for something which is unlikely to cost more than 1 to 10 nanoseconds per
+Root per gc step. 10,000 Roots implies 0.01 to 0.1ms per gc step. probably not worth it.
+*/
+
+pub(crate) struct RootStorage {
+	entries: Vec<RootEntry>,
+
+	first_vacant: u32,
+	first_strong: u32
+
+	/*
+	we could also add a last_strong field here, for appending new items to the end of the
+	strong list rather than its beginning. the only benefit would be that iteration through
+	the strong list would then generally move from lower memory addresses to higher ones, but
+	i'm pretty sure this wouldn't actually be more cache-friendly. it would also make alloc(), 
+	increment_strong_count() and decrement_strong_count() more expensive... seems like 
+	a bad trade-off.
+	*/
+}
+
+impl RootStorage {
+	fn new() -> RootStorage {
+		let mut entries = Vec::with_capacity(128);
+		while entries.len() < entries.capacity() {
+			let next_entry = (entries.len() + 1) as u32;
+			entries.push(RootEntry {
+				raw: None,
+				strong_count: 0,
+				weak_count: 0,
+
+				next_entry,
+				prev_entry: 0xffff_ffff //deliberate junk data
+			});
+		}
+
+		RootStorage {
+			entries,
+
+			first_vacant: 1,
+			first_strong: NULL_ENTRY
+		}
+	}
+
+	//double the length of `entries` by appending `entries.len()` new vacant entries
+	#[inline(never)]
+	fn grow(&mut self) {
+
+		//checking against MAX_ROOT_INDEX here means that we don't need to check it
+		//on every call to alloc()
+		let new_len = min(MAX_ROOT_INDEX as usize + 1, self.entries.len() * 2);
+		assert!(
+			new_len > self.entries.len(),
+			"no more than {} objects may be simultaneously rooted",
+			MAX_ROOT_INDEX as usize + 1
+		);
+
+		let to_reserve = new_len - self.entries.len();
+		self.entries.reserve_exact(to_reserve);
+
+		while self.entries.len() < self.entries.capacity() {
+			let next_entry = (self.entries.len() + 1) as u32;
+			self.entries.push(RootEntry {
+				raw: None,
+				strong_count: 0,
+				weak_count: 0,
+
+				next_entry,
+				prev_entry: 0xffff_ffff //deliberate junk data
+			});
+		}
+	}
+
+	//change the first vacant entry into a strong entry with a strong_count of 1 and the
+	//specified `raw`, then return its index
+	#[inline(always)]
+	fn alloc(&mut self, raw: ErasedRaw) -> u32 {
+
+		//when we're at full capacity, we set first_vacant to the index just after the end of the
+		//vec. this should elide one of the bounds-checks below, because we've already asserted
+		//that first_vacant falls within the vec's bounds.
+		debug_assert!(self.first_vacant != NULL_ENTRY);
+
+		if self.first_vacant as usize >= self.entries.len() {
+			self.grow();
+			self.alloc(raw)
+		} else {
+			let entry_index = self.first_vacant;
+
+			let first_strong = self.first_strong;
+			self.entries[first_strong as usize].prev_entry = entry_index;
+			self.first_strong = entry_index;
+
+			let entry = &mut self.entries[entry_index as usize];
+			self.first_vacant = entry.next_entry;
+
+			debug_assert!(entry.raw.is_none());
+			debug_assert!(entry.strong_count == 0);
+			debug_assert!(entry.weak_count == 0);
+
+			entry.raw = Some(raw);
+			entry.prev_entry = NULL_ENTRY;
+			entry.next_entry = first_strong;
+
+			entry.strong_count = 1;
+
+			entry_index
+		}
+	}
+
+	//increment the strong_count of the specified *weak* entry with a Some `raw` field, 
+	//changing it into a strong entry. (the strong_count of a strong entry can just be
+	//incremented directly rather than calling this method.)
+	#[inline(always)]
+	fn increment_strong_count(&mut self, entry_index: u32) {
+		debug_assert!(entry_index != NULL_ENTRY);
+
+		let entry = &mut self.entries[entry_index as usize];
+
+		debug_assert!(entry.raw.is_some());
+		debug_assert!(entry.strong_count == 0);
+		debug_assert!(entry.weak_count > 0);
+
+		entry.prev_entry = NULL_ENTRY;
+		entry.next_entry = self.first_strong;
+
+		entry.strong_count = 1;
+		drop(entry);
+
+		self.entries[self.first_strong as usize].prev_entry = entry_index;
+		self.first_strong = entry_index;
+	}
+
+	//decrement the strong_count of the specified strong entry. this may change it into a
+	//weak entry or a vacant entry. returns `entry_index` if either the weak or strong 
+	//count are now greater than 0, or returns 0 otherwise.
+	#[inline(always)]
+	fn decrement_strong_count(&mut self, entry_index: u32) -> u32 {
+		debug_assert!(entry_index != NULL_ENTRY);
+
+		let entry = &mut self.entries[entry_index as usize];
+
+		debug_assert!(entry.raw.is_some());
+		debug_assert!(entry.strong_count >= 1);
+
+		entry.strong_count -= 1;
+		if entry.strong_count == 0 {
+			//remove this entry from the strong list
+			let prev_entry = entry.prev_entry;
+			let next_entry = entry.next_entry;
+			drop(entry); //end of borrow
+
+			self.entries[prev_entry as usize].next_entry = next_entry;
+			self.entries[next_entry as usize].prev_entry = prev_entry;
+
+			//this branch could be fairly unpredictable, but it should get optimized to a cmov
+			if prev_entry == NULL_ENTRY {
+				self.first_strong = next_entry;
+			}
+
+			//potentially add this entry to the vacant list
+			let entry = &mut self.entries[entry_index as usize];
+			if entry.weak_count == 0 {
+				entry.raw = None;
+
+				entry.next_entry = self.first_vacant;
+				self.first_vacant = entry_index;
+
+				0
+			} else {
+				entry_index
+			}
+		} else {
+			entry_index
+		}
+	}
+
+	//decrement the weak_count of the specified weak or strong entry. this may change
+	//a weak entry into a vacant entry. sets the pointee's header root_index to 0 if it
+	//hasn't been deallocated, and both the weak and strong count have been reduced to 0.
+	#[inline(always)]
+	fn decrement_weak_count(&mut self, entry_index: u32) {
+		debug_assert!(entry_index != NULL_ENTRY);
+
+		let entry = &mut self.entries[entry_index as usize];
+
+		debug_assert!(entry.weak_count >= 1);
+		entry.weak_count -= 1;
+
+		if entry.strong_count == 0 && entry.weak_count == 0 {
+			if let Some(raw) = entry.raw.take() {
+				raw.header().set_root_index(0);
+			}
+
+			entry.next_entry = self.first_vacant;
+			self.first_vacant = entry_index;
+		}
+	}
 }
 
 impl<T: Allocate> Root<T> {
 	#[inline]
-	fn new(gc: Gc<T>) -> Root<T> {
-		let header = gc.header();
-
-		let engine_id = ACTIVE_ENGINE_ID.with(|id| id.get().unwrap());
-		if engine_id != header.engine_id() {
-			eprintln!("attempted to create a Root for an inactive Runtime - aborting process");
-			abort()
-		}
-		
+	fn new(raw: Raw<T>) -> Root<T> {
 		with_heap(|heap| {
-			if header.rooted() {
-				let root_index = header.root_index();
-				
-				let mut roots = heap.roots.borrow_mut();
-				roots[root_index].root_count += 1;
-			} else {
-				//add a new Gc to the `roots` vec
-				let mut roots = heap.roots.borrow_mut();
-				roots.push(RootEntry {
-					gc: T::erase_gc(gc.clone()),
-					root_count: 1
-				});
+			let header = raw.header();
 
-				//update `root_index` for the pointed-to object
-				header.set_root_index(roots.len() - 1);
+			if heap.engine_id != header.engine_id() {
+				eprintln!("attempted to create a Root for an inactive Runtime - aborting process");
+				abort()
+			}
+
+			let mut root_storage = heap.root_storage.borrow_mut();
+
+			let root_index = header.root_index();
+			if root_index == 0 {
+				header.set_root_index(root_storage.alloc(T::erase_raw(raw.clone())));
+			} else {
+				root_storage.entries[root_index as usize].strong_count += 1;
 			}
 		});
 
 		Root {
-			gc
+			raw
 		}
 	}
 
 	#[inline]
-	pub(crate) fn as_gc(&self) -> &Gc<T> {
-		&self.gc
+	pub(crate) fn as_raw(&self) -> &Raw<T> {
+		&self.raw
 	}
 
 	#[inline]
-	pub(crate) fn to_gc(&self) -> Gc<T> {
-		Gc::from_root(self)
+	pub(crate) fn to_raw(&self) -> Raw<T> {
+		Raw::from_root(self)
 	}
 
 	//weirdly, there's actually no way to do this safely in current rust. however, there's
-	//no point special-casing it for "unsafe-internals" mode, because Gc::from_root is
+	//no point special-casing it for "unsafe-internals" mode, because Raw::from_root is
 	//basically free in that mode
-	#[doc(hidden)]
-	pub fn into_gc(self) -> Gc<T> {
-		Gc::from_root(&self)
+	pub(crate) fn into_raw(self) -> Raw<T> {
+		Raw::from_root(&self)
 	}
 
 	#[inline]
 	pub fn ptr_eq(root0: &Root<T>, root1: &Root<T>) -> bool {
-		Gc::ptr_eq(&root0.gc, &root1.gc)
+		Raw::ptr_eq(&root0.raw, &root1.raw)
+	}
+}
+
+impl<T: Allocate> Clone for Root<T> {
+	#[inline]
+	fn clone(&self) -> Root<T> {
+		with_heap(|heap| {
+			let header = self.raw.header();
+			if heap.engine_id != header.engine_id() {
+				eprintln!("attempted to clone a Root for an inactive Runtime - aborting process");
+				abort()
+			}
+
+			let root_index = header.root_index();
+			heap.root_storage.borrow_mut().entries[root_index as usize].strong_count += 1;
+		});
+
+		Root {
+			raw: self.raw.clone()
+		}
+	}
+}
+
+impl<T: Allocate> Drop for Root<T> {
+	#[inline]
+	fn drop(&mut self) {
+		with_heap(|heap| {
+			let header = self.raw.header();
+
+			if heap.engine_id != header.engine_id() {
+				eprintln!("attempted to drop a Root for an inactive Runtime - aborting process");
+				abort()
+			}
+
+			let mut root_storage = heap.root_storage.borrow_mut();
+			header.set_root_index(root_storage.decrement_strong_count(header.root_index()));
+		});
 	}
 }
 
@@ -363,74 +644,219 @@ impl<T: Allocate + Ord> Ord for Root<T> {
 	}
 }
 
-impl<T: Allocate> Clone for Root<T> {
-	#[inline]
-	fn clone(&self) -> Root<T> {
-		let header = self.gc.header();
-		let root_index = header.root_index();
-
-		let engine_id = ACTIVE_ENGINE_ID.with(|id| id.get().unwrap());
-		if engine_id != header.engine_id() {
-			eprintln!("attempted to clone a Root for an inactive Runtime - aborting process");
-			abort()
-		}
-
-		//we could eliminate this with_heap() and borrow_mut() by storing the strong count inline
-		//in the GcHeader, but that would enlarge GcHeader significantly. difficult decision.
-		with_heap(|heap| {
-			heap.roots.borrow_mut()[root_index].root_count += 1;
-		});
-
-		Root {
-			gc: self.gc.clone()
-		}
-	}
-}
-
 impl<T: Allocate> Deref for Root<T> {
 	type Target = T;
 
 	#[inline]
 	fn deref(&self) -> &T {
-		&self.gc
+		&self.raw
 	}
 }
 
-impl<T: Allocate> Drop for Root<T> {
+
+//-------------------------------------------------------------------------------------------------
+// Gc
+//-------------------------------------------------------------------------------------------------
+
+/**
+A weak pointer onto the garbage-collected heap.
+
+`Gc`'s API is very similar to [`std::rc::Weak`]. You can construct a `Gc` by calling
+[`Root::downgrade`](struct.Root.html#method.downgrade). A `Gc` can't be dereferenced; instead,
+you should promote it to a `Root` by calling [`Gc::upgrade`](#method.upgrade).
+
+[`std::rc::Weak`]: https://doc.rust-lang.org/std/rc/struct.Weak.html
+
+You should almost always use [`Root`](struct.Root.html) rather than `Gc`.
+
+The only exception is [`RData`](struct.RData.html). If you store a `Root` within an `RData`, it 
+will cause a memory leak. If you need to construct an `RData` which stores a pointer to another 
+heap-allocated object, you should:
+
+- Use `Gc` where you would normally use `Root`.
+
+- Call [`RClassBuilder::trace`](struct.RClassBuilder.html#method.trace) before constructing
+  the `RData`.
+
+- Call [`glsp::write_barrier`](fn.write_barrier.html) when the `RData` is mutated.
+
+The last two steps are necessary to prevent the pointed-to object from being deallocated.
+	
+See also [`GcVal`](struct.GcVal.html) (a `Val` which stores `Gc` pointers rather than `Root` 
+pointers), and [`RGc`](struct.RGc.html) (a strongly-typed alternative to `Gc<RData>`).
+
+	struct Collider {
+		bounds: Rect,
+		obj: Gc<Obj>
+	}
+
+	impl Collider {
+		fn trace(&self, visitor: &mut GcVisitor) {
+			visitor.visit(&self.obj);
+		}
+	}
+	
+	fn setup() {
+		RClassBuilder::<Collider>::new()
+			.trace(Collider::trace)
+			.build();
+	}
+
+	fn new_collider(obj: Root<Obj>) -> GResult<Root<RData>> {
+		let collider = Collider {
+			bounds: obj.get("bounds")?,
+			obj: obj.downgrade()
+		};
+
+		Ok(glsp::rdata(collider))
+	}
+*/
+
+//each Gc stores a u32. the upper 8 bits are the engine_id, the lower 23 bits are the root_index
+pub struct Gc<T: Allocate>(u32, PhantomData<*mut T>);
+
+impl<T: Allocate> Root<T> {
+	/**
+	Constructs a new [weak pointer](struct.Gc.html) to this heap-allocated object.
+	*/
+	#[inline]
+	pub fn downgrade(&self) -> Gc<T> {
+		with_heap(|heap| {
+			let header = self.raw.header();
+
+			if heap.engine_id != header.engine_id() {
+				eprintln!("attempted to create a Gc for an inactive Runtime - aborting process");
+				abort()
+			}
+
+			let root_index = header.root_index();
+			debug_assert!(root_index != 0);
+
+			heap.root_storage.borrow_mut().entries[root_index as usize].weak_count += 1;
+
+			Gc(root_index | ((heap.engine_id as u32) << 24), PhantomData)
+		})
+	}
+}
+
+impl<T: Allocate> Gc<T> {
+	#[inline]
+	fn engine_id(&self) -> u8 {
+		(self.0 >> 24) as u8
+	}
+
+	#[inline]
+	fn root_index(&self) -> u32 {
+		self.0 & 0x7fffff
+	}
+
+	/**
+	Attempts to construct a [strong pointer](struct.Root.html) from this weak pointer.
+
+	Returns `None` if the pointed-to object has been deallocated by the garbage
+	collector. To prevent this, use [`glsp::write_barrier`](fn.write_barrier.html) and
+	[`RClassBuilder::trace`](struct.RClassBuilder.html#method.trace).
+	*/
+	#[inline]
+	pub fn upgrade(&self) -> Option<Root<T>> {
+		with_heap(|heap| {
+			let mut root_storage = heap.root_storage.borrow_mut();
+			let entry = &mut root_storage.entries[self.root_index() as usize];
+
+			match entry.raw.as_ref() {
+				Some(erased_raw) => {
+					let raw = T::unerase_raw(erased_raw);
+
+					if heap.engine_id != raw.header().engine_id() {
+						eprintln!(
+							"attempted to create a Root for an inactive \
+							Runtime - aborting process"
+						);
+						abort()
+					}
+
+					let header = raw.header();
+					if !header.young() && header.color_index() == heap.ghost_index.get() {
+						None
+					} else {
+						if entry.strong_count == 0 {
+							root_storage.increment_strong_count(self.root_index());
+						} else {
+							entry.strong_count += 1;
+						}
+
+						Some(Root { raw })
+					}
+				}
+				None => None
+			}
+		})
+	}
+
+	/**
+	Returns `true` if both `Gc`s point to the same heap-allocated object.
+	*/
+	#[inline]
+	pub fn ptr_eq(gc0: &Gc<T>, gc1: &Gc<T>) -> bool {
+		gc0.0 == gc1.0
+	}
+}
+
+impl<T: Allocate> Clone for Gc<T> {
+	#[inline]
+	fn clone(&self) -> Gc<T> {
+		with_heap(|heap| {
+			if heap.engine_id != self.engine_id() {
+				eprintln!("attempted to clone a Gc for an inactive Runtime - aborting process");
+				abort()
+			}
+
+			let mut root_storage = heap.root_storage.borrow_mut();
+			let entry = &mut root_storage.entries[self.root_index() as usize];
+			debug_assert!(entry.weak_count > 0);
+			entry.weak_count += 1;
+
+			Gc(self.0, PhantomData)
+		})
+	}
+}
+
+impl<T: Allocate> Drop for Gc<T> {
 	#[inline]
 	fn drop(&mut self) {
-		let header = self.gc.header();
-		let root_index = header.root_index();
-
-		let engine_id = ACTIVE_ENGINE_ID.with(|id| id.get().unwrap());
-		if engine_id != header.engine_id() {
-			eprintln!("attempted to drop a Root for an inactive Runtime - aborting process");
-			abort()
-		}
-
 		with_heap(|heap| {
-			let mut roots = heap.roots.borrow_mut();
-
-			if roots[root_index].root_count == 1 {
-				//delete our root entry, swapping in the last entry so that we're not leaving a 
-				//hole in the roots vec
-				roots.swap_remove(root_index);
-				header.unroot();
-
-				//change the root_index for the item we just swapped, to reflect its new position
-				if root_index < roots.len() {
-					roots[root_index].gc.header().set_root_index(root_index);
-				}
-			} else {
-				roots[root_index].root_count -= 1;
+			if heap.engine_id != self.engine_id() {
+				eprintln!("attempted to drop a Gc for an inactive Runtime - aborting process");
+				abort()
 			}
+
+			heap.root_storage.borrow_mut().decrement_weak_count(self.root_index());
 		});
 	}
 }
 
-#[doc(hidden)]
+
+//-------------------------------------------------------------------------------------------------
+// GcVal
+//-------------------------------------------------------------------------------------------------
+
+/**
+Equivalent to [`Val`](enum.Val.html), except that it stores weak [`Gc`](struct.Gc.html) 
+pointers rather than strong [`Root`](struct.Root.html) pointers.
+
+Construct a `GcVal` by calling [`Val::downgrade`](enum.Val.html#method.downgrade). The `GcVal`
+itself is an opaque struct which can't do anything useful. Instead, convert it to a `Val` 
+by calling its [`upgrade`](#method.upgrade) method.
+
+A `GcVal` is only useful when you need to store a GameLisp value in an `RData`. `Val`s may
+contain `Root`s, and storing a `Root` in an `RData` would cause a memory leak.
+*/
+
 #[derive(Clone)]
-pub enum Slot {
+pub struct GcVal(GcValPriv);
+
+#[derive(Clone)]
+enum GcValPriv {
 	Nil,
 	Int(i32),
 	Flo(f32),
@@ -446,7 +872,90 @@ pub enum Slot {
 	GFn(Gc<GFn>),
 	Coro(Gc<Coro>),
 	RData(Gc<RData>),
-	RFn(Gc<RFn>),
+	RFn(Gc<RFn>)
+}
+
+impl Val {
+	/**
+	Constructs a [`GcVal`](struct.GcVal.html) based on this `Val`.
+	*/
+	pub fn downgrade(&self) -> GcVal {
+		GcVal(match self {
+			Val::Nil => GcValPriv::Nil,
+			Val::Int(i) => GcValPriv::Int(*i),
+			Val::Char(c) => GcValPriv::Char(*c),
+			Val::Flo(f) => GcValPriv::Flo(*f),
+			Val::Bool(b) => GcValPriv::Bool(*b),
+			Val::Sym(s) => GcValPriv::Sym(*s),
+			Val::Arr(ref a) => GcValPriv::Arr(a.downgrade()),
+			Val::Str(ref s) => GcValPriv::Str(s.downgrade()),
+			Val::Tab(ref t) => GcValPriv::Tab(t.downgrade()),
+			Val::GIter(ref g) => GcValPriv::GIter(g.downgrade()),
+			Val::Obj(ref o) => GcValPriv::Obj(o.downgrade()),
+			Val::Class(ref c) => GcValPriv::Class(c.downgrade()),
+			Val::GFn(ref g) => GcValPriv::GFn(g.downgrade()),
+			Val::Coro(ref c) => GcValPriv::Coro(c.downgrade()),
+			Val::RData(ref r) => GcValPriv::RData(r.downgrade()),
+			Val::RFn(ref r) => GcValPriv::RFn(r.downgrade())
+		})
+	}
+}
+
+impl GcVal {
+	/**
+	Attempts to construct a [`Val`](enum.Val.html) based on this `GcVal`.
+
+	Returns `None` if this `GcVal` points to a heap-allocated object which has been
+	deallocated by the garbage collector. To prevent this, use 
+	[`glsp::write_barrier`](fn.write_barrier.html) and
+	[`RClassBuilder::trace`](struct.RClassBuilder.html#method.trace).
+	*/
+	pub fn upgrade(&self) -> Option<Val> {
+		match &self.0 {
+			GcValPriv::Nil => Some(Val::Nil),
+			GcValPriv::Int(i) => Some(Val::Int(*i)),
+			GcValPriv::Char(c) => Some(Val::Char(*c)),
+			GcValPriv::Flo(f) => Some(Val::Flo(*f)),
+			GcValPriv::Bool(b) => Some(Val::Bool(*b)),
+			GcValPriv::Sym(s) => Some(Val::Sym(*s)),
+			GcValPriv::Arr(ref a) => a.upgrade().map(Val::Arr),
+			GcValPriv::Str(ref s) => s.upgrade().map(Val::Str),
+			GcValPriv::Tab(ref t) => t.upgrade().map(Val::Tab),
+			GcValPriv::GIter(ref g) => g.upgrade().map(Val::GIter),
+			GcValPriv::Obj(ref o) => o.upgrade().map(Val::Obj),
+			GcValPriv::Class(ref c) => c.upgrade().map(Val::Class),
+			GcValPriv::GFn(ref g) => g.upgrade().map(Val::GFn),
+			GcValPriv::Coro(ref c) => c.upgrade().map(Val::Coro),
+			GcValPriv::RData(ref r) => r.upgrade().map(Val::RData),
+			GcValPriv::RFn(ref r) => r.upgrade().map(Val::RFn),
+		}
+	}
+}
+
+
+//-------------------------------------------------------------------------------------------------
+// Slot
+//-------------------------------------------------------------------------------------------------
+
+#[doc(hidden)]
+#[derive(Clone)]
+pub enum Slot {
+	Nil,
+	Int(i32),
+	Flo(f32),
+	Char(char),
+	Bool(bool),
+	Sym(Sym),
+	Arr(Raw<Arr>),
+	Str(Raw<Str>),
+	Tab(Raw<Tab>),
+	GIter(Raw<GIter>),
+	Obj(Raw<Obj>),
+	Class(Raw<Class>),
+	GFn(Raw<GFn>),
+	Coro(Raw<Coro>),
+	RData(Raw<RData>),
+	RFn(Raw<RFn>),
 }
 
 impl Slot {
@@ -459,16 +968,16 @@ impl Slot {
 			Val::Flo(f) => Slot::Flo(f),
 			Val::Bool(b) => Slot::Bool(b),
 			Val::Sym(s) => Slot::Sym(s),
-			Val::Arr(ref a) => Slot::Arr(Gc::from_root(a)),
-			Val::Str(ref s) => Slot::Str(Gc::from_root(s)),
-			Val::Tab(ref t) => Slot::Tab(Gc::from_root(t)),
-			Val::GIter(ref g) => Slot::GIter(Gc::from_root(g)),
-			Val::Obj(ref o) => Slot::Obj(Gc::from_root(o)),
-			Val::Class(ref c) => Slot::Class(Gc::from_root(c)),
-			Val::GFn(ref g) => Slot::GFn(Gc::from_root(g)),
-			Val::Coro(ref c) => Slot::Coro(Gc::from_root(c)),
-			Val::RData(ref r) => Slot::RData(Gc::from_root(r)),
-			Val::RFn(ref r) => Slot::RFn(Gc::from_root(r))
+			Val::Arr(ref a) => Slot::Arr(Raw::from_root(a)),
+			Val::Str(ref s) => Slot::Str(Raw::from_root(s)),
+			Val::Tab(ref t) => Slot::Tab(Raw::from_root(t)),
+			Val::GIter(ref g) => Slot::GIter(Raw::from_root(g)),
+			Val::Obj(ref o) => Slot::Obj(Raw::from_root(o)),
+			Val::Class(ref c) => Slot::Class(Raw::from_root(c)),
+			Val::GFn(ref g) => Slot::GFn(Raw::from_root(g)),
+			Val::Coro(ref c) => Slot::Coro(Raw::from_root(c)),
+			Val::RData(ref r) => Slot::RData(Raw::from_root(r)),
+			Val::RFn(ref r) => Slot::RFn(Raw::from_root(r))
 		}
 	}
 
@@ -523,41 +1032,50 @@ impl Hash for Slot {
 			Slot::Char(c) => Hashable(Val::Char(c)).hash(state),
 			Slot::Bool(b) => Hashable(Val::Bool(b)).hash(state),
 			Slot::Sym(s) => Hashable(Val::Sym(s)).hash(state),
-			Slot::Arr(ref gc) => (**gc).hash(state),
-			Slot::Str(ref gc) => (**gc).hash(state),
-			Slot::Tab(ref gc) => (&**gc as *const _ as usize).hash(state),
-			Slot::GIter(ref gc) => (&**gc as *const _ as usize).hash(state),
-			Slot::Obj(ref gc) => (&**gc as *const _ as usize).hash(state),
-			Slot::Class(ref gc) => (&**gc as *const _ as usize).hash(state),
-			Slot::GFn(ref gc) => (&**gc as *const _ as usize).hash(state),
-			Slot::Coro(ref gc) => (&**gc as *const _ as usize).hash(state),
-			Slot::RData(ref gc) => (&**gc as *const _ as usize).hash(state),
-			Slot::RFn(ref gc) => (&**gc as *const _ as usize).hash(state)
+			Slot::Arr(ref raw) => (**raw).hash(state),
+			Slot::Str(ref raw) => (**raw).hash(state),
+			Slot::Tab(ref raw) => (&**raw as *const _ as usize).hash(state),
+			Slot::GIter(ref raw) => (&**raw as *const _ as usize).hash(state),
+			Slot::Obj(ref raw) => (&**raw as *const _ as usize).hash(state),
+			Slot::Class(ref raw) => (&**raw as *const _ as usize).hash(state),
+			Slot::GFn(ref raw) => (&**raw as *const _ as usize).hash(state),
+			Slot::Coro(ref raw) => (&**raw as *const _ as usize).hash(state),
+			Slot::RData(ref raw) => (&**raw as *const _ as usize).hash(state),
+			Slot::RFn(ref raw) => (&**raw as *const _ as usize).hash(state)
 		}
 	}
 }
 
-//the GcHeader is made of two 32-bit words.
 
-//the high word dedicates its topmost eight bits to the Engine id, and the next bit to a "frozen"
-//flag. its lower 23 bits are an unsigned index into the roots vec (or 0x_007f_ffff when unrooted). 
-//the root count is stored in the roots vec, rather than inline, to avoid wasting space in the 
-//header of unrooted objects.
+//-------------------------------------------------------------------------------------------------
+// Header
+//-------------------------------------------------------------------------------------------------
 
-//the lower word is 0x_ffff_ffff for a marked young object or 0x_ffff_fffe for an unmarked young
-//object. otherwise, the upper two bits are the color index, and the lower 30 bits are an unsigned 
-//index into the old-objects vec for that color.
+/*
+the gc-allocation header is made of two 32-bit words.
 
-//the frozen flag isn't actually written or read by the gc at all. we just store it in the gc 
-//header because otherwise there would be several structs with a `frozen: Cell<bool>` field,
-//taking up 64 bits of storage for 1 bit of information.
+the high word dedicates its topmost eight bits to the Engine id, and the next bit to a "frozen"
+flag. its lower 23 bits are an unsigned index into the root entries vec (or 0 when unrooted). 
+the root count is stored in the root entry, rather than inline, to avoid wasting space in the 
+header of unrooted objects.
+
+this enforces quite a low limit on the number of rooted or weakly-rooted objects (8,388,607). 
+we might want to find a workaround for this - todo?
+
+the lower word is 0x_ffff_ffff for a marked young object or 0x_ffff_fffe for an unmarked young
+object. otherwise, the upper two bits are the color index, and the lower 30 bits are an unsigned 
+index into the old-objects vec for that color.
+
+the frozen flag isn't actually written or read by the gc at all. we just store it in the gc 
+header because otherwise there would be several structs with a `frozen: Cell<bool>` field,
+potentially taking up 64 bits of storage for 1 bit of information.
+*/
 
 const ENGINE_ID_SHIFT: u32 = 24;
 const ENGINE_ID_MASK: u32 = 0xff << 24;
 const FROZEN_BIT: u32 = 0x1 << 23;
 const ROOT_INDEX_MASK: u32 = !(ENGINE_ID_MASK | FROZEN_BIT);
-const UNROOTED_BITS: u32 = ROOT_INDEX_MASK;
-const MAX_ROOT_INDEX: usize = (ROOT_INDEX_MASK - 1) as usize;
+const MAX_ROOT_INDEX: u32 = ROOT_INDEX_MASK - 1;
 
 const MARKED_YOUNG_BITS: u32 = 0x_ffff_ffff;
 const UNMARKED_YOUNG_BITS: u32 = 0x_ffff_fffe;
@@ -568,23 +1086,23 @@ const MAX_OLD_INDEX: usize = (OLD_INDEX_MASK - 2) as usize;
 
 #[doc(hidden)]
 #[derive(Clone)]
-pub struct GcHeader {
+pub struct Header {
 	hi: Cell<u32>,
 	lo: Cell<u32>
 }
 
-impl GcHeader {
-	pub(crate) fn new() -> GcHeader {
-		let engine_id = ACTIVE_ENGINE_ID.with(|id| id.get().unwrap()) as u32;
-		GcHeader {
-			hi: Cell::new((engine_id << ENGINE_ID_SHIFT) | UNROOTED_BITS),
+impl Header {
+	pub(crate) fn new() -> Header {
+		let engine_id = with_heap(|heap| heap.engine_id as u32);
+		Header {
+			hi: Cell::new(engine_id << ENGINE_ID_SHIFT),
 			lo: Cell::new(UNMARKED_YOUNG_BITS)
 		}
 	}
 
 	fn reset(&self) {
-		let engine_id = ACTIVE_ENGINE_ID.with(|id| id.get().unwrap()) as u32;
-		self.hi.set((engine_id << ENGINE_ID_SHIFT) | UNROOTED_BITS);
+		let engine_id = with_heap(|heap| heap.engine_id as u32);
+		self.hi.set(engine_id << ENGINE_ID_SHIFT);
 		self.lo.set(UNMARKED_YOUNG_BITS);
 	}
 
@@ -603,20 +1121,16 @@ impl GcHeader {
 	}
 
 	fn rooted(&self) -> bool {
-		(self.hi.get() & ROOT_INDEX_MASK) != UNROOTED_BITS
+		self.hi.get() & ROOT_INDEX_MASK != 0
 	}
 
-	fn unroot(&self) {
-		self.hi.set(self.hi.get() | UNROOTED_BITS);
+	fn root_index(&self) -> u32 {
+		self.hi.get() & ROOT_INDEX_MASK
 	}
 
-	fn root_index(&self) -> usize {
-		(self.hi.get() & ROOT_INDEX_MASK) as usize
-	}
-
-	fn set_root_index(&self, root_index: usize) {
+	fn set_root_index(&self, root_index: u32) {
 		debug_assert!(root_index <= MAX_ROOT_INDEX);
-		self.hi.set((self.hi.get() & !ROOT_INDEX_MASK) | (root_index as u32));
+		self.hi.set((self.hi.get() & !ROOT_INDEX_MASK) | root_index);
 	}
 
 	fn young(&self) -> bool {
@@ -661,39 +1175,69 @@ impl GcHeader {
 }
 
 #[doc(hidden)]
-pub trait Visitor {
-	fn visit_gc<T: Allocate>(&mut self, rc: &Gc<T>);
+pub trait Allocate: Sized + Erase {
+	fn visit_raws<V: Visitor>(&self, visitor: &mut V);
 
-	fn visit_slot(&mut self, slot: &Slot) {
+	fn clear_raws(&self);
+
+	//we have to make the Header an intrusive field on the allocated type, because 
+	//otherwise it would be impossible to write-barrier an Arr without holding a Raw<Arr>
+	//or Root<Arr>
+	fn header(&self) -> &Header;
+
+	//this method does not consider Self, but does include any heap allocations which are
+	//exclusively owned by Self (a Box or a Vec would count, but a  Root or an Rc wouldn't). 
+	//we've had to establish the memory usage of rust's std collections by peeking at their
+	//source code; this information may become inaccurate as time passes.
+	fn owned_memory_usage(&self) -> usize;
+
+	fn memory_usage(&self) -> usize {
+		size_of::<Self>() + self.owned_memory_usage()
+	}
+}
+
+
+//-------------------------------------------------------------------------------------------------
+// Visitor, GcVisitor
+//-------------------------------------------------------------------------------------------------
+
+#[doc(hidden)]
+pub trait Visitor {
+	fn visit_raw<T: Allocate>(&mut self, rc: &Raw<T>) where Self: Sized;
+
+	fn visit_gc(&mut self, root_index: u32);
+
+	fn visit_slot(&mut self, slot: &Slot) where Self: Sized {
 		match *slot {
 			Slot::Nil | Slot::Int(_) | Slot::Char(_) | 
 			Slot::Flo(_) | Slot::Bool(_) | Slot::Sym(_) => (),
-			Slot::Arr(ref a) => self.visit_gc(a),
-			Slot::Str(ref s) => self.visit_gc(s),
-			Slot::Tab(ref t) => self.visit_gc(t),
-			Slot::GIter(ref g) => self.visit_gc(g),
-			Slot::Obj(ref o) => self.visit_gc(o),
-			Slot::Class(ref c) => self.visit_gc(c),
-			Slot::GFn(ref g) => self.visit_gc(g),
-			Slot::Coro(ref c) => self.visit_gc(c),
-			Slot::RData(ref r) => self.visit_gc(r),
-			Slot::RFn(ref r) => self.visit_gc(r),
+			Slot::Arr(ref a) => self.visit_raw(a),
+			Slot::Str(ref s) => self.visit_raw(s),
+			Slot::Tab(ref t) => self.visit_raw(t),
+			Slot::GIter(ref g) => self.visit_raw(g),
+			Slot::Obj(ref o) => self.visit_raw(o),
+			Slot::Class(ref c) => self.visit_raw(c),
+			Slot::GFn(ref g) => self.visit_raw(g),
+			Slot::Coro(ref c) => self.visit_raw(c),
+			Slot::RData(ref r) => self.visit_raw(r),
+			Slot::RFn(ref r) => self.visit_raw(r),
 		}
 	}
 }
 
 struct MarkingVisitor<'a, 'b> {
 	heap: &'a Heap,
-	marking_stack: &'b mut RefMut<'a, Vec<ErasedGc>>,
-	old_objects: &'b mut [RefMut<'a, Vec<ErasedGc>>; 4],
+	marking_stack: &'b mut RefMut<'a, Vec<ErasedRaw>>,
+	old_objects: &'b mut [RefMut<'a, Vec<ErasedRaw>>; 4],
 	old_only: bool
 }
 
 impl<'a, 'b> MarkingVisitor<'a, 'b> {
+	#[inline]
 	fn new(
 		heap: &'a Heap,
-		marking_stack: &'b mut RefMut<'a, Vec<ErasedGc>>,
-		old_objects: &'b mut [RefMut<'a, Vec<ErasedGc>>; 4],
+		marking_stack: &'b mut RefMut<'a, Vec<ErasedRaw>>,
+		old_objects: &'b mut [RefMut<'a, Vec<ErasedRaw>>; 4],
 		old_only: bool
 	) -> MarkingVisitor<'a, 'b> 
 	{
@@ -707,8 +1251,9 @@ impl<'a, 'b> MarkingVisitor<'a, 'b> {
 }
 
 impl<'a, 'b> Visitor for MarkingVisitor<'a, 'b> {
-	fn visit_gc<T: Allocate>(&mut self, gc: &Gc<T>) {
-		let header = gc.header();
+	#[inline]
+	fn visit_raw<T: Allocate>(&mut self, raw: &Raw<T>) where Self: Sized {
+		let header = raw.header();
 
 		//if the target object is young and unmarked, mark it. if it's old and white, turn it gray.
 		if header.young() {
@@ -716,37 +1261,68 @@ impl<'a, 'b> Visitor for MarkingVisitor<'a, 'b> {
 
 			if !header.marked() {
 				header.mark();
-				self.marking_stack.push(T::erase_gc(gc.clone()));
+				self.marking_stack.push(T::erase_raw(raw.clone()));
 			}
 		} else {
 			if header.color_index() == self.heap.white_index.get() {
-				self.heap.change_color(gc, self.heap.gray_index.get(), self.old_objects);
+				self.heap.change_color(raw, self.heap.gray_index.get(), self.old_objects);
 			}
+		}
+	}
+
+	#[inline]
+	fn visit_gc(&mut self, root_index: u32) {
+		let root_storage = self.heap.root_storage.borrow();
+		
+		if let Some(erased) = root_storage.entries[root_index as usize].raw.as_ref() {
+			with_erased_raw!(erased, raw, self.visit_raw(raw))
 		}
 	}
 }
 
-#[doc(hidden)]
-pub trait Allocate: Sized + Erase {
-	fn visit_gcs<V: Visitor>(&self, visitor: &mut V);
+/**
+Visitor passed to an `RData`'s [`trace` callback](struct.RClassBuilder.html#method.trace).
+*/
+pub struct GcVisitor<'a>(pub(crate) &'a mut dyn Visitor);
 
-	fn clear_gcs(&self);
+impl<'a> GcVisitor<'a> {
+	#[inline]
+	pub fn visit<T: Allocate>(&mut self, gc: &Gc<T>) {
+		self.0.visit_gc(gc.root_index());
+	}
 
-	//we have to make the GcHeader an intrusive field on the allocated type, because 
-	//otherwise it would be impossible to write-barrier an Arr without holding a Gc<Arr>
-	//or Root<Arr>
-	fn header(&self) -> &GcHeader;
+	#[inline]
+	pub fn visit_rgc<T>(&mut self, rgc: &RGc<T>) {
+		self.0.visit_gc(rgc.0.root_index());
+	}
 
-	//this method does not consider Self, but does include any heap allocations which are
-	//exclusively owned by Self (a Box or a Vec would count, but a  Root or an Rc wouldn't). 
-	//we've had to establish the memory usage of rust's std collections by peeking at their
-	//source code; this information may become inaccurate as time passes.
-	fn owned_memory_usage(&self) -> usize;
-
-	fn memory_usage(&self) -> usize {
-		size_of::<Self>() + self.owned_memory_usage()
+	#[inline]
+	pub fn visit_gc_val(&mut self, gc_val: &GcVal) {
+		match gc_val.0 {
+			GcValPriv::Nil => (),
+			GcValPriv::Int(_) => (),
+			GcValPriv::Char(_) => (),
+			GcValPriv::Flo(_) => (),
+			GcValPriv::Bool(_) => (),
+			GcValPriv::Sym(_) => (),
+			GcValPriv::Arr(ref a) => self.visit(a),
+			GcValPriv::Str(ref s) => self.visit(s),
+			GcValPriv::Tab(ref t) => self.visit(t),
+			GcValPriv::GIter(ref g) => self.visit(g),
+			GcValPriv::Obj(ref o) => self.visit(o),
+			GcValPriv::Class(ref c) => self.visit(c),
+			GcValPriv::GFn(ref g) => self.visit(g),
+			GcValPriv::Coro(ref c) => self.visit(c),
+			GcValPriv::RData(ref r) => self.visit(r),
+			GcValPriv::RFn(ref r) => self.visit(r),
+		}	
 	}
 }
+
+
+//-------------------------------------------------------------------------------------------------
+// Heap
+//-------------------------------------------------------------------------------------------------
 
 //the minimum number of old black bytes which must be present before a cycle can end
 const MIN_SURVIVING_BYTES: usize = 1024 * 1024;
@@ -762,20 +1338,22 @@ pub const GC_MIN_RATIO: f32 = 1.2;
 pub const GC_DEFAULT_RATIO: f32 = INITIAL_U;
 
 pub(crate) struct Heap {
+	pub(crate) engine_id: u8,
 	pub(crate) recycler: Recycler,
+	gc_in_progress: Cell<bool>,
 
-	young_objects: RefCell<Vec<ErasedGc>>,
+	young_objects: RefCell<Vec<ErasedRaw>>,
 	young_bytes: Cell<usize>,
-	marking_stack: RefCell<Vec<ErasedGc>>,
+	marking_stack: RefCell<Vec<ErasedRaw>>,
 
-	old_objects: [RefCell<Vec<ErasedGc>>; 4],
+	old_objects: [RefCell<Vec<ErasedRaw>>; 4],
 	old_bytes: [Cell<usize>; 4],
 	white_index: Cell<usize>,
 	gray_index: Cell<usize>,
 	black_index: Cell<usize>,
 	ghost_index: Cell<usize>,
 
-	roots: RefCell<Vec<RootEntry>>,
+	pub(crate) root_storage: RefCell<RootStorage>,
 
 	black_target: Cell<usize>,
 	ghost_target: Cell<usize>,
@@ -787,20 +1365,22 @@ pub(crate) struct Heap {
 
 impl Drop for Heap {
 	fn drop(&mut self) {
-		if self.roots.get_mut().len() > 0 {
-			for root in &*self.roots.get_mut() {
-				eprintln!("{:?}", root);
+		let root_storage = self.root_storage.borrow();
+		for entry in &root_storage.entries {
+			if entry.strong_count > 0 || entry.weak_count > 0 {
+				eprintln!("a Root or Gc has outlived its originating Runtime - aborting process");
+				abort()
 			}
-			eprintln!("a Root has outlived its originating Runtime - aborting process");
-			abort()
 		}
 	}
 }
 
 impl Heap {
-	pub(crate) fn new() -> Heap {
+	pub(crate) fn new(engine_id: u8) -> Heap {
 		Heap {
+			engine_id,
 			recycler: Recycler::new(),
+			gc_in_progress: Cell::new(false),
 
 			young_objects: RefCell::new(Vec::new()),
 			young_bytes: Cell::new(0),
@@ -814,7 +1394,7 @@ impl Heap {
 			black_index: Cell::new(2),
 			ghost_index: Cell::new(3),
 
-			roots: RefCell::new(Vec::new()),
+			root_storage: RefCell::new(RootStorage::new()),
 
 			black_target: Cell::new(0),
 			ghost_target: Cell::new(0),
@@ -827,7 +1407,7 @@ impl Heap {
 
 	pub(crate) fn clear(&self) {
 		for erased in self.young_objects.borrow_mut().drain(..) {
-			with_erased_gc!(erased, gc, gc.free())
+			with_erased_raw!(erased, raw, raw.free())
 		}
 
 		self.young_bytes.set(0);
@@ -835,7 +1415,7 @@ impl Heap {
 
 		for i in 0..4 {
 			for erased in self.old_objects[i].borrow_mut().drain(..) {
-				with_erased_gc!(erased, gc, gc.free())
+				with_erased_raw!(erased, raw, raw.free())
 			}
 
 			self.old_bytes[i].set(0);
@@ -848,9 +1428,8 @@ impl Heap {
 		self.ratio_r.set(INITIAL_R);
 		self.ratio_w.set(INITIAL_W);
 
-		//we don't clear self.roots(), because we need it to check for extant Roots when the
-		//Heap is dropped. in any case, Roots can't be stored on the Heap, so RootEntries can't 
-		//cause a reference loop, so there's no need to clear them when Runtime is dropped.
+		//we don't clear self.root_storage, because we need it to check for extant 
+		//Roots when the Heap is dropped.
 	}
 
 	pub(crate) fn all_unfreed_rdata(&self) -> Vec<Root<RData>> {
@@ -864,10 +1443,10 @@ impl Heap {
 
 		let mut rdata = Vec::new();
 
-		for erased_gc_vec in &object_borrows {
-			for erased_gc in &**erased_gc_vec {
-				if let ErasedGc::RData(gc) = erased_gc {
-					let root = Root::new(Gc::clone(gc));
+		for erased_raw_vec in &object_borrows {
+			for erased_raw in &**erased_raw_vec {
+				if let ErasedRaw::RData(raw) = erased_raw {
+					let root = Root::new(Raw::clone(raw));
 
 					if !root.is_freed() {
 						rdata.push(root);
@@ -891,36 +1470,38 @@ impl Heap {
 
 	#[inline]
 	pub(crate) fn alloc<T: Allocate>(&self, init: T) -> Root<T> {
-		Root::new(self.alloc_gc(init))
+		Root::new(self.alloc_raw(init))
 	}
 
-	pub(crate) fn alloc_gc<T: Allocate>(&self, init: T) -> Gc<T> {
-		let gc = Gc::new(init);
-		self.register_young(gc.clone());
-		gc
+	pub(crate) fn alloc_raw<T: Allocate>(&self, init: T) -> Raw<T> {
+		assert!(!self.gc_in_progress.get(), "attempted to allocate during a gc step");
+
+		let raw = Raw::new(init);
+		self.register_young(raw.clone());
+		raw
 	}
 
-	fn register_young<T: Allocate>(&self, gc: Gc<T>) {
-		let header = gc.header();
+	fn register_young<T: Allocate>(&self, raw: Raw<T>) {
+		let header = raw.header();
 		debug_assert!(header.young() && !header.marked());
 
-		self.young_bytes.set(self.young_bytes.get() + gc.memory_usage());
-		self.young_objects.borrow_mut().push(T::erase_gc(gc));
+		self.young_bytes.set(self.young_bytes.get() + raw.memory_usage());
+		self.young_objects.borrow_mut().push(T::erase_raw(raw));
 	}
 
 	fn promote<T: Allocate>(
 		&self, 
-		gc: &Gc<T>,
-		old_objects: &mut [RefMut<Vec<ErasedGc>>; 4]
+		raw: &Raw<T>,
+		old_objects: &mut [RefMut<Vec<ErasedRaw>>; 4]
 	) -> usize {
-		debug_assert!(gc.header().young());
+		debug_assert!(raw.header().young());
 
 		let black_index = self.black_index.get();
 
-		old_objects[black_index].push(T::erase_gc(gc.clone()));
-		gc.header().promote(black_index, old_objects[black_index].len() - 1);
+		old_objects[black_index].push(T::erase_raw(raw.clone()));
+		raw.header().promote(black_index, old_objects[black_index].len() - 1);
 
-		let memory_usage = gc.memory_usage();
+		let memory_usage = raw.memory_usage();
 		self.old_bytes[black_index].set(self.old_bytes[black_index].get() + memory_usage);
 
 		memory_usage
@@ -928,11 +1509,11 @@ impl Heap {
 
 	fn change_color<T: Allocate>(
 		&self, 
-		gc: &Gc<T>, 
+		raw: &Raw<T>, 
 		new_color_index: usize,
-		old_objects: &mut [RefMut<Vec<ErasedGc>>; 4]
+		old_objects: &mut [RefMut<Vec<ErasedRaw>>; 4]
 	) {
-		let header = gc.header();
+		let header = raw.header();
 		debug_assert!(!header.young());
 
 		let prev_color_index = header.color_index();
@@ -954,7 +1535,7 @@ impl Heap {
 		header.set_color_index(new_color_index);
 
 		//update old_bytes
-		let usage = gc.memory_usage();
+		let usage = raw.memory_usage();
 		self.old_bytes[prev_color_index].set(self.old_bytes[prev_color_index].get() - usage);
 		self.old_bytes[new_color_index].set(self.old_bytes[new_color_index].get() + usage);
 	}
@@ -962,6 +1543,8 @@ impl Heap {
 	//the caller is required to to write-barrier anything that's in the grey memory-areas (those 
 	//which aren't write-barriered when mutated) just before calling collect_*.
 	pub(crate) fn step(&self) {
+		self.gc_in_progress.set(true);
+		let _in_progress_guard = Guard::new(|| self.gc_in_progress.set(false));
 
 		let mut young_objects = self.young_objects.borrow_mut();
 		let mut old_objects = [
@@ -977,23 +1560,31 @@ impl Heap {
 		let black_index = self.black_index.get();
 		let ghost_index = self.ghost_index.get();
 
-		//traverse all of the roots
-		for root_entry in self.roots.borrow().iter() {
-			with_erased_gc!(root_entry.gc, gc, {
+		//traverse all of the strong roots
+		let root_storage = self.root_storage.borrow();
+		let mut strong_entry_i = root_storage.first_strong;
+		while strong_entry_i != NULL_ENTRY {
+			let entry = &root_storage.entries[strong_entry_i as usize];
+
+			let erased_raw = entry.raw.as_ref().unwrap();
+			with_erased_raw!(erased_raw, raw, {
 				let mut visitor = MarkingVisitor::new(self, &mut marking_stack,
 				                                      &mut old_objects, false);
-				visitor.visit_gc(gc);
-			})
+				visitor.visit_raw(raw);
+			});
+
+			strong_entry_i = entry.next_entry;
 		}
+		drop(root_storage);
 
 		//mark young objects: until the marking stack is empty, pop an object off it, mark
 		//all of its young pointees and add them to the stack, and mark all of its old white
 		//pointees as gray.
 		while let Some(erased) = marking_stack.pop() {
-			with_erased_gc!(erased, gc, {
+			with_erased_raw!(erased, raw, {
 				let mut visitor = MarkingVisitor::new(self, &mut marking_stack,
 				                                      &mut old_objects, false);
-				gc.visit_gcs(&mut visitor);
+				raw.visit_raws(&mut visitor);
 			})
 		}
 
@@ -1002,11 +1593,22 @@ impl Heap {
 		let mut promoted_bytes: usize = 0;
 
 		for erased in young_objects.drain(..) {
-			with_erased_gc!(erased, gc, {
-				let header = gc.header();
+			with_erased_raw!(erased, raw, {
+				let header = raw.header();
 				if header.marked() {
-					promoted_bytes += self.promote(gc, &mut old_objects);
+					promoted_bytes += self.promote(raw, &mut old_objects);
 				} else {
+					if header.rooted() {
+						let mut root_storage = self.root_storage.borrow_mut();
+						let root_entry = &mut root_storage.entries[header.root_index() as usize];
+
+						debug_assert!(root_entry.strong_count == 0);
+						debug_assert!(root_entry.raw.is_some());
+						root_entry.raw = None;
+
+						header.set_root_index(0);
+					}
+
 					self.recycler.free(erased);
 				}
 			})
@@ -1027,12 +1629,12 @@ impl Heap {
 
 			let erased = old_objects[gray_index].last().unwrap().clone();
 
-			with_erased_gc!(erased, gc, {
-				self.change_color(gc, black_index, &mut old_objects);
+			with_erased_raw!(erased, raw, {
+				self.change_color(raw, black_index, &mut old_objects);
 
 				let mut visitor = MarkingVisitor::new(self, &mut marking_stack,
 				                                      &mut old_objects, true);
-				gc.visit_gcs(&mut visitor);
+				raw.visit_raws(&mut visitor);
 			})
 		}
 
@@ -1047,15 +1649,27 @@ impl Heap {
 
 				//note that with "unsafe-internals" disabled, this may cause latency spikes by
 				//suddenly freeing a tree of Rc references all at once. we could solve this by
-				//splitting it into two incremental passes: clear_gcs() followed by deleting the 
-				//ghost ErasedGc itself.
-				with_erased_gc!(erased, gc, {
-					let memory_usage = gc.memory_usage();
+				//splitting it into two incremental passes: clear_raws() followed by deleting the 
+				//ghost ErasedRaw itself.
+				with_erased_raw!(erased, raw, {
+					let memory_usage = raw.memory_usage();
 					self.old_bytes[ghost_index].set(self.old_bytes[ghost_index].get() - 
 					                                memory_usage);
 
-					gc.free();
-				})
+					let header = raw.header();
+					if header.rooted() {
+						let mut root_storage = self.root_storage.borrow_mut();
+						let root_entry = &mut root_storage.entries[header.root_index() as usize];
+
+						debug_assert!(root_entry.strong_count == 0);
+						debug_assert!(root_entry.raw.is_some());
+						root_entry.raw = None;
+
+						header.set_root_index(0);
+					}
+				});
+				
+				self.recycler.free(erased);
 			}
 		} else {
 			debug_assert!(old_objects[ghost_index].is_empty());
@@ -1131,25 +1745,24 @@ impl Heap {
 		match *dst {
 			Slot::Nil | Slot::Int(_) | Slot::Char(_) | 
 			Slot::Flo(_) | Slot::Bool(_) | Slot::Sym(_) => (),
-			Slot::Arr(ref gc) => self.traverse_stack_gc(gc),
-			Slot::Str(ref gc) => self.traverse_stack_gc(gc),
-			Slot::Tab(ref gc) => self.traverse_stack_gc(gc),
-			Slot::GIter(ref gc) => self.traverse_stack_gc(gc),
-			Slot::Obj(ref gc) => self.traverse_stack_gc(gc),
-			Slot::Class(ref gc) => self.traverse_stack_gc(gc),
-			Slot::GFn(ref gc) => self.traverse_stack_gc(gc),
-			Slot::Coro(ref gc) => self.traverse_stack_gc(gc),
-			Slot::RData(ref gc) => self.traverse_stack_gc(gc),
-			Slot::RFn(ref gc) => self.traverse_stack_gc(gc)
+			Slot::Arr(ref raw) => self.traverse_stack_raw(raw),
+			Slot::Str(ref raw) => self.traverse_stack_raw(raw),
+			Slot::Tab(ref raw) => self.traverse_stack_raw(raw),
+			Slot::GIter(ref raw) => self.traverse_stack_raw(raw),
+			Slot::Obj(ref raw) => self.traverse_stack_raw(raw),
+			Slot::Class(ref raw) => self.traverse_stack_raw(raw),
+			Slot::GFn(ref raw) => self.traverse_stack_raw(raw),
+			Slot::Coro(ref raw) => self.traverse_stack_raw(raw),
+			Slot::RData(ref raw) => self.traverse_stack_raw(raw),
+			Slot::RFn(ref raw) => self.traverse_stack_raw(raw)
 		}
 	}
 
-	pub(crate) fn traverse_stack_gc<T: Allocate>(&self, dst: &Gc<T>) {
+	pub(crate) fn traverse_stack_raw<T: Allocate>(&self, dst: &Raw<T>) {
 		let header = dst.header();
 
 		//this should be impossible, but we check it for an extra level of security anyway
-		let engine_id = ACTIVE_ENGINE_ID.with(|id| id.get().unwrap());
-		if engine_id != header.engine_id() {
+		if self.engine_id != header.engine_id() {
 			eprintln!("attempted to move a Root to another Runtime - aborting process");
 			abort()
 		}
@@ -1158,7 +1771,7 @@ impl Heap {
 		//write_barrier(), below.
 		if header.young() {
 			if !header.marked() {
-				self.marking_stack.borrow_mut().push(T::erase_gc(dst.clone()));
+				self.marking_stack.borrow_mut().push(T::erase_raw(dst.clone()));
 				header.mark();
 			}
 		} else {
@@ -1179,16 +1792,16 @@ impl Heap {
 		match *dst {
 			Val::Nil | Val::Int(_) | Val::Char(_) | 
 			Val::Flo(_) | Val::Bool(_) | Val::Sym(_) => (),
-			Val::Arr(ref root) => self.write_barrier(src, &root.to_gc()),
-			Val::Str(ref root) => self.write_barrier(src, &root.to_gc()),
-			Val::Tab(ref root) => self.write_barrier(src, &root.to_gc()),
-			Val::GIter(ref root) => self.write_barrier(src, &root.to_gc()),
-			Val::Obj(ref root) => self.write_barrier(src, &root.to_gc()),
-			Val::Class(ref root) => self.write_barrier(src, &root.to_gc()),
-			Val::GFn(ref root) => self.write_barrier(src, &root.to_gc()),
-			Val::Coro(ref root) => self.write_barrier(src, &root.to_gc()),
-			Val::RData(ref root) => self.write_barrier(src, &root.to_gc()),
-			Val::RFn(ref root) => self.write_barrier(src, &root.to_gc()),
+			Val::Arr(ref root) => self.write_barrier(src, &root.to_raw()),
+			Val::Str(ref root) => self.write_barrier(src, &root.to_raw()),
+			Val::Tab(ref root) => self.write_barrier(src, &root.to_raw()),
+			Val::GIter(ref root) => self.write_barrier(src, &root.to_raw()),
+			Val::Obj(ref root) => self.write_barrier(src, &root.to_raw()),
+			Val::Class(ref root) => self.write_barrier(src, &root.to_raw()),
+			Val::GFn(ref root) => self.write_barrier(src, &root.to_raw()),
+			Val::Coro(ref root) => self.write_barrier(src, &root.to_raw()),
+			Val::RData(ref root) => self.write_barrier(src, &root.to_raw()),
+			Val::RFn(ref root) => self.write_barrier(src, &root.to_raw()),
 		}
 	}
 
@@ -1196,33 +1809,35 @@ impl Heap {
 		match *dst {
 			Slot::Nil | Slot::Int(_) | Slot::Char(_) | 
 			Slot::Flo(_) | Slot::Bool(_) | Slot::Sym(_) => (),
-			Slot::Arr(ref gc) => self.write_barrier(src, gc),
-			Slot::Str(ref gc) => self.write_barrier(src, gc),
-			Slot::Tab(ref gc) => self.write_barrier(src, gc),
-			Slot::GIter(ref gc) => self.write_barrier(src, gc),
-			Slot::Obj(ref gc) => self.write_barrier(src, gc),
-			Slot::Class(ref gc) => self.write_barrier(src, gc),
-			Slot::GFn(ref gc) => self.write_barrier(src, gc),
-			Slot::Coro(ref gc) => self.write_barrier(src, gc),
-			Slot::RData(ref gc) => self.write_barrier(src, gc),
-			Slot::RFn(ref gc) => self.write_barrier(src, gc)
+			Slot::Arr(ref raw) => self.write_barrier(src, raw),
+			Slot::Str(ref raw) => self.write_barrier(src, raw),
+			Slot::Tab(ref raw) => self.write_barrier(src, raw),
+			Slot::GIter(ref raw) => self.write_barrier(src, raw),
+			Slot::Obj(ref raw) => self.write_barrier(src, raw),
+			Slot::Class(ref raw) => self.write_barrier(src, raw),
+			Slot::GFn(ref raw) => self.write_barrier(src, raw),
+			Slot::Coro(ref raw) => self.write_barrier(src, raw),
+			Slot::RData(ref raw) => self.write_barrier(src, raw),
+			Slot::RFn(ref raw) => self.write_barrier(src, raw)
 		}
 	}
 
 	#[inline]
-	pub(crate) fn write_barrier<T, U>(&self, src: &T, dst: &Gc<U>)
+	pub(crate) fn write_barrier<T, U>(&self, src: &T, dst: &Raw<U>)
 	where
 		T: Allocate,
 		U: Allocate
-	{	
-		//we're limited here by the fact that src has to be &T rather than &Gc<T>. ideally we
-		//would track old cross-references into the young generation via a pointer to src rather
-		//than dst, so that we can re-traverse src at the start of the young collection, so that
-		//young objects aren't being promoted to the old generation just because an old object
-		//happened to point to them at least once during the previous frame.
+	{
+		/*
+		we're limited here by the fact that src has to be &T rather than &Raw<T>. ideally we
+		would track old cross-references into the young generation via a pointer to src rather
+		than dst, so that we can re-traverse src at the start of the young collection, so that
+		young objects aren't being promoted to the old generation just because an old object
+		happened to point to them at least once during the previous frame.
 
-		//i anticipate this should be fairly rare (most short-lived objects will only be pointed
-		//to by stack variables or by other short-lived objects), so we can live with it for now.
+		i anticipate this should be fairly rare (most short-lived objects will only be pointed
+		to by stack variables or by other short-lived objects), so we can live with it for now.
+		*/
 
 		let src_header = src.header();
 		let dst_header = dst.header();
@@ -1237,7 +1852,7 @@ impl Heap {
 		if !src_header.young() {
 			if dst_header.young() {
 				if !dst_header.marked() {
-					self.marking_stack.borrow_mut().push(U::erase_gc(dst.clone()));
+					self.marking_stack.borrow_mut().push(U::erase_raw(dst.clone()));
 					dst_header.mark();
 				}
 			} else {
@@ -1253,6 +1868,35 @@ impl Heap {
 
 					self.change_color(dst, self.gray_index.get(), &mut old_objects);
 				}
+			}
+		}
+	}
+
+	#[inline]
+	pub(crate) fn write_barrier_rdata(&self, rdata: &Root<RData>) {
+		/*
+		we could conceivably traverse all of the RData's gcs when write_barrier is invoked.
+		however, this would be complex (we'd need to define a new Visitor type), and it
+		wouldn't improve any of our safety or correctness guarantees (because we can never
+		rely on the user calling glsp::write_barrier correctly).
+
+		instead, we "turn back the clock": if an old black RData is mutated, we turn it gray,
+		so that it must be traversed again before any of its pointees can be deallocated for
+		being unreachable. this makes glsp::write_barrier easier to use correctly... it will 
+		work fine, as long as it's called at least once between the RData's mutation and the
+		next call to (gc).
+		*/
+
+		if !rdata.header().young() {
+			if rdata.header().color_index() == self.black_index.get() {
+				let mut old_objects = [
+			   		self.old_objects[0].borrow_mut(),
+			   		self.old_objects[1].borrow_mut(),
+			   		self.old_objects[2].borrow_mut(),
+			   		self.old_objects[3].borrow_mut()
+			   	];
+
+				self.change_color(rdata.as_raw(), self.gray_index.get(), &mut old_objects);
 			}
 		}
 	}
@@ -1302,8 +1946,8 @@ doubling the gc's performance.
 const MAX_ARR_CAPACITY: usize = 16;
 
 pub(crate) struct Recycler {
-	arrs: Vec<RefCell<Vec<Gc<Arr>>>>,
-	giters: RefCell<Vec<Gc<GIter>>>
+	arrs: Vec<RefCell<Vec<Raw<Arr>>>>,
+	giters: RefCell<Vec<Raw<GIter>>>
 }
 
 impl Recycler {
@@ -1314,9 +1958,9 @@ impl Recycler {
 		}
 	}
 
-	fn free(&self, erased: ErasedGc) {
+	fn free(&self, erased: ErasedRaw) {
 		match erased {
-			ErasedGc::Arr(arr) => {
+			ErasedRaw::Arr(arr) => {
 				let cap = arr.capacity();
 				if cap < MAX_ARR_CAPACITY {
 					let header = arr.header();
@@ -1331,25 +1975,25 @@ impl Recycler {
 					arr.free();
 				}
 			}
-			ErasedGc::GIter(giter) => {
+			ErasedRaw::GIter(giter) => {
 				let header = giter.header();
 				debug_assert!(!header.rooted());
 				header.reset();
 
-				giter.clear_gcs();
+				giter.clear_raws();
 				self.giters.borrow_mut().push(giter);
 			}
-			ErasedGc::Str(gc) => gc.free(),
-			ErasedGc::Tab(gc) => gc.free(),
-			ErasedGc::Obj(gc) => gc.free(),
-			ErasedGc::Class(gc) => gc.free(),
-			ErasedGc::GFn(gc) => gc.free(),
-			ErasedGc::Stay(gc) => gc.free(),
-			ErasedGc::Coro(gc) => gc.free(),
-			ErasedGc::RData(gc) => gc.free(),
-			ErasedGc::RFn(gc) => gc.free(),
-			ErasedGc::Bytecode(gc) => gc.free(),
-			ErasedGc::Lambda(gc) => gc.free()
+			ErasedRaw::Str(raw) => raw.free(),
+			ErasedRaw::Tab(raw) => raw.free(),
+			ErasedRaw::Obj(raw) => raw.free(),
+			ErasedRaw::Class(raw) => raw.free(),
+			ErasedRaw::GFn(raw) => raw.free(),
+			ErasedRaw::Stay(raw) => raw.free(),
+			ErasedRaw::Coro(raw) => raw.free(),
+			ErasedRaw::RData(raw) => raw.free(),
+			ErasedRaw::RFn(raw) => raw.free(),
+			ErasedRaw::Bytecode(raw) => raw.free(),
+			ErasedRaw::Lambda(raw) => raw.free()
 		}
 	}
 
@@ -1360,7 +2004,7 @@ impl Recycler {
 				let arr = arrs.pop().unwrap().into_root();
 				drop(arrs);
 
-				with_heap(|heap| heap.register_young(arr.to_gc()));
+				with_heap(|heap| heap.register_young(arr.to_raw()));
 				return arr
 			}
 		}
@@ -1375,7 +2019,7 @@ impl Recycler {
 				let arr = arrs.pop().unwrap().into_root();
 				drop(arrs);
 
-				with_heap(|heap| heap.register_young(arr.to_gc()));
+				with_heap(|heap| heap.register_young(arr.to_raw()));
 				return arr
 			}
 		}
@@ -1393,7 +2037,7 @@ impl Recycler {
 				let arr = arrs.pop().unwrap().into_root();
 				drop(arrs);
 
-				with_heap(|heap| heap.register_young(arr.to_gc()));
+				with_heap(|heap| heap.register_young(arr.to_raw()));
 
 				for _ in 0 .. reps.saturating_sub(1) {
 					arr.push(elem.clone())?;
@@ -1426,7 +2070,7 @@ impl Recycler {
 					let arr = arrs.pop().unwrap().into_root();
 					drop(arrs);
 
-					with_heap(|heap| heap.register_young(arr.to_gc()));
+					with_heap(|heap| heap.register_young(arr.to_raw()));
 
 					for item in iter {
 						arr.push(item)?;
@@ -1441,9 +2085,9 @@ impl Recycler {
 	}
 
 	pub(crate) fn giter(&self, state: GIterState) -> Root<GIter> {
-		if let Some(gc) = self.giters.borrow_mut().pop() {
-			let giter = gc.root();
-			with_heap(|heap| heap.register_young(gc));
+		if let Some(raw) = self.giters.borrow_mut().pop() {
+			let giter = raw.root();
+			with_heap(|heap| heap.register_young(raw));
 
 			//todo: do we need to write-barrier here...? the write barrier doesn't currently
 			//do anything if `src` is in the young generation, but that could change in

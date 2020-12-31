@@ -30,11 +30,15 @@ When a function call has more than 32 arguments, the 33rd and later arguments ca
 
 No more than 256 `Runtimes` may simultaneously exist within a single thread.
 
-Each individual GC allocation may not be simultaneously referred to by more than 8,388,607 
-(`2^23 - 1`) distinct `Roots`.
+Each `Runtime` may not contain more than 8,388,606 (`2^23 - 2`) rooted objects. (This is the
+combined total of objects which have been strongly rooted, with `Root`, and those which have been
+weakly rooted, with `Gc`). There's also a soft limit on strongly-rooted objects, because they each 
+consume a few nanoseconds of time whenever the garbage collector is invoked. If you're likely to 
+require more than 100,000 strongly-rooted objects, consider storing that data in Rust rather than 
+GameLisp.
 
-There are a small number of ways that a `Root` may outlive its parent `Runtime`, or be assigned
-to a different `Runtime`. In either scenario, the only way that GameLisp can uphold memory safety
-is by immediately aborting the process! The most likely way you might do this accidentally is by 
-either leaking a `Root` (using a function like `Box::leak` or `Rc::new`), or storing a `Root` in a 
-`thread_local!` variable.
+There are a small number of ways that a `Root` or `Gc` may outlive its parent `Runtime`, or be 
+assigned to a different `Runtime`. In either scenario, the only way that GameLisp can uphold 
+memory safety is by immediately aborting the process! The most likely way you might do this 
+accidentally is by either leaking a `Root` (using a function like `Box::leak` or `Rc::new`), 
+or storing a `Root` in a `thread_local!` variable.
