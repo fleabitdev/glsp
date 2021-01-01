@@ -5,6 +5,9 @@ use super::val::{Val};
 use super::vm::{Frame};
 use super::wrap::{IntoVal};
 
+//this isn't picked up properly by rustdoc, due to rustc bug 80557 (todo: remove this note once
+//the bug is fixed). moving the definition of GResult to the root of the `glsp` crate was not
+//an effective workaround
 pub type GResult<T> = Result<T, GError>;
 
 /**
