@@ -58,6 +58,7 @@
 - `RGlobal::borrow` and `RGlobal::borrow_mut` had incorrect error messages under some 
   circumstances
 - Calling `glsp::take_rglobal` would cause a panic in `Heap`'s destructor
+- The parser would panic when it encountered a string which contained a multi-byte character
 
 ## Version 0.1 
 

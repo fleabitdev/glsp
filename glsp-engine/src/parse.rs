@@ -609,12 +609,13 @@ fn parse_str_chars(
 			dst.push(escaped_ch)?;
 			text = escape_chars.as_str();
 		} else {
-			dst.push(text.chars().next().unwrap())?;
+			let ch = text.chars().next().unwrap();
+			dst.push(ch)?;
 
 			if text.starts_with("{{") || text.starts_with("}}") {
 				text = &text[2..];
 			} else {
-				text = &text[1..];
+				text = &text[ch.len_utf8()..];
 			}
 		}
 	}
