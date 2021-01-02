@@ -1,6 +1,6 @@
 # Syntax Highlighting
 
-The file [`GameLisp.tmLanguage.json`](./GameLisp.tmlanguage.json) is the canonical 
+The file [`GameLisp.tmLanguage.json`](./GameLisp.tmLanguage.json) is the canonical 
 syntax-highlighting grammar for GameLisp. It should be easy enough to install it into
 any text editor which accepts `.tmLanguage.json` files (most of them!).
 
@@ -10,7 +10,7 @@ Instructions for specific text editors are provided below.
 ## Sublime Text 3
 
 Open your local packages folder using `Preferences/Browse Packages...`. Copy the 
-[`sublime-text-3/GameLisp`](.sublime-text-3/GameLisp) directory into that folder.
+[`sublime-text-3/GameLisp`](./sublime-text-3/GameLisp) directory into that folder.
 
 Also, consider using `Preferences/Settings - Syntax Specific` to adjust the following settings:
 
@@ -31,9 +31,9 @@ can be troublesome when editing Lisp code. To mitigate the problem, consider ins
 ## Visual Studio Code
 
 Simply copy the [`visual-studio-code/glsp`](./visual-studio-code/glsp) directory to your
-extensions directory:
+extensions folder:
 
-- On Windows, `%USERPROFILE%\.vscode\extensions`, for example,
-  `C:\Users\YourName\.vscode\extensions`.
+- On Windows, `%USERPROFILE%\.vscode\extensions`; for example,
+  `C:\Users\YourName\.vscode\extensions`
 
-- On Mac or Linux, `~/.vscode/extensions`.
+- On Mac or Linux, `~/.vscode/extensions`
