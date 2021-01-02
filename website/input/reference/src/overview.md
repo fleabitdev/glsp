@@ -51,10 +51,10 @@ Once that's up and running, I'd recommend working your way through the Reference
 to finish. It's not too long - it can be completed in three hours or so. As you progress, you can 
 use your skeleton project to experiment with the language, the standard library, and the Rust API.
 
-If you use Sublime Text, a basic syntax-highlighting scheme for GameLisp can be downloaded from the
+Syntax-highlighting schemes for Visual Studio Code and Sublime Text 3 can be downloaded from the
 [GitHub repository][0].
 
-[0]: https://github.com/fleabitdev/glsp/tree/master/syntax-highlighting/sublime-text-3/
+[0]: https://github.com/fleabitdev/glsp/tree/master/syntax-highlighting/
 
 If you've never worked with Lisp before, you might find some parts of GameLisp difficult to 
 understand. If you're struggling, consider looking through some beginner-level material for another 

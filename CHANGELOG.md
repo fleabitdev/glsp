@@ -16,6 +16,7 @@
 - Added `Gc` weak pointers (along with `GcVal`, `RGc`, `RClassBuilder::trace` and 
   `glsp::write_barrier`) to permit `RData` to store pointers to other heap-allocated objects
 - The reference manual now suggests a `+` suffix for functions which `yield`
+- Added a syntax-highlighting package for Visual Studio Code
 
 ### Changed
 
