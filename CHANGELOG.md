@@ -59,6 +59,7 @@
   circumstances
 - Calling `glsp::take_rglobal` would cause a panic in `Heap`'s destructor
 - The parser would panic when it encountered a string which contained a multi-byte character
+- `(defer)` and `(defer-yield)` would overwrite some local variables and scratch registers
 
 ## Version 0.1 
 

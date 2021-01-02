@@ -1,5 +1,6 @@
 use smallvec::{SmallVec};
 use std::{u8};
+use std::cmp::{max};
 use std::collections::{HashMap};
 use std::convert::{TryFrom};
 use std::iter::{FromIterator, repeat};
@@ -392,7 +393,12 @@ struct Frame {
 
 	//while encoding a (defer) form, stores the number of active BlockInfos outside of that 
 	//(defer). using (finish-block) or (restart-block) to exit an outer (block) is forbidden.
-	encoding_defer: Option<usize>
+	encoding_defer: Option<usize>,
+
+	//stores the highest value seen for scratch and local allocations while encoding each (defer) 
+	//form. after we've finished encoding the (defer), we reserve all scratch/local registers 
+	//which may have been used within the (defer), to prevent register reuse (github issue #17)
+	peaks: Vec<Peaks>
 }
 
 struct BlockInfo {
@@ -408,12 +414,24 @@ struct Placeholder {
 	arg_id: usize
 }
 
-//the usize stores the number of active BlockInfos outside of the (defer)'s scope. when using 
+//`outer_blocks` stores the number of active BlockInfos outside of the (defer)'s scope. when using 
 //(finish-block) or (restart-block) to exit an outer (block), RunAndPopDefer is emitted first.
 #[derive(Copy, Clone)]
 enum DeferInfo {
-	Defer(usize, u8),
-	DeferYield(u8, u8)
+	#[allow(dead_code)]
+	Defer {
+		outer_blocks: usize,
+		defer_id: u8
+	},
+	DeferYield {
+		pause_id: u8,
+		resume_id: u8
+	}
+}
+
+struct Peaks {
+	scratch_peak: usize,
+	local_peak: usize
 }
 
 impl Frame {
@@ -435,7 +453,8 @@ impl Frame {
 			active_defers: Vec::new(),
 			defers: Vec::new(),
 			yields: false,
-			encoding_defer: None
+			encoding_defer: None,
+			peaks: Vec::new()
 		}
 	}
 
@@ -481,6 +500,10 @@ impl Frame {
 		if self.scratch_used < self.scratch_next {
 			self.scratch_used = self.scratch_next;
 		}
+
+		for peaks in &mut self.peaks {
+			peaks.scratch_peak = max(peaks.scratch_peak, self.scratch_next);
+		}
 		
 		Ok((self.scratch_next - 1) as u8)
 	}
@@ -503,6 +526,10 @@ impl Frame {
 		if self.active_locals > self.local_inits.len() {
 			self.local_inits.push(init_val);
 			assert!(self.active_locals == self.local_inits.len());
+		}
+
+		for peaks in &mut self.peaks {
+			peaks.local_peak = max(peaks.local_peak, self.active_locals);
 		}
 		
 		Ok((self.active_locals - 1) as u8)
@@ -671,7 +698,7 @@ impl Frame {
 
 			let mut defer_count = 0;
 			for defer in self.active_defers.iter().rev() {
-				if let &DeferInfo::Defer(outer_blocks, _) = defer {
+				if let &DeferInfo::Defer { outer_blocks, .. } = defer {
 					if new_active_blocks < outer_blocks {
 						defer_count += 1;
 					}
@@ -680,7 +707,7 @@ impl Frame {
 
 			defer_count
 		} else {
-			self.active_defers.iter().filter(|d| matches!(d, &DeferInfo::Defer(..))).count()
+			self.active_defers.iter().filter(|d| matches!(d, &DeferInfo::Defer { .. })).count()
 		};
 
 		assert!(defer_count <= 255);
@@ -1310,7 +1337,7 @@ fn encode_node(enc: &mut Encoder, ast: &Ast, node: Id<Node>, dst: Reg) -> GResul
 			);
 
 			for defer in active_defers.iter().rev() {
-				if let &DeferInfo::DeferYield(pause_id, _) = defer {
+				if let &DeferInfo::DeferYield { pause_id, .. } = defer {
 					emit!(frame, RunDefer(; pause_id), node_span);
 				}
 			}
@@ -1318,7 +1345,7 @@ fn encode_node(enc: &mut Encoder, ast: &Ast, node: Id<Node>, dst: Reg) -> GResul
 			emit!(frame, Yield(dst_reg, result_reg), node_span);
 
 			for defer in active_defers.iter() {
-				if let &DeferInfo::DeferYield(_, resume_id) = defer {
+				if let &DeferInfo::DeferYield { resume_id, .. } = defer {
 					emit!(frame, RunDefer(; resume_id), node_span);
 				}
 			}
@@ -1370,127 +1397,177 @@ fn encode_do(
 	enc: &mut Encoder, 
 	ast: &Ast, 
 	nodes: Range<Node>, 
-	dst: Reg, 
+	mut dst: Reg, 
 	span: Span
 ) -> GResult<Reg> {
 
-	if nodes.len() > 0 {
-		let mut result = None; //this will always be overwritten in the loop
-		let base_defer = enc.frame().active_defers.len();
+	if nodes.len() == 0 {
+		return Ok(Reg::Literal(enc.frame_mut().alloc_literal(&Val::Nil, span)?))
+	}
 
-		for (i, node) in nodes.enumerate() {
-			let node_span = ast[node].0;
-			let is_last = i == nodes.len() - 1;
+	let mut result = None; //this will always be overwritten in the loop
+	let base_defer = enc.frame().active_defers.len();
 
-			match ast[node].1 {
-				Expr::Let { binding } => {
-					enc.bind_and_encode(ast, &ast[binding], StaySource::Empty, false, node_span)?;
+	let mut seen_defer = false;
+	let mut defer_reserved_regs = SmallVec::<[(usize, usize); 8]>::new();
 
-					if is_last {
-						result = Some(Reg::Literal(enc.frame_mut().alloc_literal(&Val::Nil, node_span)?))
-					}
+	for (i, node) in nodes.enumerate() {
+		let node_span = ast[node].0;
+		let is_last = i == nodes.len() - 1;
+
+		match ast[node].1 {
+			Expr::Let { binding } => {
+				enc.bind_and_encode(ast, &ast[binding], StaySource::Empty, false, node_span)?;
+
+				if is_last {
+					result = Some(Reg::Literal(enc.frame_mut().alloc_literal(&Val::Nil, node_span)?))
 				}
-				Expr::Defer(body) => {
-					let frame = enc.frame_mut();
+			}
+			Expr::Defer(body) => {
+				if !seen_defer {
+					dst = reify_dst(enc, dst, span)?;
+					seen_defer = true;
+				}
 
-					//open with a PushDefer instr followed by a placeholder Jump instr
-					ensure_at!(node_span, frame.defers.len() + 1 <= 256,
+				let frame = enc.frame_mut();
+
+				//open with a PushDefer instr followed by a placeholder Jump instr
+				ensure_at!(node_span, frame.defers.len() + 1 <= 256,
+				           "frame requires more than 256 (defer) forms");
+				let defer_id = frame.defers.len() as u8;
+				frame.active_defers.push(DeferInfo::Defer {
+					outer_blocks: frame.active_blocks.len(),
+					defer_id
+				});
+				emit!(frame, PushDefer(; defer_id), node_span);
+
+				let jump_instr = frame.instrs.len();
+				let jump_placeholder = JumpBytes::try_from(0).unwrap();
+				emit!(frame, Jump(; jump_placeholder), node_span);
+
+				//encode the (defer) form's body
+				drop(frame);
+
+				let reserved_regs = encode_defer(enc, ast, body, node_span)?;
+				defer_reserved_regs.push(reserved_regs);
+
+				let frame = enc.frame_mut();
+
+				//reify the jump
+				frame.jump_from(jump_instr, node_span)?;
+
+				//the form evaluates to #n if it's the last form in the (do)
+				if is_last {
+					result = Some(Reg::Literal(frame.alloc_literal(&Val::Nil, node_span)?))
+				}
+			}
+			Expr::DeferYield { pause_node, resume_node } => {
+				if !seen_defer {
+					dst = reify_dst(enc, dst, span)?;
+					seen_defer = true;
+				}
+
+				//if we're in a frame that never yields, we can skip the (defer-yield)
+				//altogether. this means that the forms will never be compiled, but there
+				//are relatively few errors which are caught during compilation rather than
+				//during expansion or execution.
+				let mut frame = enc.frame_mut();
+				if frame.yields {
+
+					//as above, except that we use one Jump to skip both defer blocks, and
+					//we don't emit PushDefer (because there's no need to execute these
+					//defer forms when an error occurs)
+					ensure_at!(node_span, frame.defers.len() + 2 <= 256,
 					           "frame requires more than 256 (defer) forms");
-					let defer_id = frame.defers.len() as u8;
-					frame.active_defers.push(DeferInfo::Defer(frame.active_blocks.len(), defer_id));
-					emit!(frame, PushDefer(; defer_id), node_span);
+					let pause_id = frame.defers.len() as u8;
+					let resume_id = (frame.defers.len() + 1) as u8;
+					frame.active_defers.push(DeferInfo::DeferYield {
+						pause_id,
+						resume_id
+					});
 
+					//the jump placeholder
 					let jump_instr = frame.instrs.len();
 					let jump_placeholder = JumpBytes::try_from(0).unwrap();
 					emit!(frame, Jump(; jump_placeholder), node_span);
 
-					//encode the (defer) form's body
+					//encode the two nodes
 					drop(frame);
-					encode_defer(enc, ast, body, node_span)?;
-					let frame = enc.frame_mut();
+					
+					let reserved = encode_defer(enc, ast, Range::from_id(pause_node), node_span)?;
+					defer_reserved_regs.push(reserved);
+
+					let reserved = encode_defer(enc, ast, Range::from_id(resume_node), node_span)?;
+					defer_reserved_regs.push(reserved);
+
+					frame = enc.frame_mut();
 
 					//reify the jump
 					frame.jump_from(jump_instr, node_span)?;
-
-					//the form evaluates to #n if it's the last form in the (do)
-					if is_last {
-						result = Some(Reg::Literal(frame.alloc_literal(&Val::Nil, node_span)?))
-					}
 				}
-				Expr::DeferYield { pause_node, resume_node } => {
-					//if we're in a frame that never yields, we can skip the (defer-yield)
-					//altogether. this means that the forms will never be compiled, but there
-					//are relatively few errors which are caught during compilation rather than
-					//during expansion or execution.
-					let mut frame = enc.frame_mut();
 
-					if frame.yields {
-						//as above, except that we use one Jump to skip both defer blocks, and
-						//we don't emit PushDefer (because there's no need to execute these
-						//defer forms when an error occurs)
-						ensure_at!(node_span, frame.defers.len() + 2 <= 256,
-						           "frame requires more than 256 (defer) forms");
-						let pause_id = frame.defers.len() as u8;
-						let resume_id = (frame.defers.len() + 1) as u8;
-						frame.active_defers.push(DeferInfo::DeferYield(pause_id, resume_id));
-
-						//the jump placeholder
-						let jump_instr = frame.instrs.len();
-						let jump_placeholder = JumpBytes::try_from(0).unwrap();
-						emit!(frame, Jump(; jump_placeholder), node_span);
-
-						//encode the two nodes
-						drop(frame);
-						encode_defer(enc, ast, Range::from_id(pause_node), node_span)?;
-						encode_defer(enc, ast, Range::from_id(resume_node), node_span)?;
-						frame = enc.frame_mut();
-
-						//reify the jump
-						frame.jump_from(jump_instr, node_span)?;
-					}
-
-					//the form evaluates to #n if it's the last form in the (do)
-					if is_last {
-						result = Some(Reg::Literal(frame.alloc_literal(&Val::Nil, node_span)?))
-					}
+				//the form evaluates to #n if it's the last form in the (do)
+				if is_last {
+					result = Some(Reg::Literal(frame.alloc_literal(&Val::Nil, node_span)?))
 				}
-				_ => {
-					if !is_last {
-						let discard_reg = encode_node(enc, ast, nodes.id_at(i), Reg::Discarded)?;
-						assert!(discard_reg == Reg::Discarded);
-					} else {
-						result = Some(encode_node(enc, ast, nodes.id_at(nodes.len()-1), dst)?)
-					}
+			}
+			_ => {
+				if !is_last {
+					let discard_reg = encode_node(enc, ast, nodes.id_at(i), Reg::Discarded)?;
+					assert!(discard_reg == Reg::Discarded);
+				} else {
+					result = Some(encode_node(enc, ast, nodes.id_at(nodes.len()-1), dst)?)
 				}
 			}
 		}
-
-		for node in nodes.rev() {
-			if let Expr::Let { binding } = ast[node].1 {
-				enc.unbind(&ast[binding]);
-			}
-		}
-
-		if base_defer != enc.frame().active_defers.len() {
-			let frame = enc.frame_mut();
-
-			let mut count = 0;
-			for defer in frame.active_defers.drain(base_defer..).rev() {
-				if let DeferInfo::Defer(_, _) = defer {
-					count += 1;
-				}
-			}
-
-			assert!(count <= 255);
-			if count > 0 {
-				emit!(frame, RunAndPopDefers(; count as u8));
-			}
-		}
-
-		Ok(result.unwrap())
-	} else {
-		Ok(Reg::Literal(enc.frame_mut().alloc_literal(&Val::Nil, span)?))
 	}
+
+	//undo any (let) bindings, and any scratch/local registers reserved by (defer)s
+	for node in nodes.rev() {
+		let to_pop = match ast[node].1 {
+			Expr::Let { binding } => {
+				enc.unbind(&ast[binding]);
+				0
+			}
+			Expr::Defer(_) => 1,
+			Expr::DeferYield { .. } => {
+				if enc.frame_mut().yields { 2 } else { 0 }
+			}
+			_ => 0
+		};
+
+		let frame = enc.frame_mut();
+		for _ in 0 .. to_pop {
+			let (scratch_to_pop, locals_to_pop) = defer_reserved_regs.pop().unwrap();
+
+			for _ in 0 .. locals_to_pop {
+				frame.free_local();
+			}
+
+			frame.free_scratch(scratch_to_pop);
+		}
+	}
+
+	assert!(defer_reserved_regs.is_empty());
+
+	//emit a RunAndPopDefers instruction, if necessary
+	if base_defer != enc.frame().active_defers.len() {
+		let frame = enc.frame_mut();
+
+		let mut count = 0;
+		for defer in frame.active_defers.drain(base_defer..).rev() {
+			if let DeferInfo::Defer { .. } = defer {
+				count += 1;
+			}
+		}
+
+		assert!(count <= 255);
+		if count > 0 {
+			emit!(frame, RunAndPopDefers(; count as u8));
+		}
+	}
+
+	Ok(result.unwrap())
 }
 
 fn encode_defer(
@@ -1498,9 +1575,9 @@ fn encode_defer(
 	ast: &Ast,
 	body: Range<Node>,
 	span: Span
-) -> GResult<()> {
+) -> GResult<(usize, usize)> {
 
-	//set up the frame for encoding a (defer) form...
+	//set up the current frame for encoding a (defer) form...
 	let frame = enc.frame_mut();
 
 	let defer_start_instr = frame.instrs.len();
@@ -1508,6 +1585,12 @@ fn encode_defer(
 
 	let prev_encoding_defer = frame.encoding_defer;
 	frame.encoding_defer = Some(frame.active_blocks.len());
+
+	let peaks = Peaks {
+		scratch_peak: frame.scratch_next,
+		local_peak: frame.active_locals
+	};
+	frame.peaks.push(peaks);
 
 	drop(frame);
 
@@ -1518,8 +1601,23 @@ fn encode_defer(
 	emit!(frame, EndDefer(), span);
 
 	//undo the previous changes to the frame
+	let peaks = frame.peaks.pop().unwrap();
+
 	frame.encoding_defer = prev_encoding_defer;
 
+	//reserve any scratch and local registers used during the (defer) form
+	//which are not currently allocated, and return the number of reserved regs
+	let scratch_to_reserve = peaks.scratch_peak.checked_sub(frame.scratch_next).unwrap();
+	let locals_to_reserve = peaks.local_peak.checked_sub(frame.active_locals).unwrap();
+
+	for _ in 0 .. scratch_to_reserve {
+		frame.alloc_scratch(span)?;
+	}
+
+	for _ in 0 .. locals_to_reserve {
+		frame.alloc_local(Val::Nil, span)?;
+	}
+
 	//finished!
-	Ok(())
+	Ok((scratch_to_reserve, locals_to_reserve))
 }
