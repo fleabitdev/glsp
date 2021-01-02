@@ -196,7 +196,7 @@ caller passes in `#n`.
 If an `rfn`'s final parameter has the type [`Rest<T>`], it will collect any number of 
 trailing arguments.
 
-[`Rest<T>`]: https://docs.rs/glsp/*/struct.Rest.html
+[`Rest<T>`]: https://docs.rs/glsp/*/glsp/struct.Rest.html
 
 ```rust
 fn example(non_opt: u8, opt: Option<u8>, rest: Rest<u8>) {

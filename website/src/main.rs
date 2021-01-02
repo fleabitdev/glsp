@@ -620,12 +620,12 @@ impl ApiType {
 			Iterable => Some("syntax-and-types.html#abstract-types"),
 			Obj => Some("object-oriented-programming.html"),
 			Class => Some("object-oriented-programming.html"),
-			RFn => Some("rust-functions.html"),
+			RFn => Some("rfn.html"),
 			GFn => Some("evaluation.html#functions"),
 			Callable => Some("syntax-and-types.html#abstract-types"),
 			Expander => Some("syntax-and-types.html#abstract-types"),
 			Coro => Some("coroutines.html"),
-			RData => Some("rust-data.html"),
+			RData => Some("rdata.html"),
 			Or2(_) => None,
 			Or3(_) => None
 		}
