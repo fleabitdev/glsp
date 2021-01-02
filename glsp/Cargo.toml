@@ -1,6 +1,6 @@
 [package]
 name = "glsp"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["The GameLisp Project Developers"]
 description = "The GameLisp scripting language"
 readme = "README.md"
@@ -22,7 +22,7 @@ compiler = ["glsp-engine/compiler", "glsp-proc-macros2"]
 #regex-unicode = ["glsp-engine/regex-unicode"]
 
 [dependencies]
-glsp-engine = { path = "../glsp-engine", version = "0.*" }
-glsp-proc-macros = { path = "../glsp-proc-macros", version = "0.*" }
-glsp-stdlib = { path = "../glsp-stdlib", version = "0.*" }
-glsp-proc-macros2 = { path = "../glsp-proc-macros2", version = "0.*", optional = true }
+glsp-engine = { path = "../glsp-engine", version = "0.2" }
+glsp-proc-macros = { path = "../glsp-proc-macros", version = "0.2" }
+glsp-stdlib = { path = "../glsp-stdlib", version = "0.2" }
+glsp-proc-macros2 = { path = "../glsp-proc-macros2", version = "0.2", optional = true }

@@ -29,7 +29,7 @@ To start setting up a GameLisp project of your own, check that you're running th
 of nightly Rust, and then add this line to your `Cargo.toml`:
 	
 	[dependencies]
-	glsp = "0.1"
+	glsp = "0.2"
 
 The following boilerplate code will load and run a single GameLisp source file named `main.glsp` in
 the working directory, printing a stack trace if any errors occur. (The working directory is 
@@ -64,10 +64,9 @@ Peter Seibel.
 
 ## ⚠️ Stability Warning ⚠️
 
-Because GameLisp is brand new (SemVer 0.1), it currently provides **no stability guarantees**.
-The language, standard library and Rust API can and will change without notice. It's also immature
-enough that you're likely to come across the occasional bug - if so, a [bug report][1]
-would be appreciated.
+Because GameLisp is brand new, it currently provides **no stability guarantees**. The language, 
+standard library and Rust API can and will change without notice. It's also immature enough that 
+you may come across the occasional bug - if so, a [bug report][1] would be appreciated.
 
 [1]: https://github.com/fleabitdev/glsp/issues/
 

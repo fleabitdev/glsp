@@ -1,6 +1,6 @@
 [package]
 name = "glsp-proc-macros2"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["The GameLisp Project Developers"]
 edition = "2018"
 description = "Implementation detail for the glsp crate"
@@ -13,9 +13,9 @@ license = "MIT OR Apache-2.0"
 proc-macro = true
 
 [dependencies]
-glsp = { package = "glsp-engine", path = "../glsp-engine", version = "0.*", features = ["compiler"] }
-glsp-proc-macros = { path = "../glsp-proc-macros", version = "0.*"  }
-glsp-stdlib = { path = "../glsp-stdlib", version = "0.*"  }
+glsp = { package = "glsp-engine", path = "../glsp-engine", version = "0.2", features = ["compiler"] }
+glsp-proc-macros = { path = "../glsp-proc-macros", version = "0.2"  }
+glsp-stdlib = { path = "../glsp-stdlib", version = "0.2"  }
 syn = "1"
 proc-macro2 = "1"
 quote = "1"

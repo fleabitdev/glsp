@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## Version 0.2 (2nd January 2021)
+
 ### Added
 
 - Added the `sym!` macro, as a convenient alternative to `glsp::sym(x).unwrap()`
@@ -25,8 +27,8 @@
     - There is no longer any restriction on variables captured or returned by `Runtime::run`
     - `Root`, `RGlobalRef`, `RGlobalRefMut`, `RRef` and `RRefMut` can now be stored in an `RData`
 - `RFn`, `RData`, Rust globals, and the function-wrapping code have been overhauled
-	- The `min_const_generics`, `min_specialization` and `rustc_attrs` nightly features 
-	  are now required
+	- The `min_specialization`, `rustc_attrs` and `unboxed_closures` nightly features are 
+	  now required
 	- The `RStore` trait and `rdata!` macro have been removed. `RData` may now store any
 	  `'static` Rust type
 	- Associating an `RClass` with a Rust type is now a dynamic operation, using `RClassBuilder`
@@ -62,6 +64,6 @@
 - The parser would panic when it encountered a string which contained a multi-byte character
 - `(defer)` and `(defer-yield)` would overwrite some local variables and scratch registers
 
-## Version 0.1 
+## Version 0.1 (11th June 2020)
 
 Initial release.

@@ -408,7 +408,7 @@ fn main() {
 }
 ```
 
-I believe this approach would also be compatible with `specs`, the ECS used by the `amethyst`
+I believe this approach would also be compatible with `specs`, the ECS used by the Amethyst
 game engine.
 
 With a little experimentation (and a little unsafe code!), it should also be possible to run 

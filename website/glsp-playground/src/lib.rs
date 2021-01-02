@@ -74,11 +74,12 @@ fn play_fill_wrapper(x: Num, y: Num, width: Num, height: Num,
 	}
 }
 
-fn play_draw_wrapper(sprite: Sym, x: Num, y: Num, mut flags: &[Val]) -> GResult<()> {
+fn play_draw_wrapper(sprite: Sym, x: Num, y: Num, flags: Rest<Val>) -> GResult<()> {
 	let mut hflip: Option<bool> = None;
 	let mut vflip: Option<bool> = None;
 	let mut frame: Option<f32> = None;
 
+	let mut flags = &flags[..];
 	while flags.len() > 0 {
 		match flags {
 			[Val::Sym(flag), ..] if &*flag.name() == "hflip" => {
@@ -197,13 +198,13 @@ pub fn init_engine(text: String, filename: String, rand_seed: f32) -> Result<(),
 
 			glsp::rand_reseed(rand_seed.to_bits() as i32);
 
-			glsp::bind_rfn("play:mouse-x", rfn!(play_mouse_x_wrapper)).unwrap();
-			glsp::bind_rfn("play:mouse-y", rfn!(play_mouse_y_wrapper)).unwrap();
-			glsp::bind_rfn("play:down?", rfn!(play_down_p_wrapper)).unwrap();
-			glsp::bind_rfn("play:pressed?", rfn!(play_pressed_p_wrapper)).unwrap();
-			glsp::bind_rfn("play:released?", rfn!(play_released_p_wrapper)).unwrap();
-			glsp::bind_rfn("play:fill", rfn!(play_fill_wrapper)).unwrap();
-			glsp::bind_rfn("play:draw", rfn!(play_draw_wrapper)).unwrap();
+			glsp::bind_rfn("play:mouse-x", &play_mouse_x_wrapper).unwrap();
+			glsp::bind_rfn("play:mouse-y", &play_mouse_y_wrapper).unwrap();
+			glsp::bind_rfn("play:down?", &play_down_p_wrapper).unwrap();
+			glsp::bind_rfn("play:pressed?", &play_pressed_p_wrapper).unwrap();
+			glsp::bind_rfn("play:released?", &play_released_p_wrapper).unwrap();
+			glsp::bind_rfn("play:fill", &play_fill_wrapper).unwrap();
+			glsp::bind_rfn("play:draw", &play_draw_wrapper).unwrap();
 
 			let vals = match glsp::parse_all(&text, Some(&filename)) {
 				Ok(vals) => vals,
@@ -329,7 +330,7 @@ pub fn update(dt: f64) -> Result<(), JsValue> {
 				Err(_) => return Ok(Err(JsValue::from_str("play:update is not defined")))
 			};
 
-			let _: Val = match glsp::call(&update, &(dt,)) {
+			let _: Val = match glsp::call(&update, (dt,)) {
 				Ok(val) => val,
 				Err(glsp_err) => {
 					return Ok(Err(JsValue::from_str(&glsp_err.to_string())))

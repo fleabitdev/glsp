@@ -1071,8 +1071,9 @@ fn render_tcof_splash() -> String {
 						}
 
 						p {
-							"I'm aiming to release a demo <s>before the end of 2020</s> \
-							at some point! If you'd like to be notified when that \
+							"I'm aiming to release a demo "
+							s { "before the end of 2020" }
+							" at some point! If you'd like to be notified when that \
 							happens, you can follow my "
 							a href="https://twitter.com/fleabitdev" { "Twitter" }
 							" or support me on "

@@ -767,7 +767,7 @@ text = ""
 		toplevel constant which stores a [callable](callable-p) value.
 
 		If the receiver is an RData, `name` must be the exact name of one of the methods which
-		was registered using the [`rdata!`](https://docs.rs/glsp/0.1/glsp/macro.rdata.html) macro.
+		was registered using the [`rdata!`](https://docs.rs/glsp/*/glsp/macro.rdata.html) macro.
 
 		`call-met` supports the `?` special syntax. When the method `name` doesn't actually
 		exist, `(call-met (? name) rcv ...)` will succeed and return `#n`.

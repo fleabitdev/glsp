@@ -1,11 +1,10 @@
 #![cfg_attr(not(feature = "unsafe-internals"), forbid(unsafe_code))]
 
-#![feature(min_const_generics)]
 #![feature(min_specialization)]
 #![feature(rustc_attrs)]
 #![feature(unboxed_closures)]
 
-#![doc(html_root_url = "https://docs.rs/glsp/0.1")]
+#![doc(html_root_url = "https://docs.rs/glsp/0.2")]
 
 #[macro_use]
 mod error;
