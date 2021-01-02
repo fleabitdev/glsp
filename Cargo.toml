@@ -4,7 +4,8 @@ members = [
 	"glsp-proc-macros2",
 	"glsp-stdlib",
 	"glsp-proc-macros",
-	"glsp-engine"
+	"glsp-engine",
+	"repl-cli"
 ]
 exclude = [
 	"benchmarks",
