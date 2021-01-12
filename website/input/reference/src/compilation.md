@@ -64,11 +64,11 @@ glsp::load("scripts/main.glsp")?;
 [`compile!`] is very convenient, but it always compiles your source files using an empty,
 generic GameLisp runtime. This runtime will have access to the GameLisp standard library and any
 macros you define using [`bind-macro!`](../std/bind-macro-mut) or [`defmacro`](../std/defmacro), 
-but it won't run any of your Rust initialization code, so it won't have access to any libraries, 
+but it won't run any of your Rust initialization code, so it won't have access to any rglobals, 
 any Rust functions, any assignments you've made to global variables from within Rust code, and 
 so on.
 
-This will only matter if you rely on one of your libraries, or call one of your Rust functions, 
+This will only matter if you access one of your rglobals, or call one of your Rust functions, 
 in either of the following circumstances:
 	
 - When evaluating a toplevel form (see [Evaluation](evaluation.md))
@@ -81,6 +81,7 @@ the file, and the `Vec<u8>` is the result of compiling it.
 
 It's straightforward to serialize a `Vec<u8>` to a file. The next time your program runs, you 
 can read that `Vec<u8>` back in, and pass it to [`glsp::load_compiled`] as a byte slice.
+The whole process is quite similar to OpenGL shader compilation.
 
 The GameLisp binary format has absolutely no stability guarantees. If you recompile your 
 executable, then you must also recompile any GameLisp binaries which that executable has produced 
@@ -131,6 +132,13 @@ which calls [`glsp::load_and_compile`] somehow differs from the GameLisp environ
 	; it to the compile![] macro, rather than glsp::load_and_compile.
 	(my-sound-library:init)
 
+	; this macro stores data in a global variable during expansion, but global
+	; variables are not serialized by compile![] or glsp::load_and_compile, so
+	; the global will be empty when the expanded code is actually executed.
+	(defmacro logged (form)
+	  (push! :log form)
+	  form)
+
 The simplest way to protect yourself against this is to use [`compile!`] rather than
 [`glsp::load_and_compile`], and perform all of your loading immediately after calling 
 [`Runtime::new`], before binding libraries or doing anything else which might modify the 
@@ -141,11 +149,17 @@ GameLisp functions.
 [`Runtime`]: https://docs.rs/glsp/*/glsp/struct.Runtime.html
 [`Runtime::new`]: https://docs.rs/glsp/*/glsp/struct.Runtime.html#method.new
 	
-	; this is fine, because it's a fn rather than a macro
+	; this is fine, because it's a fn rather than a macro.
 	(defn screen-w ()
 	  (my-window-library:screen-width))
 	
 	; this is fine, as long as (init-sound) isn't called from the toplevel or 
-	; from a macro expander
+	; from a macro expander.
 	(defn init-sound ()
 	  (my-sound-library:init))
+
+	; you can take an expansion-time variable and make it available at run-time
+	; by converting it into a literal.
+	(do
+	  (let-macro global->literal (name) `(quote ~(global name)))
+	  (= :log (deep-clone (global->literal :log))))

@@ -150,7 +150,7 @@ duration of each call to `get-texture`.
 When an `rfn` parameter is borrowed from an rglobal, it doesn't consume an argument. You would
 invoke this function from GameLisp by calling `(get-texture name)`, with only one argument.
 
-A function may have multiple library parameters:
+A function may have multiple rglobal parameters:
 
 ```rust
 impl Textures {
