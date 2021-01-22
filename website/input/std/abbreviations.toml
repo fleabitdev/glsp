@@ -1,146 +1,146 @@
 filename = "abbreviations"
 name = "Abbreviations"
 text = """
-	Some forms are used so frequently that writing out the full `(callee arg)` syntax every time
-	would be very inconvenient.
+    Some forms are used so frequently that writing out the full `(callee arg)` syntax every time
+    would be very inconvenient.
 
-	For those forms, we provide [abbreviations][0]: alternative syntax for a particular form,
-	intended to be easier to read and more convenient to type.
+    For those forms, we provide [abbreviations][0]: alternative syntax for a particular form,
+    intended to be easier to read and more convenient to type.
 
-	[0]: ../reference/syntax-and-types.html#abbreviations
+    [0]: ../reference/syntax-and-types.html#abbreviations
 
-	For example, wherever you would write [`(access coll key)`](access), you can write 
-	[`[coll key]`](access-abbrv) instead. When it comes to parsing and printing, the two pieces 
-	of text are completely interchangeable.
+    For example, wherever you would write [`(access coll key)`](access), you can write 
+    [`[coll key]`](access-abbrv) instead. When it comes to parsing and printing, the two pieces 
+    of text are completely interchangeable.
 """
 
 [[apis]]
-	filename = "quote-abbrv"
-	name = "'"
-	kinds = ["abbrv"]
-	args = []
-	pre-text = "'form\n(quote form)"
-	text = """
-		The abbreviation for `quote`.
+    filename = "quote-abbrv"
+    name = "'"
+    kinds = ["abbrv"]
+    args = []
+    pre-text = "'form\n(quote form)"
+    text = """
+        The abbreviation for `quote`.
 
-		As far as the parser and printer are concerned, `'form` and [`(quote form)`](quote)
-		are exactly equivalent.
+        As far as the parser and printer are concerned, `'form` and [`(quote form)`](quote)
+        are exactly equivalent.
 
-			(prn '(x (quote y) z)) ; prints (x 'y z)
-	"""
-
-[[apis]]
-	filename = "backquote-abbrv"
-	name = "`"
-	kinds = ["abbrv"]
-	args = []
-	pre-text = "`form\n(backquote form)"
-	text = """
-		The abbreviation for `backquote`.
-
-		As far as the parser and printer are concerned, `` `form`` and 
-		[`(backquote form)`](backquote) are exactly equivalent.
-
-			(prn '(backquote (y (unquote z)))) ; prints `(y ~z)
-	"""
+            (prn '(x (quote y) z)) ; prints (x 'y z)
+    """
 
 [[apis]]
-	filename = "unquote-abbrv"
-	name = "~"
-	kinds = ["abbrv"]
-	args = []
-	pre-text = "~form\n(unquote form)"
-	text = """
-		The abbreviation for `unquote`.
+    filename = "backquote-abbrv"
+    name = "`"
+    kinds = ["abbrv"]
+    args = []
+    pre-text = "`form\n(backquote form)"
+    text = """
+        The abbreviation for `backquote`.
 
-		As far as the parser and printer are concerned, `~form` and [`(unquote form)`](unquote)
-		are exactly equivalent.
+        As far as the parser and printer are concerned, `` `form`` and 
+        [`(backquote form)`](backquote) are exactly equivalent.
 
-			(prn '(backquote (y (unquote z)))) ; prints `(y ~z)
-	"""
-
-[[apis]]
-	filename = "splay-abbrv"
-	name = ".."
-	kinds = ["abbrv"]
-	args = []
-	pre-text = "..form\n(splay form)"
-	text = """
-		The abbreviation for `splay`.
-
-		As far as the parser and printer are concerned, `..form` and [`(splay form)`](splay)
-		are exactly equivalent.
-
-			(prn '(f a (splay b))) ; prints (f a ..b)
-	"""
+            (prn '(backquote (y (unquote z)))) ; prints `(y ~z)
+    """
 
 [[apis]]
-	filename = "atsign-abbrv"
-	name = "@"
-	kinds = ["abbrv"]
-	args = []
-	pre-text = "@form\n(atsign form)"
-	text = """
-		The abbreviation for `atsign`.
+    filename = "unquote-abbrv"
+    name = "~"
+    kinds = ["abbrv"]
+    args = []
+    pre-text = "~form\n(unquote form)"
+    text = """
+        The abbreviation for `unquote`.
 
-		As far as the parser and printer are concerned, `@form` and [`(atsign form)`](atsign)
-		are exactly equivalent.
+        As far as the parser and printer are concerned, `~form` and [`(unquote form)`](unquote)
+        are exactly equivalent.
 
-			(prn '((atsign m) (atsign arg))) ; prints (@m @arg)
-	"""
-
-[[apis]]
-	filename = "met-name-abbrv"
-	name = "."
-	kinds = ["abbrv"]
-	args = []
-	pre-text = ".form\n(met-name form)"
-	text = """
-		The abbreviation for `met-name`.
-
-		As far as the parser and printer are concerned, `.form` and [`(met-name form)`](met-name)
-		are exactly equivalent.
-
-			(prn '((met-name m) ob arg)) ; prints (.m ob arg)
-	"""
+            (prn '(backquote (y (unquote z)))) ; prints `(y ~z)
+    """
 
 [[apis]]
-	filename = "access-abbrv"
-	name = "[]"
-	kinds = ["abbrv"]
-	args = []
-	pre-text = "[coll key]\n(access coll key)"
-	text = """
-		The abbreviation for `access`.
+    filename = "splay-abbrv"
+    name = ".."
+    kinds = ["abbrv"]
+    args = []
+    pre-text = "..form\n(splay form)"
+    text = """
+        The abbreviation for `splay`.
 
-		As far as the parser and printer are concerned, `[coll key]` and 
-		[`(access coll key)`](access) are exactly equivalent.
+        As far as the parser and printer are concerned, `..form` and [`(splay form)`](splay)
+        are exactly equivalent.
 
-			(prn '(access ar m : n)) ; prints [ar m : n]
-	"""
-	
+            (prn '(f a (splay b))) ; prints (f a ..b)
+    """
+
 [[apis]]
-	filename = "template-str-abbrv"
-	name = "\"{}\""
-	kinds = ["abbrv"]
-	args = []
-	pre-text = "\"a {b} c\"\n(template-str \"a \" b \" c\")"
-	text = """
-		The abbreviation for `template-str`.
+    filename = "atsign-abbrv"
+    name = "@"
+    kinds = ["abbrv"]
+    args = []
+    pre-text = "@form\n(atsign form)"
+    text = """
+        The abbreviation for `atsign`.
 
-		As far as the parser and printer are concerned, `"x {y}"` and 
-		[`(template-str "x " y)`](template-str) are exactly equivalent.
+        As far as the parser and printer are concerned, `@form` and [`(atsign form)`](atsign)
+        are exactly equivalent.
 
-		To be more specific: when parsing a string, `{` switches from parsing characters to parsing
-		forms, and `}` switches back to parsing characters. The template string as a whole is
-		terminated with `"`, as usual.
+            (prn '((atsign m) (atsign arg))) ; prints (@m @arg)
+    """
 
-		Curly braces can be escaped in a normal string literal using `{{` or `}}`. In a
-		[raw string literal][0], curly braces are ignored, so they don't need to be escaped.
+[[apis]]
+    filename = "met-name-abbrv"
+    name = "."
+    kinds = ["abbrv"]
+    args = []
+    pre-text = ".form\n(met-name form)"
+    text = """
+        The abbreviation for `met-name`.
 
-		[0]: ../reference/syntax-and-types.html#str
+        As far as the parser and printer are concerned, `.form` and [`(met-name form)`](met-name)
+        are exactly equivalent.
 
-			(let form '(template-str "hello, " planet))
-			(prn form) ; prints "hello, {planet}"
-	"""
-	
+            (prn '((met-name m) ob arg)) ; prints (.m ob arg)
+    """
+
+[[apis]]
+    filename = "access-abbrv"
+    name = "[]"
+    kinds = ["abbrv"]
+    args = []
+    pre-text = "[coll key]\n(access coll key)"
+    text = """
+        The abbreviation for `access`.
+
+        As far as the parser and printer are concerned, `[coll key]` and 
+        [`(access coll key)`](access) are exactly equivalent.
+
+            (prn '(access ar m : n)) ; prints [ar m : n]
+    """
+    
+[[apis]]
+    filename = "template-str-abbrv"
+    name = "\"{}\""
+    kinds = ["abbrv"]
+    args = []
+    pre-text = "\"a {b} c\"\n(template-str \"a \" b \" c\")"
+    text = """
+        The abbreviation for `template-str`.
+
+        As far as the parser and printer are concerned, `"x {y}"` and 
+        [`(template-str "x " y)`](template-str) are exactly equivalent.
+
+        To be more specific: when parsing a string, `{` switches from parsing characters to parsing
+        forms, and `}` switches back to parsing characters. The template string as a whole is
+        terminated with `"`, as usual.
+
+        Curly braces can be escaped in a normal string literal using `{{` or `}}`. In a
+        [raw string literal][0], curly braces are ignored, so they don't need to be escaped.
+
+        [0]: ../reference/syntax-and-types.html#str
+
+            (let form '(template-str "hello, " planet))
+            (prn form) ; prints "hello, {planet}"
+    """
+    

@@ -17,49 +17,49 @@ and obvious which can be statically checked by the compiler.
 As we saw in the [Coroutines](coroutines.md) chapter, describing a state machine using traditional
 object-oriented code is very challenging. Consider a frog which cycles between crouching, jumping
 and croaking:
-	
-	(defclass Frog
-	  (field color 'green)
+    
+    (defclass Frog
+      (field color 'green)
 
-	  (field state 'crouching)
+      (field state 'crouching)
 
-	  (field state-change-timer 3.0)
-	  (field next-state 'croaking)
+      (field state-change-timer 3.0)
+      (field next-state 'croaking)
 
-	  (field elevation 0.0)
-	  (field vertical-speed 0.0)
-	  (const gravity -9.81)
+      (field elevation 0.0)
+      (field vertical-speed 0.0)
+      (const gravity -9.81)
 
-	  (met on-step (elapsed)
-	    (match @state
-	      ('crouching
-	        (dec! @state-change-timer elapsed)
-	        (when (<= 0.0 @state-change-timer)
-	          (match @next-state
-	            ('crouching
-	              (bail))
-	            ('jumping
-	              (= @vertical-speed 3.0)
-	              (= @state 'jumping))
-	            ('croaking
-	              (= @state 'croaking)
-	              (= @state-change-timer 2.0)))))
+      (met on-step (elapsed)
+        (match @state
+          ('crouching
+            (dec! @state-change-timer elapsed)
+            (when (<= 0.0 @state-change-timer)
+              (match @next-state
+                ('crouching
+                  (bail))
+                ('jumping
+                  (= @vertical-speed 3.0)
+                  (= @state 'jumping))
+                ('croaking
+                  (= @state 'croaking)
+                  (= @state-change-timer 2.0)))))
 
-	      ('jumping
-	        (inc! @elevation (* elapsed @vertical-speed))
-	        (inc! @vertical-speed (* elapsed @gravity))
-	        (when (>= @elevation 0.0)
-	          (= @elevation 0.0)
-	          (= @state 'crouching)
-	          (= @state-change-timer 1.0)
-	          (= @next-state 'croaking)))
+          ('jumping
+            (inc! @elevation (* elapsed @vertical-speed))
+            (inc! @vertical-speed (* elapsed @gravity))
+            (when (>= @elevation 0.0)
+              (= @elevation 0.0)
+              (= @state 'crouching)
+              (= @state-change-timer 1.0)
+              (= @next-state 'croaking)))
 
-	      ('croaking
-	        (inc! @state-change-timer elapsed)
-	        (when (<= 0.0 @state-change-timer)
-	          (= @state 'crouching)
-	          (= @state-change-timer 3.0)
-	          (= @next-state 'jumping))))))
+          ('croaking
+            (inc! @state-change-timer elapsed)
+            (when (<= 0.0 @state-change-timer)
+              (= @state 'crouching)
+              (= @state-change-timer 3.0)
+              (= @next-state 'jumping))))))
 
 This is code which only a mother could love. The object scatters its state variables across a
 mess of different toplevel fields, which stick around even after their state is complete, and
@@ -77,40 +77,40 @@ across. It wouldn't be unusual for a game to contain hundreds, or even thousands
 machines. When they're all defined using code which looks like the above, it's not a pretty sight.
 
 This brings us to GameLisp's `state` clauses:
-	
-	(defclass Frog
-	  (field color 'green)
+    
+    (defclass Frog
+      (field color 'green)
 
-	  (fsm
-	    (state* Crouching
-	      (field timer)
-	      (field next-state)
+      (fsm
+        (state* Crouching
+          (field timer)
+          (field next-state)
 
-	      (init-state ((? @timer 3.0) (? @next-state 'Jumping)))
+          (init-state ((? @timer 3.0) (? @next-state 'Jumping)))
 
-	      (met on-step (elapsed)
-	        (dec! @timer elapsed)
-	        (when (<= @timer 0.0)
-	          (@enab! @next-state))))
+          (met on-step (elapsed)
+            (dec! @timer elapsed)
+            (when (<= @timer 0.0)
+              (@enab! @next-state))))
 
-	    (state Jumping
-	      (field elevation 0.0)
-	      (field vertical-speed 3.0)
-	      (const gravity -9.81)
+        (state Jumping
+          (field elevation 0.0)
+          (field vertical-speed 3.0)
+          (const gravity -9.81)
 
-	      (met on-step (elapsed)
-	        (inc! @elevation (* elapsed @vertical-speed))
-	        (inc! @vertical-speed (* elapsed @gravity))
-	        (when (<= @elevation 0.0)
-	          (@enab! 'Crouching 1.0 'Croaking))))
+          (met on-step (elapsed)
+            (inc! @elevation (* elapsed @vertical-speed))
+            (inc! @vertical-speed (* elapsed @gravity))
+            (when (<= @elevation 0.0)
+              (@enab! 'Crouching 1.0 'Croaking))))
 
-	    (state Croaking
-	      (field timer 2.0)
+        (state Croaking
+          (field timer 2.0)
 
-	      (met on-step (elapsed)
-	        (dec! @timer elapsed)
-	        (when (<= @timer 0.0)
-	          (@enab! 'Crouching))))))
+          (met on-step (elapsed)
+            (dec! @timer elapsed)
+            (when (<= @timer 0.0)
+              (@enab! 'Crouching))))))
 
 
 ## States
@@ -132,25 +132,25 @@ enabled.
 Within a method, `(@enab! name)` is shorthand for `(enab! @self name)`, and likewise for
 `@disab!` and `@enab?`. `@state-name` will return the name of the enclosing state.
 
-	(defclass Gem
-	  ...
+    (defclass Gem
+      ...
 
-	  (state Sparkling
-	    (met stop-sparkling
-	      (@disab! @state-name))
+      (state Sparkling
+        (met stop-sparkling
+          (@disab! @state-name))
 
-	    ...))
+        ...))
 
-	(let gem (Gem))
-	(prn (enab? gem 'Sparkling)) ; prints #f
+    (let gem (Gem))
+    (prn (enab? gem 'Sparkling)) ; prints #f
 
-	(enab! gem 'Sparkling)
-	(prn (enab? gem 'Sparkling)) ; prints #t
+    (enab! gem 'Sparkling)
+    (prn (enab? gem 'Sparkling)) ; prints #t
 
-	(.stop-sparkling gem)
-	(prn (enab? gem 'Sparkling)) ; prints #f
+    (.stop-sparkling gem)
+    (prn (enab? gem 'Sparkling)) ; prints #f
 
-	(.stop-sparkling gem) ; an error
+    (.stop-sparkling gem) ; an error
 
 
 ## Finite State Machines
@@ -158,15 +158,15 @@ Within a method, `(@enab! name)` is shorthand for `(enab! @self name)`, and like
 A single `state` by itself is rarely useful. What you usually need is a group of states which are 
 mutually exclusive, so that no more than one of the states can be enabled at any given moment.
 This can be achieved using an [`fsm` clause](../std/fsm-clause).
-	
-	(defclass Fighter
-	  (fsm
-	    (state* Neutral
-	      (const defense 50))
-	    (state Guarding
-	      (const defense 150))
-	    (state Staggered
-	      (const defense 0))))
+    
+    (defclass Fighter
+      (fsm
+        (state* Neutral
+          (const defense 50))
+        (state Guarding
+          (const defense 150))
+        (state Staggered
+          (const defense 0))))
 
 When a state within an `fsm` clause is about to be enabled, but one of its siblings is already 
 enabled, that sibling is automatically disabled first. In this case, if we were to call
@@ -183,27 +183,27 @@ be enabled first.
 
 Similarly, if you disable a parent state when any of its children are enabled, those child states 
 will automatically be disabled first.
-	
-	(defclass Owl
-	  (fsm
-	    (state* Sleeping
-	      ...
-	      (met on-startled ()
-	        (@enab! 'Awake))) ; disables Sleeping, enables Fleeing
+    
+    (defclass Owl
+      (fsm
+        (state* Sleeping
+          ...
+          (met on-startled ()
+            (@enab! 'Awake))) ; disables Sleeping, enables Fleeing
 
-	    (state Awake
-	      (fsm
-	        (state* Fleeing
-	          ...
-	          (met on-collide (other)
-	            (when (is? other TreeBranch)
-	              (@enab! 'Perching other)))) ; disables Fleeing
-	        
-	        (state Perching
-	          ...
-	          (met on-step ()
-	            (unless (humans-nearby? @self)
-	              (@enab! 'Sleeping)))))))) ; disables Perching and Awake
+        (state Awake
+          (fsm
+            (state* Fleeing
+              ...
+              (met on-collide (other)
+                (when (is? other TreeBranch)
+                  (@enab! 'Perching other)))) ; disables Fleeing
+            
+            (state Perching
+              ...
+              (met on-step ()
+                (unless (humans-nearby? @self)
+                  (@enab! 'Sleeping)))))))) ; disables Perching and Awake
 
 
 
@@ -216,18 +216,18 @@ clauses which can appear at the toplevel of a class.
 `init-state` defines a method which is automatically invoked just after the state is enabled. Its 
 arguments are the same arguments which were passed to `enab!` or `@enab!`. 
 
-	(defclass Cog
-	  (fsm
-	    (state* Immobile
-	      (met on-activate ()
-	        (@enab! 'Mobile (rand-pick -1 1))))
+    (defclass Cog
+      (fsm
+        (state* Immobile
+          (met on-activate ()
+            (@enab! 'Mobile (rand-pick -1 1))))
 
-	    (state Mobile
-	      (field direction)
-	      (field rotation-rate)
+        (state Mobile
+          (field direction)
+          (field rotation-rate)
 
-	      (init-state (@direction)
-	        (= rotation-rate (* @direction 0.3))))))
+          (init-state (@direction)
+            (= rotation-rate (* @direction 0.3))))))
 
 When a state is enabled automatically by GameLisp (e.g. if it's a parent state whose child state 
 is enabled, or if it was defined using `state*` rather than `state`), then its initializer is 
@@ -266,7 +266,7 @@ Under those circumstances, when GameLisp evaluates an expression like `@dragon` 
 it needs to choose which binding takes priority.
 
 The rules are:
-	
+    
 - Names in child states will shadow names defined by their parent.
 
 - Names in any state will shadow names defined by sibling states which appear textually earlier 
@@ -274,26 +274,26 @@ The rules are:
 
 These are essentially the same rules which govern local variable bindings.
 
-	(defclass ShoppingCentre
-	  (const tax-revenue 10_000)
+    (defclass ShoppingCentre
+      (const tax-revenue 10_000)
 
-	  (state WellKnown
-	    (const tax-revenue 15_000))
+      (state WellKnown
+        (const tax-revenue 15_000))
 
-	  (state Damaged
-	    (const tax-revenue 2_000)
+      (state Damaged
+        (const tax-revenue 2_000)
 
-	    (state Demolished
-	      (const tax-revenue 0))))
+        (state Demolished
+          (const tax-revenue 0))))
 
-	(let shops (ShoppingCentre))
-	(prn [shops 'tax-revenue]) ; prints 10000
+    (let shops (ShoppingCentre))
+    (prn [shops 'tax-revenue]) ; prints 10000
 
-	(enab! shops 'Demolished)
-	(prn [shops 'tax-revenue]) ; prints 0
+    (enab! shops 'Demolished)
+    (prn [shops 'tax-revenue]) ; prints 0
 
-	(enab! shops 'WellKnown)
-	(prn [shops 'tax-revenue]) ; prints 0
+    (enab! shops 'WellKnown)
+    (prn [shops 'tax-revenue]) ; prints 0
 
 
 ### Fully-Qualified Names
@@ -302,29 +302,29 @@ If you need to access a field or constant in a specific state, you can use its f
 name, `StateName:field-name`, to bypass the normal shadowing rules. For the purpose of name lookup, 
 all fields and constants defined in the toplevel of a class are considered to belong to a `Main`
 state which can never be disabled.
-	
-	(defclass FancyChair
-	  (const comfort-points 75)
-	  (const room-points 40)
-	  (const fun-points 5)
+    
+    (defclass FancyChair
+      (const comfort-points 75)
+      (const room-points 40)
+      (const fun-points 5)
 
-	  (state Grubby
-	    (const comfort-points 40)
-	    (const room-points 10)
+      (state Grubby
+        (const comfort-points 40)
+        (const room-points 10)
 
-	    (state Filthy
-	      (const room-points -30))))
+        (state Filthy
+          (const room-points -30))))
 
-	(let chair (FancyChair))
-	(enab! chair 'Filthy)
+    (let chair (FancyChair))
+    (enab! chair 'Filthy)
 
-	(prn [chair 'comfort-points]) ; prints 40
-	(prn [chair 'room-points]) ; prints -30
-	(prn [chair 'fun-points]) ; prints 5
+    (prn [chair 'comfort-points]) ; prints 40
+    (prn [chair 'room-points]) ; prints -30
+    (prn [chair 'fun-points]) ; prints 5
 
-	(prn [chair 'Main:comfort-points]) ; prints 75
-	(prn [chair 'Grubby:room-points]) ; prints 10
-	(prn [chair 'Filthy:room-points]) ; prints -30
+    (prn [chair 'Main:comfort-points]) ; prints 75
+    (prn [chair 'Grubby:room-points]) ; prints 10
+    (prn [chair 'Filthy:room-points]) ; prints -30
 
 This highlights a quirky detail of how state namespaces work: state names don't actually form a 
 hierarchy. A state `Child` defined within the state `Parent` defined within the `Main` state is 
@@ -345,21 +345,21 @@ directly controlled by the player, you might want to override their `on-input` e
 do nothing.
 
 A naive attempt to achieve this using name shadowing will fail:
-	
-	(defclass Character
-	  (met on-input (input-event)
-	    (match [input-event 'tag]
-	      ('left (@walk-left))
-	      ('right (@walk-right))
-	      ('pause (game:pause))))
-	  
-	  (state CutsceneControl
-	    (met on-input (input-event)
-	      ; do nothing
-	      #n)))
+    
+    (defclass Character
+      (met on-input (input-event)
+        (match [input-event 'tag]
+          ('left (@walk-left))
+          ('right (@walk-right))
+          ('pause (game:pause))))
+      
+      (state CutsceneControl
+        (met on-input (input-event)
+          ; do nothing
+          #n)))
 
-	(let mc (Character))
-	(enab! mc 'CutsceneControl) ; error: name collision for 'on-input
+    (let mc (Character))
+    (enab! mc 'CutsceneControl) ; error: name collision for 'on-input
 
 It's not possible to have multiple active `met` forms which share the same name. This is because, 
 although name-shadowing is adequate for fields and constants, it's not powerful enough for methods.
@@ -367,18 +367,18 @@ We provide a better alternative.
 
 A [`(wrap ...)` clause](../std/wrap-clause) defines a "wrapper method": a method which replaces, 
 and modifies, a method in another state.
-	
-	(defclass Character
-	  (met on-input (input-event)
-	    (match [input-event 'tag]
-	      ('left (@walk-left))
-	      ('right (@walk-right))
-	      ('pause (game:pause))))
-	  
-	  (state CutsceneControl
-	    (wrap Main:on-input (input-event)
-	      ; do nothing
-	      #n)))
+    
+    (defclass Character
+      (met on-input (input-event)
+        (match [input-event 'tag]
+          ('left (@walk-left))
+          ('right (@walk-right))
+          ('pause (game:pause))))
+      
+      (state CutsceneControl
+        (wrap Main:on-input (input-event)
+          ; do nothing
+          #n)))
 
 In this case, when the `CutsceneControl` state is active, any calls to `(.on-input ch ev)` will be 
 routed to the wrapper method in `CutsceneControl`. It would still be possible to invoke the 
@@ -392,18 +392,18 @@ base method's arguments or return value, or even call the base method multiple t
 For example, some cutscenes might want to give the player a limited ability to move the main
 character around, but still forbid them from opening the pause menu. This would be easy to achieve 
 using `(@base)`:
-	
-	(defclass Character
-	  (met on-input (input-event)
-	    (match [input-event 'tag]
-	      ('left (@walk-left))
-	      ('right (@walk-right))
-	      ('pause (game:pause))))
-	  
-	  (state CutsceneControl
-	    (wrap Main:on-input (input-event)
-	      (unless (eq? [input-event 'tag] 'pause)
-	        (@base input-event))))
+    
+    (defclass Character
+      (met on-input (input-event)
+        (match [input-event 'tag]
+          ('left (@walk-left))
+          ('right (@walk-right))
+          ('pause (game:pause))))
+      
+      (state CutsceneControl
+        (wrap Main:on-input (input-event)
+          (unless (eq? [input-event 'tag] 'pause)
+            (@base input-event))))
 
 ### Chained Wrappers
 
@@ -416,22 +416,22 @@ until it reaches the `met`.
 
 Let's suppose that we're writing an action game (or a business simulation game?) with a 
 `BerserkerBoss` entity who turns progressively more red and angry as the encounter goes on:
-	
-	(defclass BerserkerBoss
-	  (met ruddiness ()
-	    (+ @attacks-received @henchmen-defeated))
+    
+    (defclass BerserkerBoss
+      (met ruddiness ()
+        (+ @attacks-received @henchmen-defeated))
 
-	  (state Angry
-	    (wrap Main:ruddiness ()
-	      (match @difficulty-level
-	        ('easy
-	          (* 1.2 (@base)))
-	        ('hard
-	          (* 1.4 (+ 3 (@base))))))
+      (state Angry
+        (wrap Main:ruddiness ()
+          (match @difficulty-level
+            ('easy
+              (* 1.2 (@base)))
+            ('hard
+              (* 1.4 (+ 3 (@base))))))
 
-	    (state Furious
-	      (wrap Angry:ruddiness ()
-	        (* 1.5 (@base))))))
+        (state Furious
+          (wrap Angry:ruddiness ()
+            (* 1.5 (@base))))))
 
 When the `Furious` state is enabled, its parent state `Angry` must also be enabled. The
 original definition of `ruddiness` is wrapped by `Angry:ruddiness`, which is in turn wrapped
@@ -443,21 +443,21 @@ by `Furious:ruddiness`, so a non-specific call to the `ruddiness` method will en
 You can wrap a property in much the same way that you might wrap a method. Simply define a
 `(wrap-prop ...)` clause. If we wanted to refactor `ruddiness` to be a property rather than a 
 method, we would write:
-	
-	(defclass BerserkerBoss
-	  (prop ruddiness (get (+ @attacks-received @henchmen-defeated)))
+    
+    (defclass BerserkerBoss
+      (prop ruddiness (get (+ @attacks-received @henchmen-defeated)))
 
-	  (state Angry
-	    (wrap-prop Main:ruddiness
-	      (get
-	        (match @difficulty-level
-	          ('easy
-	            (* 1.2 (@base)))
-	          ('hard
-	            (* 1.4 (+ 3 (@base)))))))
+      (state Angry
+        (wrap-prop Main:ruddiness
+          (get
+            (match @difficulty-level
+              ('easy
+                (* 1.2 (@base)))
+              ('hard
+                (* 1.4 (+ 3 (@base)))))))
 
-	    (state Furious
-	      (wrap-prop Angry:ruddiness (get (* 1.5 (@base)))))))
+        (state Furious
+          (wrap-prop Angry:ruddiness (get (* 1.5 (@base)))))))
 
 Property wrappers can't use the `@field` shorthand to access the original property's backing
 storage. Instead, they should invoke the original getter or setter using `(@base)`.
@@ -471,16 +471,16 @@ in an awkward grey area. Code will be executing which *appears* to belong to a s
 even though the state or object no longer exists. Under those circumstances, any `@name` 
 field accesses or `(@name)` method calls will usually trigger an error. I call this situation a 
 "zombie method".
-	
-	(defclass Person
-	  (met check-health ()
-	    (when (<= @health 0)
-	      (obj-kill! @self))
+    
+    (defclass Person
+      (met check-health ()
+        (when (<= @health 0)
+          (obj-kill! @self))
 
-	    ; execution continues after the object is killed. braaains...
+        ; execution continues after the object is killed. braaains...
 
-	    (when (== @health 100) ; error: nonexistent field 'health
-	      (prn "feeling pretty healthy!"))))
+        (when (== @health 100) ; error: nonexistent field 'health
+          (prn "feeling pretty healthy!"))))
 
 (For the record, this is a problem which already exists in many game state machines - it's just 
 something which GameLisp makes explicit, rather than leaving it as a silent logic error.)

@@ -6,39 +6,39 @@ print a stack trace and an error message. Internally, they're implemented using 
 
 [`Result`]: https://doc.rust-lang.org/std/result/
 
-	(defmacro add-5 (form)
-	  `(+ 5 ~form))
+    (defmacro add-5 (form)
+      `(+ 5 ~form))
 
-	(defn recursive (n)
-	  (cond
-	    ((> n 0)
-	      (recursive (- n 1)))
-	    (else
-	      (add-5 'symbol))))
+    (defn recursive (n)
+      (cond
+        ((> n 0)
+          (recursive (- n 1)))
+        (else
+          (add-5 'symbol))))
 
-	(recursive 2)
+    (recursive 2)
 
-	#|
-	    stack trace:
-	        glsp::load("example.glsp")
-	        (recursive) at example.glsp:11
-	        (recursive) at example.glsp:7
-	        (recursive) at example.glsp:7
-	        (add-5) at example.glsp:9
-	            expanded to (+) at example.glsp:2
+    #|
+        stack trace:
+            glsp::load("example.glsp")
+            (recursive) at example.glsp:11
+            (recursive) at example.glsp:7
+            (recursive) at example.glsp:7
+            (add-5) at example.glsp:9
+                expanded to (+) at example.glsp:2
   
-	    error: non-number passed to a numeric op
-	|#
+        error: non-number passed to a numeric op
+    |#
 
 You can manually trigger an error by calling [`bail`](../std/bail) or [`ensure`](../std/ensure), 
 which resemble Rust's `panic!()` and `assert!()` respectively. They accept any number of arguments 
 to describe their error message. When two or more error-message arguments are present, those 
 arguments are converted to a string, as though they had been passed to the [`str`
 function](../std/str). 
-	
-	(bail "expected {expected-type} but received {(type-of arg)}")
+    
+    (bail "expected {expected-type} but received {(type-of arg)}")
 
-	(ensure (>= [stats 'level] 10) "level is too low. stats: " (pretty-stats))
+    (ensure (>= [stats 'level] 10) "level is too low. stats: " (pretty-stats))
 
 `ensure` doesn't actually evaluate its error-message arguments unless an error occurs, so it's 
 safe to use expensive function calls when describing the error.
@@ -58,13 +58,13 @@ sometimes disappears").
 
 You can catch errors within GameLisp code using the macros [`try`](../std/try) and 
 [`try-verbose`](../std/try-verbose):
-	
-	(for entity in draw-list
-	  (match (try (draw-entity entity))
-	    (('ok result)
-	      #n)
-	    (('err payload)
-	      (log-error entity payload))))
+    
+    (for entity in draw-list
+      (match (try (draw-entity entity))
+        (('ok result)
+          #n)
+        (('err payload)
+          (log-error entity payload))))
 
 `try` evaluates its child forms within an implicit `do` block. When no error occurs, it returns
 the two-element array `(ok result)`, where the first element is the symbol `ok`, and the second 
@@ -78,15 +78,15 @@ element is the symbol `err` and the second element is a value which represents t
 When `bail` or `ensure` are called with a single argument, that argument will not be converted
 into a string. This means that `payload` can have any type. You could potentially use it to
 set up a more structured and formal error-handling scheme.
-	
-	(let ('err payload) (try (bail 100)))
-	(prn (int? payload)) ; prints #t
+    
+    (let ('err payload) (try (bail 100)))
+    (prn (int? payload)) ; prints #t
 
-	(bail (tab
-	  ('error-kind 'missing-resource-error)
-	  ('filename "space-station.lvl")
-	  ('resource-name 'laser-rifle)
-	  ('recoverable #t)))
+    (bail (tab
+      ('error-kind 'missing-resource-error)
+      ('filename "space-station.lvl")
+      ('resource-name 'laser-rifle)
+      ('recoverable #t)))
 
 `try-verbose` is identical to `try`, but when an error occurs it returns
 `(err payload stack-trace)`, where `stack-trace` is a string describing the call-stack when the
@@ -120,16 +120,16 @@ GameLisp's debugging facilities are not yet very mature.
 
 The [`dbg` macro](../std/dbg) works like Rust's `dbg!()`: each argument's line number, form and 
 return value are printed to the standard error stream.
-	
-	(let variable 10)
-	(dbg (+ 2 3) variable)
+    
+    (let variable 10)
+    (dbg (+ 2 3) variable)
 
-	#|
-	    prints:
+    #|
+        prints:
 
-	    [example.glsp:2] (+ 2 3) = 5
-	    [example.glsp:2] variable = 10
-	|#
+        [example.glsp:2] (+ 2 3) = 5
+        [example.glsp:2] variable = 10
+    |#
 
 Likewise, the [`todo` macro](../std/todo) is designed to resemble Rust's `todo!()`. It calls 
 `(bail)` with an error message along the lines of `"not yet implemented"`.
@@ -153,16 +153,16 @@ to execute cleanup code from time to time. This can be achieved using the [`defe
 form](../std/defer). `defer` executes a number of forms when control exits from its enclosing 
 lexical scope, whether that's because of normal execution, `return`, `continue`, `break`, 
 `restart-block`, `finish-block`, or an uncaught error.
-	
-	; prints: first second third fourth
-	(defer (prn "fourth"))
-	(do
-	  (defer (pr "third "))
-	  (do
-	    (defer (pr "second "))
-	    (pr "first "))
-	  (bail)
-	  (prn "this line is unreachable"))
+    
+    ; prints: first second third fourth
+    (defer (prn "fourth"))
+    (do
+      (defer (pr "third "))
+      (do
+        (defer (pr "second "))
+        (pr "first "))
+      (bail)
+      (prn "this line is unreachable"))
 
 [`yield`](../std/yield) is more complicated. With `yield`, it's possible to leave a lexical scope, 
 and then return to it later on using `coro-run`. Many other languages simply don't perform cleanup 
@@ -177,30 +177,30 @@ fall within a particular lexical scope, and any functions which those forms call
 functions called by those functions...). We use this to provide the [`with-global` 
 macro](../std/with-global), which overrides the value of a global variable for the duration of a
 dynamic scope:
-	
-	(defmacro with-global (name value-form)
-	  `(splice
-	    (let old-value# (global '~name))
-	    (let new-value# ~value-form)
-	    (= (global '~name) new-value#)
-	    (defer
-	      (= (global '~name) old-value#))
-	    (defer-yield
-	      (do
-	        (= new-value# (global '~name))
-	        (= (global '~name) old-value#))
-	      (do
-	        (= old-value# (global '~name))
-	        (= (global '~name) new-value#)))))
+    
+    (defmacro with-global (name value-form)
+      `(splice
+        (let old-value# (global '~name))
+        (let new-value# ~value-form)
+        (= (global '~name) new-value#)
+        (defer
+          (= (global '~name) old-value#))
+        (defer-yield
+          (do
+            (= new-value# (global '~name))
+            (= (global '~name) old-value#))
+          (do
+            (= old-value# (global '~name))
+            (= (global '~name) new-value#)))))
 
-	(defn hello-world ()
-	  (prn "hello, world"))
+    (defn hello-world ()
+      (prn "hello, world"))
 
-	; make all prn calls much more exciting within a dynamic scope
-	(let boring-prn prn)
-	(with-global prn (fn (..args) (boring-prn ..args "!!!")))
-	
-	(hello-world) ; prints hello, world!!!
+    ; make all prn calls much more exciting within a dynamic scope
+    (let boring-prn prn)
+    (with-global prn (fn (..args) (boring-prn ..args "!!!")))
+    
+    (hello-world) ; prints hello, world!!!
 
 `with-global` is as powerful as [Racket's parameters] and [Common Lisp's dynamic variables], but we 
 were able to implement it as a simple macro, without any special support from the language.

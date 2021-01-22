@@ -16,8 +16,8 @@ The API for manipulating numbers is mostly unsurprising - the full list of funct
 
 <span></span>
 
-	(prn (sign -0.0)) ; prints 0
-	(prn (flo-sign -0.0)) ; prints -1.0
+    (prn (sign -0.0)) ; prints 0
+    (prn (flo-sign -0.0)) ; prints -1.0
 
 
 ## Promotion to Float
@@ -25,20 +25,20 @@ The API for manipulating numbers is mostly unsurprising - the full list of funct
 Floats are "contagious". When a function such as [`+`](../std/add) receives both an integer and a 
 float among its arguments, the integer is promoted to a float before performing the operation, so 
 the return value is always a float.
-	
-	(prn (+ 1 2 3 4)) ; prints 10
-	(prn (+ 1 2 3.0 4)) ; prints 10.0
+    
+    (prn (+ 1 2 3 4)) ; prints 10
+    (prn (+ 1 2 3.0 4)) ; prints 10.0
 
-	(prn (/ 7 2)) ; prints 3
-	(prn (/ 7 2.0)) ; prints 3.5
+    (prn (/ 7 2)) ; prints 3
+    (prn (/ 7 2.0)) ; prints 3.5
 
-	(prn (% 5 1.5)) ; prints 0.5
+    (prn (% 5 1.5)) ; prints 0.5
 
 Operations like `min` and `clamp` are the exception to the rule, because they return one of
 their arguments unchanged.
 
-	(prn (max 1 2 3.0 4)) ; prints 4
-	(prn (clamp 1.0 3 5.0)) ; prints 3
+    (prn (max 1 2 3.0 4)) ; prints 4
+    (prn (clamp 1.0 3 5.0)) ; prints 3
 
 
 ## NaN
@@ -57,8 +57,8 @@ equal to all other NaN floats.
 
 Integer arithmetic is always unchecked (wrapping), even when your crate is compiled in debug
 mode.
-	
-	(prn (+ 1 2147483647)) ; prints -2147483648
+    
+    (prn (+ 1 2147483647)) ; prints -2147483648
 
 This helps to keep the language simple. If GameLisp were to take Rust's approach to integer 
 overflow, it would need to provide distinct APIs for normal, wrapping and checked arithmetic.

@@ -1,10 +1,10 @@
 #![forbid(unsafe_code)]
 
 use glsp::{bail, Engine, EngineBuilder, Expander, GResult, RFn, RGlobal, Root, Sym};
-use std::{i32, thread};
 use std::collections::{hash_map::DefaultHasher, HashMap};
 use std::hash::{Hash, Hasher};
-use std::time::{Duration};
+use std::time::Duration;
+use std::{i32, thread};
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::{Instant, SystemTime};
@@ -18,156 +18,158 @@ mod num;
 mod pat;
 
 pub(crate) struct Std {
-	setters: HashMap<Sym, (Sym, bool)>,
-	opt_setters: HashMap<Sym, (Sym, bool)>,
-	classmacros: HashMap<Sym, Expander>,
-	rng: Rng,
-	ord_rfn: Option<Root<RFn>>,
+    setters: HashMap<Sym, (Sym, bool)>,
+    opt_setters: HashMap<Sym, (Sym, bool)>,
+    classmacros: HashMap<Sym, Expander>,
+    rng: Rng,
+    ord_rfn: Option<Root<RFn>>,
 
-	#[cfg(not(target_arch = "wasm32"))]
-	start_time: Instant
+    #[cfg(not(target_arch = "wasm32"))]
+    start_time: Instant,
 }
 
-impl RGlobal for Std { }
+impl RGlobal for Std {}
 
 impl Std {
-	fn new() -> GResult<Std> {
-		Ok(Std {
-			setters: HashMap::new(),
-			opt_setters: HashMap::new(),
-			classmacros: HashMap::new(),
-			rng: Rng::seeded(),
-			ord_rfn: None,
+    fn new() -> GResult<Std> {
+        Ok(Std {
+            setters: HashMap::new(),
+            opt_setters: HashMap::new(),
+            classmacros: HashMap::new(),
+            rng: Rng::seeded(),
+            ord_rfn: None,
 
-			#[cfg(not(target_arch = "wasm32"))]
-			start_time: std::time::Instant::now()
-		})
-	}
+            #[cfg(not(target_arch = "wasm32"))]
+            start_time: std::time::Instant::now(),
+        })
+    }
 }
 
 //there are a handful of APIs we want to make available from Rust, but which make more intuitive
-//sense as part of glsp-stdlib rather than glsp-engine - namely time and rng. we just define them 
+//sense as part of glsp-stdlib rather than glsp-engine - namely time and rng. we just define them
 //here as toplevel items which are re-exported by the `glsp` crate.
 
 /** Equivalent to [`(time)`](https://gamelisp.rs/std/time). */
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn time() -> f32 {
-	let std = Std::borrow();
-	Instant::now().duration_since(std.start_time).as_secs_f32()
+    let std = Std::borrow();
+    Instant::now().duration_since(std.start_time).as_secs_f32()
 }
 
 /** Equivalent to [`(sleep secs)`](https://gamelisp.rs/std/sleep). */
 
 pub fn sleep(secs: f32) -> GResult<()> {
-	//the Duration constructor will panic if secs is "not finite, negative, or overflows Duration"
-	if secs.is_infinite() || secs.is_nan() || secs < 0.0 || secs as i32 > i32::MAX {
-		bail!("{} is not an appropriate duration", secs);
-	}
+    //the Duration constructor will panic if secs is "not finite, negative, or overflows Duration"
+    if secs.is_infinite() || secs.is_nan() || secs < 0.0 || secs as i32 > i32::MAX {
+        bail!("{} is not an appropriate duration", secs);
+    }
 
-	thread::sleep(Duration::from_secs_f32(secs));
-	Ok(())
+    thread::sleep(Duration::from_secs_f32(secs));
+    Ok(())
 }
 
 pub(crate) struct Rng {
-	x: u32,
-	y: u32,
-	z: u32,
-	w: u32
+    x: u32,
+    y: u32,
+    z: u32,
+    w: u32,
 }
 
 impl Rng {
-	fn seeded() -> Rng {
-		let mut rng = Rng {
-			x: 0,
-			y: 0,
-			z: 0,
-			w: 0
-		};
+    fn seeded() -> Rng {
+        let mut rng = Rng {
+            x: 0,
+            y: 0,
+            z: 0,
+            w: 0,
+        };
 
-		//generate our initial seed based on the current time
-		let mut hasher = DefaultHasher::default();
+        //generate our initial seed based on the current time
+        let mut hasher = DefaultHasher::default();
 
-		#[cfg(target_arch = "wasm32")] {
-			42u8.hash(&mut hasher);
-		}
+        #[cfg(target_arch = "wasm32")]
+        {
+            42u8.hash(&mut hasher);
+        }
 
-		#[cfg(not(target_arch = "wasm32"))] {
-			let time = SystemTime::now();
-			time.hash(&mut hasher);
-		}
-		
-		rng.reseed(hasher.finish() as u32 as i32);
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let time = SystemTime::now();
+            time.hash(&mut hasher);
+        }
 
-		rng
-	}
+        rng.reseed(hasher.finish() as u32 as i32);
 
-	fn reseed(&mut self, mut seed: i32) {
-		if seed == 0 {
-			seed = 1
-		}
-		
-		let x = seed as u32;
-		let y = x.wrapping_mul(48271).wrapping_rem(0x7fffffff);
-		let z = y.wrapping_mul(48271).wrapping_rem(0x7fffffff);
-		let w = z.wrapping_mul(48271).wrapping_rem(0x7fffffff);
+        rng
+    }
 
-		*self = Rng { x, y, z, w };
+    fn reseed(&mut self, mut seed: i32) {
+        if seed == 0 {
+            seed = 1
+        }
 
-		for _ in 0 .. 8 {
-			self.gen_u32();
-		}
-	}
-	
-	fn gen_u32(&mut self) -> u32 {
-		let Rng { x, y, z, w } = *self;
+        let x = seed as u32;
+        let y = x.wrapping_mul(48271).wrapping_rem(0x7fffffff);
+        let z = y.wrapping_mul(48271).wrapping_rem(0x7fffffff);
+        let w = z.wrapping_mul(48271).wrapping_rem(0x7fffffff);
 
-		let t = x ^ x.wrapping_shl(11);
-		let new_w = w ^ w.wrapping_shr(19) ^ (t ^ t.wrapping_shr(8));
+        *self = Rng { x, y, z, w };
 
-		self.x = y;
-		self.y = z;
-		self.z = w;
-		self.w = new_w;
+        for _ in 0..8 {
+            self.gen_u32();
+        }
+    }
 
-		new_w
-	}
+    fn gen_u32(&mut self) -> u32 {
+        let Rng { x, y, z, w } = *self;
+
+        let t = x ^ x.wrapping_shl(11);
+        let new_w = w ^ w.wrapping_shr(19) ^ (t ^ t.wrapping_shr(8));
+
+        self.x = y;
+        self.y = z;
+        self.z = w;
+        self.w = new_w;
+
+        new_w
+    }
 }
 
-/** 
+/**
 Uses GameLisp's [random number generator](https://gamelisp.rs/std/rand) to produce an `i32`.
 */
 pub fn rand_i32() -> i32 {
-	Std::borrow_mut().rng.gen_u32() as i32
+    Std::borrow_mut().rng.gen_u32() as i32
 }
 
-/** 
+/**
 Uses GameLisp's [random number generator](https://gamelisp.rs/std/rand) to produce an `f32`.
 */
 pub fn rand_f32() -> f32 {
-	//16777215 (0xffffff) is the largest continguous integer which can be exactly represented by 
-	//an f32. seems like as good a choice as any other for our divisor. testing reveals that if 
-	//the rng spits out 16777214u32, rand_float does generate 0.999something, rather than breaking 
-	//the upper limit of our [0,1) range.
-	let rand_u32 = Std::borrow_mut().rng.gen_u32() >> 8;
-	(rand_u32 as f32) / 16777215.0f32
+    //16777215 (0xffffff) is the largest continguous integer which can be exactly represented by
+    //an f32. seems like as good a choice as any other for our divisor. testing reveals that if
+    //the rng spits out 16777214u32, rand_float does generate 0.999something, rather than breaking
+    //the upper limit of our [0,1) range.
+    let rand_u32 = Std::borrow_mut().rng.gen_u32() >> 8;
+    (rand_u32 as f32) / 16777215.0f32
 }
 
-/** 
+/**
 Uses GameLisp's [random number generator](https://gamelisp.rs/std/rand) to produce a `bool`.
 */
 pub fn rand_bool() -> bool {
-	//i don't necessarily trust the lowest bit of this rng, so we select a bit "randomly"
-	let rand_u32 = Std::borrow_mut().rng.gen_u32();
-	let to_shift = (rand_u32 & 0xf) + 4; //select from bits 4 through 20
-	((rand_u32 >> (to_shift as usize)) & 1) == 1
+    //i don't necessarily trust the lowest bit of this rng, so we select a bit "randomly"
+    let rand_u32 = Std::borrow_mut().rng.gen_u32();
+    let to_shift = (rand_u32 & 0xf) + 4; //select from bits 4 through 20
+    ((rand_u32 >> (to_shift as usize)) & 1) == 1
 }
 
 /**
 Equivalent to [`(rand-reseed seed)`](https://gamelisp.rs/std/rand-reseed).
 */
 pub fn rand_reseed(seed: i32) {
-	Std::borrow_mut().rng.reseed(seed)
+    Std::borrow_mut().rng.reseed(seed)
 }
 
 /**
@@ -184,9 +186,9 @@ and [`glsp::load`](fn.load.html).
 If you attempt to execute any GameLisp-related code without an active runtime, it will
 almost always panic.
 
-It's possible for multiple `Runtimes` to coexist. Each runtime is strictly isolated from the 
+It's possible for multiple `Runtimes` to coexist. Each runtime is strictly isolated from the
 others - they don't share global variables, symbols, and so on. This means that it's possible
-to run GameLisp code in isolated `Runtimes` on multiple threads without requiring any 
+to run GameLisp code in isolated `Runtimes` on multiple threads without requiring any
 synchronization.
 
 Most GameLisp programs should create a single `Runtime` at the top of their `main()` function,
@@ -197,83 +199,79 @@ of the program.
 use glsp::prelude::*;
 
 fn main() {
-	let runtime = Runtime::new();
-	runtime.run(|| {
-		glsp::load("main.glsp")?;
+    let runtime = Runtime::new();
+    runtime.run(|| {
+        glsp::load("main.glsp")?;
 
-		//call the (main) function which was defined by main.glsp,
-		//discarding its return value
-		let main_gfn: Root<GFn> = glsp::global("main")?;
-		let _: Val = glsp::call(&main_gfn, &())?;
+        //call the (main) function which was defined by main.glsp,
+        //discarding its return value
+        let main_gfn: Root<GFn> = glsp::global("main")?;
+        let _: Val = glsp::call(&main_gfn, &())?;
 
-		//the closure's return value must be a Result
-		Ok(())
-	});
+        //the closure's return value must be a Result
+        Ok(())
+    });
 }
 ```
 */
 
-//a Runtime is just a thin wrapper for an Engine which has been initialized with the stdlib. we 
+//a Runtime is just a thin wrapper for an Engine which has been initialized with the stdlib. we
 //separate Runtime from Engine so that procedural macros like backquote!(), which require a parser,
 //can create an Engine while still being usable in the stdlib's implementation.
 pub struct Runtime(Engine);
 
 impl Runtime {
+    /**
+    Construct a `Runtime` with default settings.
 
-	/**
-	Construct a `Runtime` with default settings.
+    To construct a custom `Runtime`, use [`RuntimeBuilder`](struct.RuntimeBuilder.html)
+    instead.
+    */
+    pub fn new() -> Runtime {
+        //Runtime::new() is currently a little slow: it costs about 0.4ms, of which 0.1ms is spent
+        //constructing the Engine (especially the stock syms database) and 0.3ms is spent in
+        //init_stdlib. we could potentially get this down to the sub-0.1ms range by caching the
+        //initial syms and rfns databases globally so that they can be clone()d. (todo?)
 
-	To construct a custom `Runtime`, use [`RuntimeBuilder`](struct.RuntimeBuilder.html)
-	instead.
-	*/
-	pub fn new() -> Runtime {
+        //an obstacle in the way of that plan: Sym and Rc<str> are both !Send. the only way
+        //to store them globally would be thread_local!{}, which would eliminate any performance
+        //savings when creating the first Runtime of a thread... which is the main use-case for
+        //making Runtime::new() fast in the first place! postponing this for now.
 
-		//Runtime::new() is currently a little slow: it costs about 0.4ms, of which 0.1ms is spent
-		//constructing the Engine (especially the stock syms database) and 0.3ms is spent in 
-		//init_stdlib. we could potentially get this down to the sub-0.1ms range by caching the
-		//initial syms and rfns databases globally so that they can be clone()d. (todo?)
+        RuntimeBuilder::new().build()
+    }
 
-		//an obstacle in the way of that plan: Sym and Rc<str> are both !Send. the only way
-		//to store them globally would be thread_local!{}, which would eliminate any performance
-		//savings when creating the first Runtime of a thread... which is the main use-case for
-		//making Runtime::new() fast in the first place! postponing this for now.
+    fn with_settings(sandboxed: bool, engine: Engine) -> Runtime {
+        engine.run(|| init_stdlib(sandboxed)).unwrap();
 
-		RuntimeBuilder::new().build()
-	}
+        Runtime(engine)
+    }
 
-	fn with_settings(sandboxed: bool, engine: Engine) -> Runtime {
-		engine.run(|| {
-			init_stdlib(sandboxed)
-		}).unwrap();
+    /**
+    Establish this `Runtime` as the active runtime.
 
-		Runtime(engine)
-	}
+    For the duration of the `f` closure, any calls to global functions like
+    [`glsp::sym`](fn.sym.html) or [`glsp::set_global`](fn.set_global.html) will
+    manipulate this `Runtime`.
 
-	/**
-	Establish this `Runtime` as the active runtime.
+    The closure must return a `GResult`. If the closure returns `Ok(x)`, this method will
+    return `Some(x)`. If the closure returns `Err(err)`, this method will print a stack trace
+    and then return `None`.
 
-	For the duration of the `f` closure, any calls to global functions like 
-	[`glsp::sym`](fn.sym.html) or [`glsp::set_global`](fn.set_global.html) will 
-	manipulate this `Runtime`.
+    It's possible to use `Runtime::run` to transfer GameLisp data, such as [`Syms`] and [`Roots`],
+    from one `Runtime` to another. This is memory-safe, but it should always be avoided. It may
+    cause unexpected behaviour, trigger a panic, or even cause the process to [abort].
 
-	The closure must return a `GResult`. If the closure returns `Ok(x)`, this method will 
-	return `Some(x)`. If the closure returns `Err(err)`, this method will print a stack trace 
-	and then return `None`.
-
-	It's possible to use `Runtime::run` to transfer GameLisp data, such as [`Syms`] and [`Roots`],
-	from one `Runtime` to another. This is memory-safe, but it should always be avoided. It may 
-	cause unexpected behaviour, trigger a panic, or even cause the process to [abort].
-
-	[`Syms`]: struct.Sym.html
-	[`Roots`]: struct.Root.html
-	[abort]: https://doc.rust-lang.org/std/process/fn.abort.html
-	*/
-	pub fn run<F, R>(&self, f: F) -> Option<R> 
-	where
-		F: FnOnce() -> GResult<R>
-	{
-		self.0.run(f)
-	}
+    [`Syms`]: struct.Sym.html
+    [`Roots`]: struct.Root.html
+    [abort]: https://doc.rust-lang.org/std/process/fn.abort.html
+    */
+    pub fn run<F, R>(&self, f: F) -> Option<R>
+    where
+        F: FnOnce() -> GResult<R>,
+    {
+        self.0.run(f)
+    }
 }
 
 /**
@@ -282,52 +280,49 @@ Configuration options for constructing a [`Runtime`](struct.Runtime.html).
 Currently, the only option is [`sandboxed`](#method.sandboxed).
 */
 pub struct RuntimeBuilder {
-	sandboxed: bool,
-	engine_builder: EngineBuilder
+    sandboxed: bool,
+    engine_builder: EngineBuilder,
 }
 
 impl RuntimeBuilder {
-	pub fn new() -> RuntimeBuilder {
-		RuntimeBuilder {
-			sandboxed: false,
-			engine_builder: EngineBuilder::new()
-		}
-	}
+    pub fn new() -> RuntimeBuilder {
+        RuntimeBuilder {
+            sandboxed: false,
+            engine_builder: EngineBuilder::new(),
+        }
+    }
 
-	/**
-	Sets the `sandboxed` configuration option, which defaults to `false`.
+    /**
+    Sets the `sandboxed` configuration option, which defaults to `false`.
 
-	When `sandboxed` is `true`, the global functions [`load`](https://gamelisp.rs/std/load),
-	[`require`](https://gamelisp.rs/std/require) and [`include`](https://gamelisp.rs/std/include)
-	are not defined in the GameLisp runtime. It's still possible for Rust code to call 
-	[`glsp::load`](fn.load.html) or [`glsp::require`](fn.require.html).
-	*/
-	pub fn sandboxed(self, sandboxed: bool) -> RuntimeBuilder {
-		RuntimeBuilder {
-			sandboxed,
-			..self
-		}
-	}
+    When `sandboxed` is `true`, the global functions [`load`](https://gamelisp.rs/std/load),
+    [`require`](https://gamelisp.rs/std/require) and [`include`](https://gamelisp.rs/std/include)
+    are not defined in the GameLisp runtime. It's still possible for Rust code to call
+    [`glsp::load`](fn.load.html) or [`glsp::require`](fn.require.html).
+    */
+    pub fn sandboxed(self, sandboxed: bool) -> RuntimeBuilder {
+        RuntimeBuilder { sandboxed, ..self }
+    }
 
-	///Construct a `Runtime` with these settings.
-	pub fn build(self) -> Runtime {
-		Runtime::with_settings(self.sandboxed, self.engine_builder.build())
-	}
+    ///Construct a `Runtime` with these settings.
+    pub fn build(self) -> Runtime {
+        Runtime::with_settings(self.sandboxed, self.engine_builder.build())
+    }
 }
 
 fn init_stdlib(sandboxed: bool) -> GResult<()> {
-	glsp::add_rglobal(Std::new()?);
+    glsp::add_rglobal(Std::new()?);
 
-	class::init(sandboxed)?;
-	collections::init(sandboxed)?;
-	iter::init(sandboxed)?;
-	macros::init(sandboxed)?;
-	misc::init(sandboxed)?;
-	num::init(sandboxed)?;
+    class::init(sandboxed)?;
+    collections::init(sandboxed)?;
+    iter::init(sandboxed)?;
+    macros::init(sandboxed)?;
+    misc::init(sandboxed)?;
+    num::init(sandboxed)?;
 
-	Std::borrow_mut().ord_rfn = Some(glsp::global("ord")?);
+    Std::borrow_mut().ord_rfn = Some(glsp::global("ord")?);
 
-	glsp::freeze_transform_fns();
+    glsp::freeze_transform_fns();
 
-	Ok(())
+    Ok(())
 }

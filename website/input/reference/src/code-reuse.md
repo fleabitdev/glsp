@@ -77,18 +77,18 @@ A mixin is a small class which can't be instantiated. Instead, it can only be "m
 definition of another class. The target class will incorporate all of the mixin's fields, methods, 
 states, and so on, almost as though they were simply copied and pasted at the beginning of the 
 class definition.
-	
-	(defmixin Sized
-	  (field width)
-	  (field height))
+    
+    (defmixin Sized
+      (field width)
+      (field height))
 
-	(defclass Box
-	  (mixin Sized)
-	  (init (@width @height)))
+    (defclass Box
+      (mixin Sized)
+      (init (@width @height)))
 
-	(let box (Box 20 15))
-	(prn [box 'width] [box 'height]) ; prints 20 15
-	(prn (is? box Box) (is? box Sized)) ; prints #t #t
+    (let box (Box 20 15))
+    (prn [box 'width] [box 'height]) ; prints 20 15
+    (prn (is? box Box) (is? box Sized)) ; prints #t #t
 
 This is similar to a classmacro, but it comes with several advantages:
 
@@ -105,25 +105,25 @@ This is similar to a classmacro, but it comes with several advantages:
 
 <span></span>
 
-	; a mixin which adds a `coords` property and a `move` method to a class, 
-	; and ensures that the collision system is kept up-to-date whenever the 
-	; coords are changed.
-	(defmixin Coords
-	  (prop coords 
-	    (get)
-	    (set (new-coords)
-	      (= @field new-coords)
-	      (colliders:update @self)))
+    ; a mixin which adds a `coords` property and a `move` method to a class, 
+    ; and ensures that the collision system is kept up-to-date whenever the 
+    ; coords are changed.
+    (defmixin Coords
+      (prop coords 
+        (get)
+        (set (new-coords)
+          (= @field new-coords)
+          (colliders:update @self)))
 
-	  (met move (dx dy)
-	    (colliders:move @self dx dy))
+      (met move (dx dy)
+        (colliders:move @self dx dy))
 
-	  (init-mixin (..args)
-	    (@base ..args)
-	    (colliders:register @self))
+      (init-mixin (..args)
+        (@base ..args)
+        (colliders:register @self))
 
-	  (fini-mixin ()
-	    (colliders:unregister @self)))
+      (fini-mixin ()
+        (colliders:unregister @self)))
 
 
 ## Advanced Wrapper Methods
@@ -140,11 +140,11 @@ effect every step, without replacing or modifying the entity's normal behaviour.
 two options for achieving that.
 
 The first option:
-	
-	(defmixin Cloudy
-	  (wrap Main:on-step ()
-	    (@base)
-	    (spawn-particle @coords 'clouds)))
+    
+    (defmixin Cloudy
+      (wrap Main:on-step ()
+        (@base)
+        (spawn-particle @coords 'clouds)))
 
 If `Main:on-step` is undefined, or if you include multiple states or mixins which all try to 
 override `Main:on-step`, or if a state other than `Main` tries to define a `met on-step`, an 
@@ -155,10 +155,10 @@ one of your wrapper methods to override `Cloudy:on-step` instead.
 In cases where you're absolutely sure that you don't care about the order of execution, you could
 consider the second option:
 
-	(defmixin Cloudy
-	  (wrap _:on-step ()
-	    (@base)
-	    (spawn-particle @coords 'clouds)))
+    (defmixin Cloudy
+      (wrap _:on-step ()
+        (@base)
+        (spawn-particle @coords 'clouds)))
 
 The underscore makes this a "wildcard wrapper method". It means "I want this code to be executed 
 when `on-step` is called, but I don't care about what happens before or after".
@@ -177,31 +177,31 @@ skipped.
 
 Although wildcard wrappers can lead to spaghetti code when overused, they're a powerful tool when
 used responsibly.
-	
-	(class Monster
-	  (met on-inspect ()
-	    (prn "It's terrifying!"))
-	  
-	  (state OnFire
-	    (wrap _:on-inspect ()
-		  (@base)
-		  (prn "Also, it's on fire!")))
-	  
-	  (state Howling
-	    (wrap _:on-inspect ()
-		  (@base)
-		  (prn "It's howling, too!"))))
+    
+    (class Monster
+      (met on-inspect ()
+        (prn "It's terrifying!"))
+      
+      (state OnFire
+        (wrap _:on-inspect ()
+          (@base)
+          (prn "Also, it's on fire!")))
+      
+      (state Howling
+        (wrap _:on-inspect ()
+          (@base)
+          (prn "It's howling, too!"))))
 
 
 ## Initialization and Finalization
 
 Mixins are initialized using an [`init-mixin` clause](../std/init-mixin-clause), which defines a 
 wrapper for the class's initializer method. If a class has three mixins and an `init` clause...
-	
-	(defclass
-	  (mixin A B C)
-	  (init
-	    ...))
+    
+    (defclass
+      (mixin A B C)
+      (init
+        ...))
 
 ...then it effectively has a hidden initializer method `Main:init`, which is wrapped by 
 `C:init-mixin`, which is wrapped by `B:init-mixin`, which is wrapped by `A:init-mixin`.
@@ -229,28 +229,28 @@ of its implementing class, it's an error.
 
 If a mixin defines a state, that state will participate in name-shadowing as normal, as though
 it was copied-and-pasted in at the very start of the implementing class.
-	
-	(defmixin Heavy
-	  (const kg 1000)
-	  (state* Burdened
-	    (const kg 1100)))
+    
+    (defmixin Heavy
+      (const kg 1000)
+      (state* Burdened
+        (const kg 1100)))
 
-	; this is an error, because the name Weight:kg collides with Heavy:kg.
-	; if Heavy's (const kg 1000) were commented out, the code would compile.
-	(defclass Weight
-	  (mixin Heavy)
-	  (const kg 500))
+    ; this is an error, because the name Weight:kg collides with Heavy:kg.
+    ; if Heavy's (const kg 1000) were commented out, the code would compile.
+    (defclass Weight
+      (mixin Heavy)
+      (const kg 500))
 
 ### Mixin States
 
 It's ordinarily an error for a mixin and a state to share the same name, because it would cause
 a namespace collision:
-	
-	; which one of these two fields is named `Fighting:health`?
-	(mixin Fighting
-	  (field health)
-	  (state Fighting
-	    (field health)))
+    
+    ; which one of these two fields is named `Fighting:health`?
+    (mixin Fighting
+      (field health)
+      (state Fighting
+        (field health)))
 
 However, there's a special exception when a mixin only contains a single `state` or `state*`,
 with no other clauses. In that case, the state "takes over" the mixin's namespace. In effect, you 
@@ -300,22 +300,22 @@ to make it work with a little effort, but it won't be elegant.
 Instead, you should use runtime configuration: a single `Soldier` class which accepts a `color`
 parameter. States make it easy to compartmentalize the class into two sub-types.
 
-	(defclass Soldier
-	  (init (color)
-	    (match color
-	      ('red (@enab! 'Red))
-	      ('blue (@enab! 'Blue))
-	      (_ (bail))))
+    (defclass Soldier
+      (init (color)
+        (match color
+          ('red (@enab! 'Red))
+          ('blue (@enab! 'Blue))
+          (_ (bail))))
 
-	  (state Red
-	    (const weapon-name 'musket)
-	    (met select-action ()
-	      ...))
+      (state Red
+        (const weapon-name 'musket)
+        (met select-action ()
+          ...))
 
-	  (state Blue
-	    (const weapon-name 'pike)
-	    (met select-action ()
-	      ...)))
+      (state Blue
+        (const weapon-name 'pike)
+        (met select-action ()
+          ...)))
 
 
 ## Aside: Why Not ECS?

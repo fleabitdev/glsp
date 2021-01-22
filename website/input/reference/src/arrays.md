@@ -19,40 +19,40 @@ The [`arr`](../std/arr) function will return a new array which contains all of i
 When one of the arguments is an array, and that argument is prefixed with `..`, all of that 
 array's elements are copied into the array which is being constructed. 
 
-	(prn (arr)) ; prints ()
-	(prn (arr 1 2 3 4)) ; prints (1 2 3 4)
+    (prn (arr)) ; prints ()
+    (prn (arr 1 2 3 4)) ; prints (1 2 3 4)
 
-	(let src '(x y z))
-	(prn (arr 1 2 src 3 4)) ; prints (1 2 (x y z) 3 4)
-	(prn (arr 1 2 ..src 3 4)) ; prints (1 2 x y z 3 4)
-	(prn (arr ..src ..src)) ; prints (x y z x y z)
+    (let src '(x y z))
+    (prn (arr 1 2 src 3 4)) ; prints (1 2 (x y z) 3 4)
+    (prn (arr 1 2 ..src 3 4)) ; prints (1 2 x y z 3 4)
+    (prn (arr ..src ..src)) ; prints (x y z x y z)
 
 [`len`](../std/len) returns the array's length, and [`empty?`](../std/empty-p) tests whether it 
 has a length of 0.
-	
-	(prn (len '())) ; prints 0
-	(prn (len (arr 'a 'b))) ; prints 2
+    
+    (prn (len '())) ; prints 0
+    (prn (len (arr 'a 'b))) ; prints 2
 
-	(prn (empty? (arr))) ; prints #t
-	(prn (empty? '(1))) ; prints #f
+    (prn (empty? (arr))) ; prints #t
+    (prn (empty? '(1))) ; prints #f
 
 An array constructed using the `arr` function will be mutable. You can add any number of elements
 to the start or end of an array using the functions [`push-start!`](../std/push-start-mut) and 
 [`push!`](../std/push-mut), or you can remove one element at a time using 
 [`pop-start!`](../std/pop-start-mut) and [`pop!`](../std/pop-mut).
 
-	(let metals (arr 'pewter 'silver 'copper))
+    (let metals (arr 'pewter 'silver 'copper))
 
-	(push! metals 'iron 'bronze)
-	(prn metals) ; prints (pewter silver copper iron bronze)
+    (push! metals 'iron 'bronze)
+    (prn metals) ; prints (pewter silver copper iron bronze)
 
-	(prn (pop! metals)) ; prints bronze
-	(prn (pop! metals)) ; prints iron
-	(prn (pop-start! metals)) ; prints pewter
-	(prn metals) ; prints (silver copper)
+    (prn (pop! metals)) ; prints bronze
+    (prn (pop! metals)) ; prints iron
+    (prn (pop-start! metals)) ; prints pewter
+    (prn metals) ; prints (silver copper)
 
-	(push-start! metals 'titanium 'electrum)
-	(prn metals) ; prints (titanium electrum silver copper)
+    (push-start! metals 'titanium 'electrum)
+    (prn metals) ; prints (titanium electrum silver copper)
 
 Many other useful functions are described in the [standard library 
 documentation](../std/collections).
@@ -73,16 +73,16 @@ in the `names` array, and `[names -2]` returns its second-to-last element.
 
 Array elements are [places](built-in-macros.md#assignment), so they can be mutated using the
 `=` macro.
-	
-	(let blues (arr 'azure 'sapphire 'navy))
+    
+    (let blues (arr 'azure 'sapphire 'navy))
 
-	(prn [blues 2]) ; prints navy
-	(prn [blues -3]) ; prints azure
+    (prn [blues 2]) ; prints navy
+    (prn [blues -3]) ; prints azure
 
-	(= [blues 0] 'cerulean)
-	(= [blues -2] 'cobalt)
+    (= [blues 0] 'cerulean)
+    (= [blues -2] 'cobalt)
 
-	(prn blues) ; prints (cerulean cobalt navy)
+    (prn blues) ; prints (cerulean cobalt navy)
 
 
 ## Slicing
@@ -90,53 +90,53 @@ Array elements are [places](built-in-macros.md#assignment), so they can be mutat
 The `access` macro, and therefore the `[]` abbreviation, both support special syntax for accessing
 multiple consecutive elements in an array. They use the `:` symbol, similar to Python's slice 
 syntax.
-	
-	(let alphabet '(a b c d e f g h i j k l m n o p q r s t u v w x y z))
+    
+    (let alphabet '(a b c d e f g h i j k l m n o p q r s t u v w x y z))
 
-	; elements from n to m are sliced using `n : m`
-	(prn [alphabet 3 : 8]) ; prints (d e f g h)
-	(prn [alphabet -10 : 21]) ; prints (q r s t u)
-	(prn [alphabet 5 : 5]) ; prints ()
+    ; elements from n to m are sliced using `n : m`
+    (prn [alphabet 3 : 8]) ; prints (d e f g h)
+    (prn [alphabet -10 : 21]) ; prints (q r s t u)
+    (prn [alphabet 5 : 5]) ; prints ()
 
-	; elements from 0 to n are sliced using `: n`
-	(prn [alphabet : 5]) ; prints (a b c d e)
-	(prn [alphabet : -23]) ; prints (a b c)
-	(prn [alphabet : 30]) ; an error
+    ; elements from 0 to n are sliced using `: n`
+    (prn [alphabet : 5]) ; prints (a b c d e)
+    (prn [alphabet : -23]) ; prints (a b c)
+    (prn [alphabet : 30]) ; an error
 
-	; elements from n to the end are sliced using `n :`
-	(prn [alphabet 23 :]) ; prints (x y z)
-	(prn [alphabet -1 :]) ; prints (z)
+    ; elements from n to the end are sliced using `n :`
+    (prn [alphabet 23 :]) ; prints (x y z)
+    (prn [alphabet -1 :]) ; prints (z)
 
-	; the entire array can be sliced using `:`
-	(prn (eq? [alphabet :] alphabet)) ; prints #t
+    ; the entire array can be sliced using `:`
+    (prn (eq? [alphabet :] alphabet)) ; prints #t
 
-	; the `:` symbol is whitespace-sensitive
-	(prn [alphabet 2:5]) ; an error
-	(prn [alphabet 3:]) ; an error
+    ; the `:` symbol is whitespace-sensitive
+    (prn [alphabet 2:5]) ; an error
+    (prn [alphabet 3:]) ; an error
 
 To keep things simple, all of these slicing operations will allocate, and return, a new array. 
 Unlike Rust, there's no way to produce a reference which points into an array's interior.
 
 The [`del!`](../std/del-mut) and [`remove!`](../std/remove-mut) macros also support the same 
 slicing syntax.
-	
-	(del! names 3) ; delete element 3
-	(del! names 2 : 5) ; delete elements 2, 3 and 4
-	(del! names :) ; delete every element
+    
+    (del! names 3) ; delete element 3
+    (del! names 2 : 5) ; delete elements 2, 3 and 4
+    (del! names :) ; delete every element
 
 A slice is a [place](built-in-macros.md#assignment). Assigning an array to a slice will overwrite
 all of the elements stored there, changing the size of the array if necessary.
-	
-	(let numbers (arr 0 1 2 3 4 5 6 7 8 9))
+    
+    (let numbers (arr 0 1 2 3 4 5 6 7 8 9))
 
-	(= [numbers : 6] '())
-	(prn numbers) ; prints (6 7 8 9)
+    (= [numbers : 6] '())
+    (prn numbers) ; prints (6 7 8 9)
 
-	(= [numbers -2 :] (arr 42 42 42))
-	(prn numbers) ; prints (6 7 42 42 42)
+    (= [numbers -2 :] (arr 42 42 42))
+    (prn numbers) ; prints (6 7 42 42 42)
 
-	(= [numbers :] '(5 5 5))
-	(prn numbers) ; prints (5 5 5)
+    (= [numbers :] '(5 5 5))
+    (prn numbers) ; prints (5 5 5)
 
 GameLisp doesn't include some of the traditional Lisp functions for processing sequences, like 
 `rest`, `butlast`, `take` and `drop`. All of those functions can be expressed in a more versatile 
@@ -147,13 +147,13 @@ and general way using the slice syntax.
 
 Deeply-nested use of the `[]` syntax can sometimes be visually confusing.
 
-	[[[the-array index] 0] start-index :]
+    [[[the-array index] 0] start-index :]
 
 "Arrow macros" were discussed in the [previous chapter](built-in-macros.md#arrows). The `[]`
 syntax works well when used with the `->` macro:
-	
-	(-> the-array [index] [0] [start-index :])
+    
+    (-> the-array [index] [0] [start-index :])
 
 This is similar to the equivalent Rust syntax:
 
-	the_array[index][0][start_index..]
+    the_array[index][0][start_index..]

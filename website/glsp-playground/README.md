@@ -13,13 +13,13 @@ The crate itself is very small. It only provides a few functions, to be invoked 
   `glsp::gc()`.
 
 To produce `glsp-playground.wasm`, run:
-	
-	cargo build --release --target wasm32-unknown-unknown
+    
+    cargo build --release --target wasm32-unknown-unknown
 
-	wasm-bindgen target/wasm32-unknown-unknown/release/glsp_playground.wasm \
-	--out-dir output --target no-modules --no-typescript
+    wasm-bindgen target/wasm32-unknown-unknown/release/glsp_playground.wasm \
+    --out-dir output --target no-modules --no-typescript
 
-	cp -t ../input/playground output/glsp_playground_bg.wasm output/glsp_playground.js
+    cp -t ../input/playground output/glsp_playground_bg.wasm output/glsp_playground.js
 
 For the details of how all of the above works, see [the `wasm-bindgen` guide][0].
 

@@ -11,20 +11,20 @@ exist. The [`has?`](../std/has-p) function will tell you whether a key is alread
 the [`del!`](../std/del-mut) and [`remove!`](../std/remove-mut) functions will delete an existing 
 entry. [`len`](../std/len), [`empty?`](../std/empty-p) and [`clear!`](../std/clear-mut) all work 
 as expected.
-	
-	(let strengths (tab))
-	(= [strengths 'goblin] 3)
-	(= [strengths 'dragon] 8)
+    
+    (let strengths (tab))
+    (= [strengths 'goblin] 3)
+    (= [strengths 'dragon] 8)
 
-	(prn (has? strengths 'goblin)) ; prints #t
-	(prn (has? strengths 'kobold)) ; prints #f
+    (prn (has? strengths 'goblin)) ; prints #t
+    (prn (has? strengths 'kobold)) ; prints #f
 
-	(prn [strengths 'goblin]) ; prints 3
-	(prn [strengths 'manticore]) ; an error
+    (prn [strengths 'goblin]) ; prints 3
+    (prn [strengths 'manticore]) ; an error
 
-	(prn (len strengths)) ; prints 2
-	(clear! strengths)
-	(prn (empty? strengths)) ; prints #t
+    (prn (len strengths)) ; prints 2
+    (clear! strengths)
+    (prn (empty? strengths)) ; prints #t
 
 
 ## Table Construction
@@ -35,18 +35,18 @@ To construct a new table dynamically, you can use the `tab` macro. It receives a
 forms of length two, and optionally a number of forms which evaluate to tables, each prefixed 
 with `..`. Each array form, and each entry from each of the tables, is treated as a `(key value)` 
 pair which is inserted into the table.
-	
-	(let basic (tab ('a 'b) ('c 'd)))
-	(let more (tab ('e 'f) ..basic))
+    
+    (let basic (tab ('a 'b) ('c 'd)))
+    (let more (tab ('e 'f) ..basic))
 
-	(prn more) ; prints #((a b) (c d) (e f)), not necessarily in that order
+    (prn more) ; prints #((a b) (c d) (e f)), not necessarily in that order
 
 The [`extend!`](../std/extend-mut) function receives a table as its first argument, followed by 
 any number of `(key value)` two-element arrays. Those key-value pairs are each inserted into the 
 table, overwriting elements which already exist. It's typically used to copy the full contents of 
 one table into another, by treating the source table as an [iterator](iterators.md):
-	
-	(extend! dst-table ..src-table)
+    
+    (extend! dst-table ..src-table)
 
 
 ## Nonexistent Elements
@@ -63,23 +63,23 @@ If you need to access an element which may or may not exist, various macros supp
 syntax `(? form)`. This syntax can be used in place of a key or an index. It will cause the 
 operation to succeed and return `#n` when an element is missing, rather than triggering an error.
 
-	(let heights (tab ('mira 165) ('paul 178)))
-	
-	(prn [heights 'sara]) ; an error
-	(prn [heights (? 'sara)]) ; prints #n
+    (let heights (tab ('mira 165) ('paul 178)))
+    
+    (prn [heights 'sara]) ; an error
+    (prn [heights (? 'sara)]) ; prints #n
 
-	(let ar (arr 10 20 30 40 50))
+    (let ar (arr 10 20 30 40 50))
 
-	(= [ar -8] -20) ; an error
-	(= [ar (? -8)] -20) ; a silent no-op
-	
-	(prn (remove! ar 2)) ; prints 30
-	(prn (remove! ar 7)) ; an error
-	(prn (remove! ar (? 7))) ; prints #n
-	
-	(prn (global (? 'possibility))) ; prints #n
-	(bind-global! 'possibility 100)
-	(prn (global (? 'possibility))) ; prints 100
+    (= [ar -8] -20) ; an error
+    (= [ar (? -8)] -20) ; a silent no-op
+    
+    (prn (remove! ar 2)) ; prints 30
+    (prn (remove! ar 7)) ; an error
+    (prn (remove! ar (? 7))) ; prints #n
+    
+    (prn (global (? 'possibility))) ; prints #n
+    (bind-global! 'possibility 100)
+    (prn (global (? 'possibility))) ; prints 100
 
 
 ## Key Equivalence

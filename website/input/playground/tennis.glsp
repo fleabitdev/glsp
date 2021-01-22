@@ -8,96 +8,96 @@
 (def play:height 240)
 (def play:title "Tennis")
 (def play:blurb r#"
-	<p><b>W, S:</b> Move left paddle
-	<p><b>Up, Down:</b> Move right paddle
+  <p><b>W, S:</b> Move left paddle
+  <p><b>Up, Down:</b> Move right paddle
 "#)
 
 ; the gameplay code
 ;-----------------------------------------------------------
 
 (defstruct Rect
-	x y w h
+  x y w h
 
-	(met overlaps? (other-rect)
-		(let [x y w h] other-rect)
-		(and (< @x (+ x w))
-		     (< x (+ @x @w))
-		     (< @y (+ y h))
-		     (< y (+ @y @h)))))
+  (met overlaps? (other-rect)
+    (let [x y w h] other-rect)
+    (and (< @x (+ x w))
+         (< x (+ @x @w))
+         (< @y (+ y h))
+         (< y (+ @y @h)))))
 
 (def paddle-speed 220)
 (def paddle-height 40)
 (def paddle-start-y (-> play:height (- paddle-height) (/ 2)))
 
 (def left-paddle (Rect
-	(x 10)
-	(y paddle-start-y)
-	(w 6)
-	(h paddle-height)))
+  (x 10)
+  (y paddle-start-y)
+  (w 6)
+  (h paddle-height)))
 
 (def right-paddle (Rect
-	(x (- play:width 16)) 
-	(y paddle-start-y)
-	(w 6)
-	(h paddle-height)))
+  (x (- play:width 16)) 
+  (y paddle-start-y)
+  (w 6)
+  (h paddle-height)))
 
 (def ball-start-x (-> play:width (/ 2) (- 3)))
 (def ball-start-y (-> play:height (/ 2) (- 3)))
 
 (def ball (Rect
-	(x ball-start-x)
-	(y ball-start-y)
-	(w 6)
-	(h 6)))
+  (x ball-start-x)
+  (y ball-start-y)
+  (w 6)
+  (h 6)))
 
 (def ball-dx 0)
 (def ball-dy 0)
 
 (defn play:update (dt)
 
-	; update the paddles
-	(for (paddle up-key down-key) in `((~left-paddle w s)
-	                                   (~right-paddle up down))
-		(when (play:down? up-key)
-			(dec! [paddle 'y] (* dt paddle-speed)))
+  ; update the paddles
+  (for (paddle up-key down-key) in `((~left-paddle w s)
+                                     (~right-paddle up down))
+    (when (play:down? up-key)
+      (dec! [paddle 'y] (* dt paddle-speed)))
 
-		(when (play:down? down-key)
-			(inc! [paddle 'y] (* dt paddle-speed)))
+    (when (play:down? down-key)
+      (inc! [paddle 'y] (* dt paddle-speed)))
 
-		(clamp! [paddle 'y] 0 (- play:height paddle-height)))
+    (clamp! [paddle 'y] 0 (- play:height paddle-height)))
 
-	; update the ball
-	(when (and (== ball-dx ball-dy 0)
-	           (any? play:pressed? '(w s up down)))
-		(= ball-dx (* (rand-pick -1 1) (rand 170 210)))
-		(= ball-dy (* (rand-pick -1 1) (rand 50 100))))
+  ; update the ball
+  (when (and (== ball-dx ball-dy 0)
+             (any? play:pressed? '(w s up down)))
+    (= ball-dx (* (rand-pick -1 1) (rand 170 210)))
+    (= ball-dy (* (rand-pick -1 1) (rand 50 100))))
 
-	(inc! [ball 'x] (* dt ball-dx))
-	(inc! [ball 'y] (* dt ball-dy))
+  (inc! [ball 'x] (* dt ball-dx))
+  (inc! [ball 'y] (* dt ball-dy))
 
-	(when (< [ball 'y] 0)
-		(= ball-dy (abs ball-dy)))
+  (when (< [ball 'y] 0)
+    (= ball-dy (abs ball-dy)))
 
-	(when (>= (+ [ball 'y] [ball 'h]) play:height)
-		(= ball-dy (- (abs ball-dy))))
+  (when (>= (+ [ball 'y] [ball 'h]) play:height)
+    (= ball-dy (- (abs ball-dy))))
 
-	(when (or (and (.overlaps? ball left-paddle) (< ball-dx 0))
-	          (and (.overlaps? ball right-paddle) (> ball-dx 0)))
-		(= ball-dx (- (* ball-dx (rand 1.03 1.08))))
-		(inc! ball-dy (rand 50 -50))
-		(clamp! ball-dy (- (abs ball-dx)) (abs ball-dx)))
+  (when (or (and (.overlaps? ball left-paddle) (< ball-dx 0))
+            (and (.overlaps? ball right-paddle) (> ball-dx 0)))
+    (= ball-dx (- (* ball-dx (rand 1.03 1.08))))
+    (inc! ball-dy (rand 50 -50))
+    (clamp! ball-dy (- (abs ball-dx)) (abs ball-dx)))
 
-	(unless (<= 0 [ball 'x] play:width)
-		(= [ball 'x] ball-start-x)
-		(= [ball 'y] ball-start-y)
-		(= ball-dx 0)
-		(= ball-dy 0))
+  (unless (<= 0 [ball 'x] play:width)
+    (= [ball 'x] ball-start-x)
+    (= [ball 'y] ball-start-y)
+    (= ball-dx 0)
+    (= ball-dy 0))
 
-	; rendering
-	(let midnight-blue '(25 25 112))
-	(let turquoise '(64 224 208))
+  ; rendering
+  (let midnight-blue '(25 25 112))
+  (let turquoise '(64 224 208))
 
-	(play:fill 0 0 play:width play:height ..midnight-blue)
-	(play:fill ..[ball '(x y w h)] ..turquoise)
-	(play:fill ..[left-paddle '(x y w h)] ..turquoise)
-	(play:fill ..[right-paddle '(x y w h)] ..turquoise))
+  (play:fill 0 0 play:width play:height ..midnight-blue)
+  (play:fill ..[ball '(x y w h)] ..turquoise)
+  (play:fill ..[left-paddle '(x y w h)] ..turquoise)
+  (play:fill ..[right-paddle '(x y w h)] ..turquoise))

@@ -1,404 +1,404 @@
 filename = "special-forms"
 name = "Special Forms"
 text = """
-	The "special" forms are those which need to be evaluated or expanded in an unusual way. It 
-	would not be possible to implement these forms as a `fn`, an `rfn` or a macro. Their 
-	functionality is programmed directly into GameLisp.
+    The "special" forms are those which need to be evaluated or expanded in an unusual way. It 
+    would not be possible to implement these forms as a `fn`, an `rfn` or a macro. Their 
+    functionality is programmed directly into GameLisp.
 """
 
 [[apis]]
-	filename = "quote"
-	kinds = ["special"]
-	args = ["x form"]
-	text = """
-		Suppresses evaluation.
+    filename = "quote"
+    kinds = ["special"]
+    args = ["x form"]
+    text = """
+        Suppresses evaluation.
 
-		Returns its argument verbatim. It's not expanded and it's not evaluated.
+        Returns its argument verbatim. It's not expanded and it's not evaluated.
 
-			'hp ; evaluates to the symbol hp
-			hp ; accesses the variable bound to the symbol hp
+            'hp ; evaluates to the symbol hp
+            hp ; accesses the variable bound to the symbol hp
 
-			'(1 2 3) ; evaluates to the array (1 2 3)
-			(1 2 3) ; error: called the integer 1 as a function
+            '(1 2 3) ; evaluates to the array (1 2 3)
+            (1 2 3) ; error: called the integer 1 as a function
 
-		If the argument stores aliasable mutable data (such as an array or table), a deep-cloned 
-		and deep-frozen copy is returned. This makes it less likely that a quoted form will be
-		accidentally mutated.
+        If the argument stores aliasable mutable data (such as an array or table), a deep-cloned 
+        and deep-frozen copy is returned. This makes it less likely that a quoted form will be
+        accidentally mutated.
 
-			(let ar '(1 2 3))
-			(push! ar 4) ; error: mutated a frozen array
+            (let ar '(1 2 3))
+            (push! ar 4) ; error: mutated a frozen array
 
-		`(quote x)` is usually [abbreviated](../reference/syntax-and-types.html#abbreviations) 
-		as [`'x`](quote-abbrv).
-	"""
-
-[[apis]]
-	filename = "do"
-	kinds = ["special"]
-	args = ["forms form *"]
-	text = """
-		Performs sequential evaluation.
-
-		When the `do` form is evaluated, each of its `forms` are evaluated in order from start to 
-		finish. The final form's result is returned.
-
-		Many other forms establish an "implicit do". For example, the body of a function:
-
-			(defn example (a)
-			  (called-first)
-			  (called-second)
-			  (produces-result))
-
-		With no arguments, `(do)` evaluates to `#n`. An empty "implicit do" also evaluates to `#n`:
-
-			(let empty-fn (fn ()))
-			(prn (empty-fn)) ; prints #n
-	"""
+        `(quote x)` is usually [abbreviated](../reference/syntax-and-types.html#abbreviations) 
+        as [`'x`](quote-abbrv).
+    """
 
 [[apis]]
-	filename = "block"
-	kinds = ["special"]
-	args = ["name sym", "body form *"]
-	text = """
-		Defines a pair of jump targets.
+    filename = "do"
+    kinds = ["special"]
+    args = ["forms form *"]
+    text = """
+        Performs sequential evaluation.
 
-		The body of a `block` form is an ["implicit do"](do). Within that body, 
-		[`restart-block`](restart-block) and [`finish-block`](finish-block) can be used to jump
-		to the beginning or the end of the block, respectively.
+        When the `do` form is evaluated, each of its `forms` are evaluated in order from start to 
+        finish. The final form's result is returned.
 
-		Nested blocks may share the same name. If so, that name will refer to the innermost
-		block. We say that the inner block "shadows" the outer block.
+        Many other forms establish an "implicit do". For example, the body of a function:
 
-		It's not possible for `restart-block` or `finish-block` to jump outside of an enclosing
-		[`fn`](fn) form.
+            (defn example (a)
+              (called-first)
+              (called-second)
+              (produces-result))
 
-			(block looper
-			  (fn ()
-			    (restart-block looper))) ; an error
-	"""
+        With no arguments, `(do)` evaluates to `#n`. An empty "implicit do" also evaluates to `#n`:
 
-[[apis]]
-	filename = "restart-block"
-	kinds = ["special"]
-	args = ["name sym"]
-	text = """
-		Jumps to the start of an enclosing block.
-
-		There must be an enclosing [`block` form](block) with the given name. When the 
-		`restart-block` form is evaluated, execution jumps back to the beginning of that block.
-	"""
+            (let empty-fn (fn ()))
+            (prn (empty-fn)) ; prints #n
+    """
 
 [[apis]]
-	filename = "finish-block"
-	kinds = ["special"]
-	args = ["name sym", "result val ?#n"]
-	text = """
-		Jumps to the end of an enclosing block.
+    filename = "block"
+    kinds = ["special"]
+    args = ["name sym", "body form *"]
+    text = """
+        Defines a pair of jump targets.
 
-		There must be an enclosing [`block` form](block) with the given name. When the 
-		`finish-block` form is evaluated, execution jumps ahead to the end of that block. 
-		The block as a whole evaluates to `result`.
+        The body of a `block` form is an ["implicit do"](do). Within that body, 
+        [`restart-block`](restart-block) and [`finish-block`](finish-block) can be used to jump
+        to the beginning or the end of the block, respectively.
 
-			(prn (block example
-			  (finish-block example 100))) ; prints 100
-	"""
+        Nested blocks may share the same name. If so, that name will refer to the innermost
+        block. We say that the inner block "shadows" the outer block.
 
-[[apis]]
-	filename = "if"
-	kinds = ["special"]
-	args = ["condition form", "then form", "else form"]
-	text = """
-		Performs conditional evaluation.
+        It's not possible for `restart-block` or `finish-block` to jump outside of an enclosing
+        [`fn`](fn) form.
 
-		First, the `condition` form is evaluated. If it evaluates to `#f` or `#n`, the `else`
-		form is evaluated; otherwise, the `then` form is evaluated.
-
-		This form is rarely used directly. [`cond`](cond), [`when`](when) and [`unless`](unless) 
-		are usually more readable.
-
-		`if` is sometimes useful when you want to express a very short conditional which fits on 
-		a single line:
-
-			(= color (if (< hp 10) 'red 'green))
-	"""
+            (block looper
+              (fn ()
+                (restart-block looper))) ; an error
+    """
 
 [[apis]]
-	filename = "let"
-	kinds = ["special", "mac"]
-	args = ["pat pat", "init form ?"]
-	returns = "nil"
-	text = """
-		Binds a local variable.
+    filename = "restart-block"
+    kinds = ["special"]
+    args = ["name sym"]
+    text = """
+        Jumps to the start of an enclosing block.
 
-		`let` plays the same role in GameLisp that it does in Rust: it introduces one or more 
-		new local variables into the current lexical scope.
-
-			(def x 100)
-
-			(defn example ()
-			  (prn x)  ; prints 100
-
-			  (let x 200)
-			  (prn x)  ; prints 200
-
-			  (do
-			    (let x 300)
-			    (prn x)) ; prints 300
-
-			  (prn x)) ; prints 200
-
-		If the `init` form is absent, each name defined by `pat` is initialized to `#n`.
-
-		Unlike Rust, pattern-bindings in `let` can be fallible. If the result of the `init`
-		form does not match `pat`, an error occurs.
-
-		A single `let` form may bind multiple patterns to multiple initializers: `(let a b c d e)` 
-		is equivalent to `(let a b)`, then `(let c d)`, then `(let e)`. You should usually
-		separate multiple bindings using [commas]: `(let a b, c d, e)`.
-
-		[commas]: ../reference/syntax-and-types.html#whitespace
-
-		`let` must only appear at the toplevel, or as the immediate child of a [`do`](do) form,
-		or immediately within an ["implicit do"](do). For example, providing a `let` form as an 
-		argument to a function call would be an error.
-	"""
+        There must be an enclosing [`block` form](block) with the given name. When the 
+        `restart-block` form is evaluated, execution jumps back to the beginning of that block.
+    """
 
 [[apis]]
-	filename = "fn"
-	kinds = ["special", "mac"]
-	args = ["params arr", "body form *"]
-	returns = "fn"
-	text = """
-		Defines a function.
+    filename = "finish-block"
+    kinds = ["special"]
+    args = ["name sym", "result val ?#n"]
+    text = """
+        Jumps to the end of an enclosing block.
 
-		When a `fn` form is evaluated, it allocates and returns a new closure (a value which 
-		belongs to the primitive type `fn`). Just like a Rust closure, this closure may capture 
-		any local variables which are in scope. Each local variable may be simultaneously captured 
-		by multiple closures.
+        There must be an enclosing [`block` form](block) with the given name. When the 
+        `finish-block` form is evaluated, execution jumps ahead to the end of that block. 
+        The block as a whole evaluates to `result`.
 
-			(let counter (do
-			  (let n 0)
-			  (fn ()
-			    (inc! n)
-			    n)))
-
-			(prn (counter)) ; prints 1
-			(prn (counter)) ; prints 2
-			(prn n) ; an error: n is not in scope
-
-		If the same `fn` form is evaluated multiple times (for example, in a loop), it will 
-		allocate a new closure each time.
-
-		`params` must be a valid [array pattern](../reference/patterns.html#arrays). When the
-		function is called, all of its arguments are matched against `params`, and then its `body`
-		forms are evaluated as an ["implicit do"](do). It's an error if the call's arguments do not
-		match `params` - for example, because too few or too many arguments were provided.
-
-			(let f (fn (a b c) (prn a b c)))
-			(f 1 2) ; error: expected 3 or more arguments
-
-		The [`return`](return) or [`yield`](yield) special forms can be used to return early
-		from the function call. Otherwise, the result of the function call is the evaluation
-		result of the `body` forms.
-
-		A `fn` form may specify one or more flags, listed immediately before `params`:
-
-		- `&name name` specifies the function's [name](fn-name), for debugging purposes.
-		- `&arg-limits min max` specifies a minimum and maximum argument count. When `&arg-limits`
-		  is present, the `params` pattern must only contain a single rest param, `(..rest)`.
-		  `min` must be an integer; `max` may be an integer or `#n`.
-	"""
+            (prn (block example
+              (finish-block example 100))) ; prints 100
+    """
 
 [[apis]]
-	filename = "return"
-	kinds = ["special"]
-	args = ["v val ?#n"]
-	text = """
-		Returns from a function call.
+    filename = "if"
+    kinds = ["special"]
+    args = ["condition form", "then form", "else form"]
+    text = """
+        Performs conditional evaluation.
 
-		When a `return` form is evaluated, the current function call immediately ends, 
-		returning `v`.
+        First, the `condition` form is evaluated. If it evaluates to `#f` or `#n`, the `else`
+        form is evaluated; otherwise, the `then` form is evaluated.
 
-		It's an error if `return` is called without an enclosing [`fn` form](fn) - for example,
-		at the toplevel of a source file.
-	"""
+        This form is rarely used directly. [`cond`](cond), [`when`](when) and [`unless`](unless) 
+        are usually more readable.
 
-[[apis]]
-	filename = "yield"
-	kinds = ["special"]
-	args = ["v val ?#n"]
-	#see-also = ["fn-yields-p"]
-	text = """
-		Yields a value from a coroutine.
+        `if` is sometimes useful when you want to express a very short conditional which fits on 
+        a single line:
 
-		When a `yield` form is evaluated, the coroutine is paused, yielding `v`. When
-		[`coro-run`](coro-run) is used to resume execution of the coroutine, the `yield` form
-		finishes evaluating, returning the argument which was passed to `coro-run`.
-
-		It's an error if `yield` is called without an enclosing [`fn` form](fn) - for example,
-		at the toplevel of a source file.
-
-		The presence of a `yield` form in the body of a `fn` form is what differentiates a
-		[coroutine function](../reference/coroutines.html) from a normal function. When a coroutine 
-		function is called, it returns a new coroutine which is [paused](coro-state) at the 
-		beginning of the function's body.
-	"""
+            (= color (if (< hp 10) 'red 'green))
+    """
 
 [[apis]]
-	filename = "macro-no-op"
-	kinds = ["fn"]
-	args = []
-	text = """
-		Suppresses macro expansion.
+    filename = "let"
+    kinds = ["special", "mac"]
+    args = ["pat pat", "init form ?"]
+    returns = "nil"
+    text = """
+        Binds a local variable.
 
-		When `macro-no-op` is evaluated, macro expansion is cancelled for the form which is
-		currently being expanded, and no further macro expanders will be called for that form. 
-		The form's arguments are still expanded [as normal][0].
+        `let` plays the same role in GameLisp that it does in Rust: it introduces one or more 
+        new local variables into the current lexical scope.
 
-		[0]: ../reference/macros.html#the-expansion-algorithm
+            (def x 100)
 
-		It's an error if `macro-no-op` is called outside of a macro expander.
-	"""
+            (defn example ()
+              (prn x)  ; prints 100
 
-[[apis]]
-	filename = "defer"
-	kinds = ["special"]
-	args = ["body form *"]
-	see-also = ["defer-yield"]
-	text = """
-		Defers evaluation until the end of the current lexical scope.
+              (let x 200)
+              (prn x)  ; prints 200
 
-		`defer` may appear anywhere that [`let`](let) can appear. The `body` forms aren't
-		executed until the `defer` form goes out of scope, whether that occurs because of
-		normal execution, [`restart-block`](restart-block), [`finish-block`](finish-block), 
-		[`return`](return), [`macro-no-op`](macro-no-op), or an error.
+              (do
+                (let x 300)
+                (prn x)) ; prints 300
 
-		You can think of `defer` as working like [`Drop`][0] in Rust.
+              (prn x)) ; prints 200
 
-		[0]: https://doc.rust-lang.org/std/ops/trait.Drop.html
-	"""
+        If the `init` form is absent, each name defined by `pat` is initialized to `#n`.
 
-[[apis]]
-	filename = "defer-yield"
-	kinds = ["special"]
-	args = ["on-pause form", "on-resume form"]
-	text = """
-		Defers evaluation until a coroutine is paused and/or resumed.
+        Unlike Rust, pattern-bindings in `let` can be fallible. If the result of the `init`
+        form does not match `pat`, an error occurs.
 
-		This special form is a complement to [`defer`](defer). It evaluates one form every time
-		it goes out of scope because its coroutine was paused, and evaluates another form every
-		time it comes back into scope because its coroutine was resumed. (Under those 
-		circumstances, a `defer` form would not be evaluated.)
+        A single `let` form may bind multiple patterns to multiple initializers: `(let a b c d e)` 
+        is equivalent to `(let a b)`, then `(let c d)`, then `(let e)`. You should usually
+        separate multiple bindings using [commas]: `(let a b, c d, e)`.
 
-		When `defer-yield` appears outside of a coroutine, it's a silent no-op.
-	"""
+        [commas]: ../reference/syntax-and-types.html#whitespace
+
+        `let` must only appear at the toplevel, or as the immediate child of a [`do`](do) form,
+        or immediately within an ["implicit do"](do). For example, providing a `let` form as an 
+        argument to a function call would be an error.
+    """
 
 [[apis]]
-	filename = "splice"
-	kinds = ["special"]
-	args = ["args val *"]
-	text = """
-		Splices a form into its parent form.
+    filename = "fn"
+    kinds = ["special", "mac"]
+    args = ["params arr", "body form *"]
+    returns = "fn"
+    text = """
+        Defines a function.
 
-		`splice` is meaningless during normal evaluation. It's only meaningful when encountered
-		during [macro expansion](../reference/macros.html).
+        When a `fn` form is evaluated, it allocates and returns a new closure (a value which 
+        belongs to the primitive type `fn`). Just like a Rust closure, this closure may capture 
+        any local variables which are in scope. Each local variable may be simultaneously captured 
+        by multiple closures.
 
-		The expander replaces the `splice` form with all of its argument forms. Note that
-		`splice` may have any number of arguments, including zero.
+            (let counter (do
+              (let n 0)
+              (fn ()
+                (inc! n)
+                n)))
 
-		For example, a macro expander could introduce both a [`let` form](let) and a 
-		[`defer` form](defer) into its current lexical scope by returning this `splice` form:
+            (prn (counter)) ; prints 1
+            (prn (counter)) ; prints 2
+            (prn n) ; an error: n is not in scope
 
-			(splice (let a 10) (defer b))
-	"""
+        If the same `fn` form is evaluated multiple times (for example, in a loop), it will 
+        allocate a new closure each time.
 
-[[apis]]
-	filename = "let-macro"
-	kinds = ["special"]
-	args = ["name sym", "params arr", "body form *"]
-	text = """
-		Defines a local macro.
+        `params` must be a valid [array pattern](../reference/patterns.html#arrays). When the
+        function is called, all of its arguments are matched against `params`, and then its `body`
+        forms are evaluated as an ["implicit do"](do). It's an error if the call's arguments do not
+        match `params` - for example, because too few or too many arguments were provided.
 
-		`let-macro` may appear anywhere that [`let`](let) would be valid. It introduces a new macro
-		definition for the rest of the current lexical scope.
+            (let f (fn (a b c) (prn a b c)))
+            (f 1 2) ; error: expected 3 or more arguments
 
-		Just like `let`, `let-macro` will shadow any [global macros](bind-macro-mut), or any other 
-		local macros, which share the same name.
+        The [`return`](return) or [`yield`](yield) special forms can be used to return early
+        from the function call. Otherwise, the result of the function call is the evaluation
+        result of the `body` forms.
 
-		Variables and macros use distinct namespaces. This means that a `let` form will not 
-		shadow a `let-macro` form, and vice versa.
-	"""
+        A `fn` form may specify one or more flags, listed immediately before `params`:
 
-[[apis]]
-	filename = "met-name"
-	kinds = ["special"]
-	args = ["n sym"]
-	text = """
-		Shorthand for a method call.
-
-		During evaluation of a function call, the runtime checks whether the callee is a
-		`(met-name n)` form. If so, the call is converted into a [`call-met`](call-met)
-		function call.
-
-			(.name ob arg0 arg1)
-
-			; ...is equivalent to...
-
-			((met-name name) ob arg0 arg1)
-
-			; ...is equivalent to...
-
-			(call-met 'name ob arg0 arg1)
-
-		`(met-name x)` is usually [abbreviated](../reference/syntax-and-types.html#abbreviations) 
-		as [`.x`](met-name-abbrv).
-	"""
+        - `&name name` specifies the function's [name](fn-name), for debugging purposes.
+        - `&arg-limits min max` specifies a minimum and maximum argument count. When `&arg-limits`
+          is present, the `params` pattern must only contain a single rest param, `(..rest)`.
+          `min` must be an integer; `max` may be an integer or `#n`.
+    """
 
 [[apis]]
-	filename = "splay"
-	kinds = ["special"]
-	args = ["x iterable"]
-	text = """
-		Passes all of an iterator's items as function arguments.
+    filename = "return"
+    kinds = ["special"]
+    args = ["v val ?#n"]
+    text = """
+        Returns from a function call.
 
-		During evaluation of a function call, the runtime checks whether any of the arguments are
-		`(splay x)` forms. If so, the form `x` must evaluate to an [`iterable`](iterable-p). It's
-		converted into an iterator; that iterator is repeatedly [advanced](iter-next-mut) until 
-		it's [finished](iter-finished-p); and all of the resulting items are passed as function 
-		arguments.
+        When a `return` form is evaluated, the current function call immediately ends, 
+        returning `v`.
 
-			(let ar '(1 2 3 4))
-			(prn (+ ..ar 5)) ; prints 15
-			(prn (+ 1 2 3 4 5)) ; prints 15
-
-		`(splay x)` is usually [abbreviated](../reference/syntax-and-types.html#abbreviations) 
-		as [`..x`](splay-abbrv).
-	"""
+        It's an error if `return` is called without an enclosing [`fn` form](fn) - for example,
+        at the toplevel of a source file.
+    """
 
 [[apis]]
-	filename = "set"
-	name = "="
-	kinds = ["special", "mac"]
-	args = ["place place", "value form"]
-	returns = "nil"
-	text = """
-		Performs assignment.
+    filename = "yield"
+    kinds = ["special"]
+    args = ["v val ?#n"]
+    #see-also = ["fn-yields-p"]
+    text = """
+        Yields a value from a coroutine.
 
-		When `=` is invoked as a special form, `place` must be a symbol. `=` assigns a new value 
-		to the local or global variable currently bound to that symbol. If the symbol has neither
-		a global nor a local binding, it's an error.
+        When a `yield` form is evaluated, the coroutine is paused, yielding `v`. When
+        [`coro-run`](coro-run) is used to resume execution of the coroutine, the `yield` form
+        finishes evaluating, returning the argument which was passed to `coro-run`.
 
-		`=` is also bound to a macro which performs generalized assignment. When `=` is invoked
-		as a macro, if `place` is a function call, its callee must be a symbol which is bound
-		to a [registered setter](bind-place-mut). The macro expands to a call to the corresponding 
-		setter function.
+        It's an error if `yield` is called without an enclosing [`fn` form](fn) - for example,
+        at the toplevel of a source file.
 
-			(= (global 'a) 100)
+        The presence of a `yield` form in the body of a `fn` form is what differentiates a
+        [coroutine function](../reference/coroutines.html) from a normal function. When a coroutine 
+        function is called, it returns a new coroutine which is [paused](coro-state) at the 
+        beginning of the function's body.
+    """
 
-			; ...expands to...
+[[apis]]
+    filename = "macro-no-op"
+    kinds = ["fn"]
+    args = []
+    text = """
+        Suppresses macro expansion.
 
-			(global= 'a 100)
+        When `macro-no-op` is evaluated, macro expansion is cancelled for the form which is
+        currently being expanded, and no further macro expanders will be called for that form. 
+        The form's arguments are still expanded [as normal][0].
 
-		The `=` macro may be invoked with any number of arguments. `(= a b, c d)` is equivalent
-		to `(= a b)` followed by `(= c d)`.
-	"""
+        [0]: ../reference/macros.html#the-expansion-algorithm
+
+        It's an error if `macro-no-op` is called outside of a macro expander.
+    """
+
+[[apis]]
+    filename = "defer"
+    kinds = ["special"]
+    args = ["body form *"]
+    see-also = ["defer-yield"]
+    text = """
+        Defers evaluation until the end of the current lexical scope.
+
+        `defer` may appear anywhere that [`let`](let) can appear. The `body` forms aren't
+        executed until the `defer` form goes out of scope, whether that occurs because of
+        normal execution, [`restart-block`](restart-block), [`finish-block`](finish-block), 
+        [`return`](return), [`macro-no-op`](macro-no-op), or an error.
+
+        You can think of `defer` as working like [`Drop`][0] in Rust.
+
+        [0]: https://doc.rust-lang.org/std/ops/trait.Drop.html
+    """
+
+[[apis]]
+    filename = "defer-yield"
+    kinds = ["special"]
+    args = ["on-pause form", "on-resume form"]
+    text = """
+        Defers evaluation until a coroutine is paused and/or resumed.
+
+        This special form is a complement to [`defer`](defer). It evaluates one form every time
+        it goes out of scope because its coroutine was paused, and evaluates another form every
+        time it comes back into scope because its coroutine was resumed. (Under those 
+        circumstances, a `defer` form would not be evaluated.)
+
+        When `defer-yield` appears outside of a coroutine, it's a silent no-op.
+    """
+
+[[apis]]
+    filename = "splice"
+    kinds = ["special"]
+    args = ["args val *"]
+    text = """
+        Splices a form into its parent form.
+
+        `splice` is meaningless during normal evaluation. It's only meaningful when encountered
+        during [macro expansion](../reference/macros.html).
+
+        The expander replaces the `splice` form with all of its argument forms. Note that
+        `splice` may have any number of arguments, including zero.
+
+        For example, a macro expander could introduce both a [`let` form](let) and a 
+        [`defer` form](defer) into its current lexical scope by returning this `splice` form:
+
+            (splice (let a 10) (defer b))
+    """
+
+[[apis]]
+    filename = "let-macro"
+    kinds = ["special"]
+    args = ["name sym", "params arr", "body form *"]
+    text = """
+        Defines a local macro.
+
+        `let-macro` may appear anywhere that [`let`](let) would be valid. It introduces a new macro
+        definition for the rest of the current lexical scope.
+
+        Just like `let`, `let-macro` will shadow any [global macros](bind-macro-mut), or any other 
+        local macros, which share the same name.
+
+        Variables and macros use distinct namespaces. This means that a `let` form will not 
+        shadow a `let-macro` form, and vice versa.
+    """
+
+[[apis]]
+    filename = "met-name"
+    kinds = ["special"]
+    args = ["n sym"]
+    text = """
+        Shorthand for a method call.
+
+        During evaluation of a function call, the runtime checks whether the callee is a
+        `(met-name n)` form. If so, the call is converted into a [`call-met`](call-met)
+        function call.
+
+            (.name ob arg0 arg1)
+
+            ; ...is equivalent to...
+
+            ((met-name name) ob arg0 arg1)
+
+            ; ...is equivalent to...
+
+            (call-met 'name ob arg0 arg1)
+
+        `(met-name x)` is usually [abbreviated](../reference/syntax-and-types.html#abbreviations) 
+        as [`.x`](met-name-abbrv).
+    """
+
+[[apis]]
+    filename = "splay"
+    kinds = ["special"]
+    args = ["x iterable"]
+    text = """
+        Passes all of an iterator's items as function arguments.
+
+        During evaluation of a function call, the runtime checks whether any of the arguments are
+        `(splay x)` forms. If so, the form `x` must evaluate to an [`iterable`](iterable-p). It's
+        converted into an iterator; that iterator is repeatedly [advanced](iter-next-mut) until 
+        it's [finished](iter-finished-p); and all of the resulting items are passed as function 
+        arguments.
+
+            (let ar '(1 2 3 4))
+            (prn (+ ..ar 5)) ; prints 15
+            (prn (+ 1 2 3 4 5)) ; prints 15
+
+        `(splay x)` is usually [abbreviated](../reference/syntax-and-types.html#abbreviations) 
+        as [`..x`](splay-abbrv).
+    """
+
+[[apis]]
+    filename = "set"
+    name = "="
+    kinds = ["special", "mac"]
+    args = ["place place", "value form"]
+    returns = "nil"
+    text = """
+        Performs assignment.
+
+        When `=` is invoked as a special form, `place` must be a symbol. `=` assigns a new value 
+        to the local or global variable currently bound to that symbol. If the symbol has neither
+        a global nor a local binding, it's an error.
+
+        `=` is also bound to a macro which performs generalized assignment. When `=` is invoked
+        as a macro, if `place` is a function call, its callee must be a symbol which is bound
+        to a [registered setter](bind-place-mut). The macro expands to a call to the corresponding 
+        setter function.
+
+            (= (global 'a) 100)
+
+            ; ...expands to...
+
+            (global= 'a 100)
+
+        The `=` macro may be invoked with any number of arguments. `(= a b, c d)` is equivalent
+        to `(= a b)` followed by `(= c d)`.
+    """

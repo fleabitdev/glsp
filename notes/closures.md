@@ -24,11 +24,11 @@ with optional parameters (their `MakeStay` instr wouldn't necessarily be execute
 
 Note that promotion is *not* delayed until the variable is actually captured. For example, when 
 this fn is called, it will allocate an unnecessary `Stay` for the `never-captured` local:
-	
-	(fn ()
-	  (let never-captured)
-	  (return 1)
-	  (fn () never-captured))
+    
+    (fn ()
+      (let never-captured)
+      (return 1)
+      (fn () never-captured))
 
 In practice, if a variable *can* be captured it almost certainly *will* be captured, so the 
 performance impact there is trivial.
@@ -40,7 +40,7 @@ it just collects a set of references to `Stays` which already exist.
 
 The `Vm` maintains a stack of `Option<Raw<Stay>>s`, which grows and shrinks alongside the register
 stack as fns are called and returned. When a `GFn` is called...
-	
+    
 - We push a `None` placeholder to the stack for each local variable binding within this fn 
   which will potentially be promoted to a `Stay` using `MakeStay`
 

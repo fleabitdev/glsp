@@ -39,7 +39,7 @@ That byte slice can then be passed to [`glsp::load_compiled`] to run it.
 [`glsp::load_compiled`]: https://docs.rs/glsp/*/glsp/fn.load_compiled.html
 
 
-```rust	
+```rust
 //these two calls are roughly equivalent
 glsp::load_compiled(compile!["scripts/main.glsp"])?;
 glsp::load("scripts/main.glsp")?;
@@ -70,7 +70,7 @@ so on.
 
 This will only matter if you access one of your rglobals, or call one of your Rust functions, 
 in either of the following circumstances:
-	
+    
 - When evaluating a toplevel form (see [Evaluation](evaluation.md))
 - When running a macro expander
 
@@ -112,32 +112,32 @@ be "played back" in the future.
 which calls [`glsp::load_and_compile`] somehow differs from the GameLisp environment which calls
 [`glsp::load_compiled`] - because then the expected "playback" will differ from the actual 
 "recording", and panics or logic bugs may occur.
-	
-	; because you're loading different files on different run-throughs, an 
-	; error will occur if you compile this form on a linux machine and then 
-	; run it on a non-linux machine.
-	(cond
-	  (on-linux?
-	    (load "linux.glsp"))
-	  (else
-	    (load "non-linux.glsp")))
-	
-	; this macro expands to a constant value representing the screen width 
-	; *at the time of macro expansion*. if this happens to be different between 
-	; your own machine and the user's machine, the value will be incorrect.
-	(defmacro screen-w ()
-	  (my-window-library:screen-width))
-	
-	; because you're calling an rfn, this form will trigger an error if you pass
-	; it to the compile![] macro, rather than glsp::load_and_compile.
-	(my-sound-library:init)
+    
+    ; because you're loading different files on different run-throughs, an 
+    ; error will occur if you compile this form on a linux machine and then 
+    ; run it on a non-linux machine.
+    (cond
+      (on-linux?
+        (load "linux.glsp"))
+      (else
+        (load "non-linux.glsp")))
+    
+    ; this macro expands to a constant value representing the screen width 
+    ; *at the time of macro expansion*. if this happens to be different between 
+    ; your own machine and the user's machine, the value will be incorrect.
+    (defmacro screen-w ()
+      (my-window-library:screen-width))
+    
+    ; because you're calling an rfn, this form will trigger an error if you pass
+    ; it to the compile![] macro, rather than glsp::load_and_compile.
+    (my-sound-library:init)
 
-	; this macro stores data in a global variable during expansion, but global
-	; variables are not serialized by compile![] or glsp::load_and_compile, so
-	; the global will be empty when the expanded code is actually executed.
-	(defmacro logged (form)
-	  (push! :log form)
-	  form)
+    ; this macro stores data in a global variable during expansion, but global
+    ; variables are not serialized by compile![] or glsp::load_and_compile, so
+    ; the global will be empty when the expanded code is actually executed.
+    (defmacro logged (form)
+      (push! :log form)
+      form)
 
 The simplest way to protect yourself against this is to use [`compile!`] rather than
 [`glsp::load_and_compile`], and perform all of your loading immediately after calling 
@@ -148,18 +148,18 @@ GameLisp functions.
 
 [`Runtime`]: https://docs.rs/glsp/*/glsp/struct.Runtime.html
 [`Runtime::new`]: https://docs.rs/glsp/*/glsp/struct.Runtime.html#method.new
-	
-	; this is fine, because it's a fn rather than a macro.
-	(defn screen-w ()
-	  (my-window-library:screen-width))
-	
-	; this is fine, as long as (init-sound) isn't called from the toplevel or 
-	; from a macro expander.
-	(defn init-sound ()
-	  (my-sound-library:init))
+    
+    ; this is fine, because it's a fn rather than a macro.
+    (defn screen-w ()
+      (my-window-library:screen-width))
+    
+    ; this is fine, as long as (init-sound) isn't called from the toplevel or 
+    ; from a macro expander.
+    (defn init-sound ()
+      (my-sound-library:init))
 
-	; you can take an expansion-time variable and make it available at run-time
-	; by converting it into a literal.
-	(do
-	  (let-macro global->literal (name) `(quote ~(global name)))
-	  (= :log (deep-clone (global->literal :log))))
+    ; you can take an expansion-time variable and make it available at run-time
+    ; by converting it into a literal.
+    (do
+      (let-macro global->literal (name) `(quote ~(global name)))
+      (= :log (deep-clone (global->literal :log))))

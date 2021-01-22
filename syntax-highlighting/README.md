@@ -16,10 +16,10 @@ Also, consider using `Preferences/Settings - Syntax Specific` to adjust the foll
 
 ```json
 {
-	"tab_size": 2,
-	"rulers": [100],
-	"word_separators": "\"'`~,()[]",
-	"match_brackets": true
+    "tab_size": 2,
+    "rulers": [100],
+    "word_separators": "\"'`~,()[]",
+    "match_brackets": true
 }
 ```
 

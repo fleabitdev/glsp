@@ -27,23 +27,23 @@ the [interactive playground](../playground/).
 
 To start setting up a GameLisp project of your own, check that you're running the latest version
 of nightly Rust, and then add this line to your `Cargo.toml`:
-	
-	[dependencies]
-	glsp = "0.2"
+    
+    [dependencies]
+    glsp = "0.2"
 
 The following boilerplate code will load and run a single GameLisp source file named `main.glsp` in
 the working directory, printing a stack trace if any errors occur. (The working directory is 
 usually the same directory which contains your project's `Cargo.toml` file.)
-	
+    
 ```rust
 use glsp::prelude::*;
 
 fn main() {
-	let runtime = Runtime::new();
-	runtime.run(|| {
-		glsp::load("main.glsp")?;
-		Ok(())
-	});
+    let runtime = Runtime::new();
+    runtime.run(|| {
+        glsp::load("main.glsp")?;
+        Ok(())
+    });
 }
 ```
 

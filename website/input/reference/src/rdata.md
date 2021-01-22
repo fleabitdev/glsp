@@ -84,13 +84,13 @@ you haven't provided an explicit implementation of `IntoVal`.
 
 ```rust
 struct Sprite {
-	//...
+    //...
 }
 
 impl Sprite {
-	fn new(path: &str) -> Sprite {
-		//...
-	}
+    fn new(path: &str) -> Sprite {
+        //...
+    }
 }
 
 glsp::bind_rfn("Sprite", &Sprite::new)?;
@@ -112,8 +112,8 @@ borrow it manually.
 
 ```rust
 fn sprite_size(rdata: Root<RData>) -> GResult<(u32, u32)> {
-	let sprite = rdata.try_borrow::<Sprite>()?;
-	Ok((sprite.width, sprite.height))
+    let sprite = rdata.try_borrow::<Sprite>()?;
+    Ok((sprite.width, sprite.height))
 }
 ```
 
@@ -125,7 +125,7 @@ In other words, GameLisp will automatically write the above code on your behalf!
 
 ```rust
 fn sprite_size(sprite: &Sprite) -> (u32, u32) {
-	(sprite.width, sprite.height)
+    (sprite.width, sprite.height)
 }
 ```
 
@@ -134,9 +134,9 @@ then bind it as an `rfn` without needing to modify it at all.
 
 ```rust
 impl Sprite {
-	pub fn size(&self) -> (u32, u32) {
-		(self.width, self.height)
-	}
+    pub fn size(&self) -> (u32, u32) {
+        (self.width, self.height)
+    }
 }
 
 glsp::bind_rfn("sprite-size", &Sprite::size)?;
@@ -147,7 +147,7 @@ Rust's usual aliasing rules.
 
 ```rust
 fn copy_pixels(dst: &mut Sprite, src: &Sprite, x: u32, y: u32) {
-	//...
+    //...
 }
 
 glsp::bind_rfn("copy-pixels", &copy_pixels)?;
@@ -171,14 +171,14 @@ only shared and mutable references are supported. You can override this default 
 
 ```rust
 impl FromVal for Point {
-	fn from_val(val: &Val) -> GResult<Point> {
-		match val {
-			Val::RData(rdata) if rdata.is::<Point>() => {
-				Ok(*rdata.try_borrow::<Point>()?)
-			}
-			val => bail!("expected a Point, received {}", val)
-		}
-	}
+    fn from_val(val: &Val) -> GResult<Point> {
+        match val {
+            Val::RData(rdata) if rdata.is::<Point>() => {
+                Ok(*rdata.try_borrow::<Point>()?)
+            }
+            val => bail!("expected a Point, received {}", val)
+        }
+    }
 }
 ```
 
@@ -192,7 +192,7 @@ You could consider storing `Root<RData>` in the hash table, like so:
 
 ```rust
 struct Sprites {
-	by_name: HashMap<String, Root<RData>>
+    by_name: HashMap<String, Root<RData>>
 }
 
 let rdata = sprites.by_name.get("angry-sun").unwrap();
@@ -209,7 +209,7 @@ doesn't erase the `RData`'s actual type:
 
 ```rust
 struct Sprites {
-	by_name: HashMap<String, RRoot<Sprite>>
+    by_name: HashMap<String, RRoot<Sprite>>
 }
 
 let rdata = sprites.by_name.get("angry-sun").unwrap();

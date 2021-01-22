@@ -2,12 +2,12 @@
 
 Here is a toy GameLisp program which calculates the first thirty Fibonacci numbers:
 
-	(let fibs (arr 0 1))
+    (let fibs (arr 0 1))
 
-	(while (< (len fibs) 31)
-	  (push! fibs (+ [fibs -1] [fibs -2])))
+    (while (< (len fibs) 31)
+      (push! fibs (+ [fibs -1] [fibs -2])))
 
-	(prn [fibs -1]) ; prints 832040
+    (prn [fibs -1]) ; prints 832040
 
 In this chapter, we will describe GameLisp's syntax in full; explain why it's so different from 
 the syntax of languages like Rust; and start to think about the unique advantages which come from 
@@ -21,20 +21,20 @@ representation of a program's source code. The AST is usually hidden inside the 
 the programmer can't interact with it directly.
 
 For example, this fragment of Rust source code...
-	
+    
 ```rust
 foo.bar(1)
 ```
 
 ...could be represented by this (imaginary) AST data structure:
-	
+    
 ```rust
 Expression::MethodCall {
-	callee: Identifier("foo"),
-	method_name: Identifier("bar"),
-	arguments: vec![
-		Expression::Literal(Literal::Int(1))
-	]
+    callee: Identifier("foo"),
+    method_name: Identifier("bar"),
+    arguments: vec![
+        Expression::Literal(Literal::Int(1))
+    ]
 }
 ```
 
@@ -53,16 +53,16 @@ GameLisp, like all Lisp languages, is [homoiconic]. This means that its AST is m
 primitive data types like arrays and booleans - the same data types which you might encounter in
 a JSON file. Let's look more closely at the first line of our Fibonacci program:
 
-	(let fibs (arr 0 1))
+    (let fibs (arr 0 1))
 
 This is just the text representation of an array with these three elements:
-	
+    
 - The symbol `let`
 - The symbol `fibs`
 - A nested array, with these three elements:
-	- The symbol `arr`
-	- The integer `0`
-	- The integer `1`
+    - The symbol `arr`
+    - The integer `0`
+    - The integer `1`
 
 A comparable JSON fragment would be:
 
@@ -96,20 +96,20 @@ the raw text of your program - it's all just arrays!
 For example, here's a GameLisp program which reads in a GameLisp source file, performs
 `gettext`&#8209;style localization on it (replacing English string literals with French 
 string literals based on a one-to-one mapping listed in a file), and then runs the program:
-	
-	(let replacements (parse-1 (read-file "en-to-fr.glsp")))
-	(let source (parse-all (read-file "source.glsp")))
+    
+    (let replacements (parse-1 (read-file "en-to-fr.glsp")))
+    (let source (parse-all (read-file "source.glsp")))
 
-	(let-fn recursively-translate (val)
-	  (match val
-	    (coll : (or arr? tab?)
-	      (map-syntax recursively-translate coll))
-	    (st : str?
-	      (or [replacements (? st)] st))
-	    (val
-	      val)))
-	
-	(eval-multi (recursively-translate source))
+    (let-fn recursively-translate (val)
+      (match val
+        (coll : (or arr? tab?)
+          (map-syntax recursively-translate coll))
+        (st : str?
+          (or [replacements (? st)] st))
+        (val
+          val)))
+    
+    (eval-multi (recursively-translate source))
 
 To make this kind of code-generation more convenient, all GameLisp code is automatically put through 
 an "expansion pass" just before being run. The expansion pass inspects each array in the program; 
@@ -188,15 +188,15 @@ A symbol can optionally be suffixed with a single `#`.
 
 This opens up a much richer selection of identifiers, compared to Rust. Any of the following 
 symbols would be valid names for a variable:
-	
-	push!
-	int?
-	name=
-	foo:bar
-	-
-	//
-	1+
-	&$+%~#
+    
+    push!
+    int?
+    name=
+    foo:bar
+    -
+    //
+    1+
+    &$+%~#
 
 When the parser encounters a sequence of characters which could represent a symbol, or could
 represent a number or [abbreviation](#abbreviations), then the number or abbreviation will take
@@ -277,17 +277,17 @@ block comment is a syntax error.
 
 Prefixing a value with `#;` will turn that entire value into a comment. This can be a convenient 
 way to comment out code:
-	
-	(when (< a 100)
-	  (new-handler (+ a 1))
-	  #;(when handler-enabled?
-	    (old-handler)))
+    
+    (when (< a 100)
+      (new-handler (+ a 1))
+      #;(when handler-enabled?
+        (old-handler)))
 
 The comma `,` is a whitespace character - this can be helpful for visually breaking up long
 sequences into smaller groups.
-	
-	(let a b, c d, e f) ; easier to read
-	(let a b c d e f)   ; harder to read
+    
+    (let a b, c d, e f) ; easier to read
+    (let a b c d e f)   ; harder to read
 
 
 ## Abbreviations
@@ -311,8 +311,8 @@ The abbreviations are:
 In addition, we use curly braces for string interpolation. When a string contains curly braces, 
 it actually represents an array rather than a string. These two lines are exactly equivalent:
 
-	"text {a}{b} {c d}"
-	(template-str "text " a "" b " " c d)
+    "text {a}{b} {c d}"
+    (template-str "text " a "" b " " c d)
 
 Curly-brace characters in a string can be escaped by doubling them, as in `{{` or `}}`. Raw
 strings cannot be interpolated.
@@ -322,7 +322,7 @@ strings cannot be interpolated.
 
 The seven non-representable primitive types are each discussed in future chapters. For now, a 
 quick summary of all of `val`'s possible types:
-	
+    
 | Name | Meaning | Truthy? | Reference? |
 |------|---------|:-------:|:------:|
 |`nil`|Absent or undefined value|No|No|

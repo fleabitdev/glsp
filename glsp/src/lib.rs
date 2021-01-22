@@ -1,7 +1,7 @@
 /*!
 The [GameLisp](https://gamelisp.rs) scripting language.
 
-For a guided tour of the Rust API, see Section 2 of the 
+For a guided tour of the Rust API, see Section 2 of the
 [Reference Manual](https://gamelisp.rs/reference/overview.html).
 */
 
@@ -15,41 +15,30 @@ pub use glsp_stdlib::*;
 pub use glsp_proc_macros2::*;
 
 pub mod prelude {
-	/*!
-	The prelude.
-	
-	Due to a limitation in Rust's name lookup, the prelude currently imports any functions which
-	share their name with a macro. For example, it imports both the macro [`arr!`](macro.arr.html)
-	and the function [`glsp::arr`](fn.arr.html).
-	
-	This is unintentional, and it may change in the future. When using the prelude, macros can 
-	be invoked without their prefix, but functions should still be invoked with their
-	`glsp::` prefix.
-	*/
+    /*!
+    The prelude.
 
-	#[doc(no_inline)]
-	pub use crate::{
-		arr, backquote, bail, bail_at, ensure, ensure_at, epr, eprn, error, macro_no_op, 
-		pr, prn, quote, str, sym, syms, tab, try_arr, try_backquote, try_tab,
+    Due to a limitation in Rust's name lookup, the prelude currently imports any functions which
+    share their name with a macro. For example, it imports both the macro [`arr!`](macro.arr.html)
+    and the function [`glsp::arr`](fn.arr.html).
 
-		Arr, 
-		Callable, CallableOps, Class, Coro, CoroState, 
-		Deque, DequeAccess, DequeAccessRange, DequeOps, 
-		EnvMode, Expander, Expansion,
-		FromVal, 
-		Gc, GcVal, GcVisitor, GError, GFn, GIter, GIterLen, GResult,
-		Hashable, 
-		IntoVal, Iterable, IterableOps,
-		Num, 
-		Obj,
-		RClass, RClassBuilder, RData, Rest, RFn, RGc, RGlobal, RGlobalRef, 
-		RGlobalRefMut, Root, RRoot, RRef, RRefMut, Runtime, RuntimeBuilder,
-		Splay, Str, Sym,
-		Tab, ToSym,
-		Val,
-	};
+    This is unintentional, and it may change in the future. When using the prelude, macros can
+    be invoked without their prefix, but functions should still be invoked with their
+    `glsp::` prefix.
+    */
 
-	#[cfg(feature = "compiler")]
-	#[doc(no_inline)]
-	pub use crate::{compile, eval};
+    #[doc(no_inline)]
+    pub use crate::{
+        arr, backquote, bail, bail_at, ensure, ensure_at, epr, eprn, error, macro_no_op, pr, prn,
+        quote, str, sym, syms, tab, try_arr, try_backquote, try_tab, Arr, Callable, CallableOps,
+        Class, Coro, CoroState, Deque, DequeAccess, DequeAccessRange, DequeOps, EnvMode, Expander,
+        Expansion, FromVal, GError, GFn, GIter, GIterLen, GResult, Gc, GcVal, GcVisitor, Hashable,
+        IntoVal, Iterable, IterableOps, Num, Obj, RClass, RClassBuilder, RData, RFn, RGc, RGlobal,
+        RGlobalRef, RGlobalRefMut, RRef, RRefMut, RRoot, Rest, Root, Runtime, RuntimeBuilder,
+        Splay, Str, Sym, Tab, ToSym, Val,
+    };
+
+    #[cfg(feature = "compiler")]
+    #[doc(no_inline)]
+    pub use crate::{compile, eval};
 }

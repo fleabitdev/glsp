@@ -38,12 +38,12 @@ Global functions and global variables are categorized into de-facto modules with
 names, like `img`, `phys` or `res`. Global names are prefixed with their "module": 
 `img:draw`, `res:load-resources`. Toplevel `let` variables and `let-fn` functions are similarly 
 prefixed, mostly to differentiate them from local variables.
-	
-	(defn phys:step ()
-	  ...)
+    
+    (defn phys:step ()
+      ...)
 
-	(let-fn phys:box-coords (box)
-	  ...)
+    (let-fn phys:box-coords (box)
+      ...)
 
 A small number of ubiquitous global variables are prefixed with `:`, purely to make them more 
 brief. For example, `:clock` for the current game-time, `:dt` for the "delta time" since the last 

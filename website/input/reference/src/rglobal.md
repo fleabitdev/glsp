@@ -17,16 +17,16 @@ much less convenient to use. Typical use of a [`thread_local!`] variable is not 
 
 ```rust
 thread_local! {
-	pub(crate) static LOG_FILE: RefCell<Option<File>> = RefCell::new(None);
+    pub(crate) static LOG_FILE: RefCell<Option<File>> = RefCell::new(None);
 }
 
 fn log_str(text: &str) {
-	LOG_FILE.with(|ref_cell| {
-		let mut option = ref_cell.borrow_mut();
-		if let Some(ref mut file) = *option {
-			file.write_all(text.as_bytes()).ok();
-		}
-	})
+    LOG_FILE.with(|ref_cell| {
+        let mut option = ref_cell.borrow_mut();
+        if let Some(ref mut file) = *option {
+            file.write_all(text.as_bytes()).ok();
+        }
+    })
 }
 ```
 
@@ -36,9 +36,9 @@ Contrast the equivalent C code:
 thread_local FILE* log_file;
 
 void log_str(const char* text) {
-	if (log_file) {
-		assert(fputs(text, log_file));
-	}
+    if (log_file) {
+        assert(fputs(text, log_file));
+    }
 }
 ```
 
@@ -48,20 +48,20 @@ going to be one of it, and it's only ever going to be accessed from a single thr
 still forces you to keep it at arm's length.
 
 You're given two options:
-	
-	- Use something like a [`lazy_static!`] [`RwLock`]. At minimum, this requires you to recite the
-	  incantation `NAME.read().unwrap()` every time you access the global object. This is 
-	  inconvenient, it makes the order of initialization/destruction less predictable, and it 
-	  carries a non&#8209;trivial performance cost.
+    
+    - Use something like a [`lazy_static!`] [`RwLock`]. At minimum, this requires you to recite the
+      incantation `NAME.read().unwrap()` every time you access the global object. This is 
+      inconvenient, it makes the order of initialization/destruction less predictable, and it 
+      carries a non&#8209;trivial performance cost.
 
-	- Allocate your "global" object on the stack when your program starts up, and pass borrowed
-	  references down the callstack to any function which needs to access it. I would consider this 
-	  an anti&#8209;pattern in Rust game development - passing a context reference into most 
-	  function calls adds a lot of visual noise, and it sometimes causes borrow&#8209;checker 
-	  headaches.
-		- This is why functions like [`glsp::sym`] are free functions, rather than being invoked
-		  as methods on some `&mut Glsp` "God object". An earlier version of the `glsp` crate
-		  did work that way, but it made the library much less pleasant to use.
+    - Allocate your "global" object on the stack when your program starts up, and pass borrowed
+      references down the callstack to any function which needs to access it. I would consider this 
+      an anti&#8209;pattern in Rust game development - passing a context reference into most 
+      function calls adds a lot of visual noise, and it sometimes causes borrow&#8209;checker 
+      headaches.
+        - This is why functions like [`glsp::sym`] are free functions, rather than being invoked
+          as methods on some `&mut Glsp` "God object". An earlier version of the `glsp` crate
+          did work that way, but it made the library much less pleasant to use.
 
 [`RwLock`]: https://doc.rust-lang.org/std/sync/struct.RwLock.html
 [`glsp::sym`]: https://docs.rs/glsp/*/glsp/fn.sym.html
@@ -76,7 +76,7 @@ stands for "Rust global".
 
 Unlike [`RData`], rglobals are singletons: for a given rglobal type, you can only store one 
 instance of that type in each `Runtime`.
-	
+    
 To define an rglobal, implement the [`RGlobal` trait] for one of your types, and then pass
 an instance of that type to the [`glsp::add_rglobal`] function. Ownership will be transferred
 to the active `Runtime`. If you later decide that you'd like to remove the rglobal from the
@@ -96,22 +96,22 @@ borrow it by calling [`T::borrow()`] or [`T::borrow_mut()`].
 
 ```rust
 struct Textures {
-	by_name: HashMap<Sym, RRoot<Texture>>
+    by_name: HashMap<Sym, RRoot<Texture>>
 }
 
 impl RGlobal for Textures { }
 
 fn init() {
-	glsp::add_rglobal(Textures::new());
+    glsp::add_rglobal(Textures::new());
 }
 
 fn get_texture(name: Sym) -> GResult<RRoot<Texture>> {
-	let textures = Textures::borrow();
+    let textures = Textures::borrow();
 
-	match textures.by_name.get(&name) {
-		Some(texture) => Ok(RRoot::clone(texture)),
-		None => bail!("texture {} does not exist", name)
-	}
+    match textures.by_name.get(&name) {
+        Some(texture) => Ok(RRoot::clone(texture)),
+        None => bail!("texture {} does not exist", name)
+    }
 }
 ```
 
@@ -132,12 +132,12 @@ this:
 
 ```rust
 impl Textures {
-	fn get_texture(&self, name: Sym) -> GResult<RRoot<Texture>> {
-		match self.by_name.get(&name) {
-			Some(texture) => Ok(RRoot::clone(texture)),
-			None => bail!("texture {} does not exist", name)
-		}
-	}
+    fn get_texture(&self, name: Sym) -> GResult<RRoot<Texture>> {
+        match self.by_name.get(&name) {
+            Some(texture) => Ok(RRoot::clone(texture)),
+            None => bail!("texture {} does not exist", name)
+        }
+    }
 }
 
 glsp::bind_rfn("get-texture", &Textures::get_texture)?;
@@ -154,17 +154,17 @@ A function may have multiple rglobal parameters:
 
 ```rust
 impl Textures {
-	fn draw_texture(
-		&self,
-		renderer: &mut Renderer,
-		name: Sym,
-		x: i32,
-		y: i32
-	) -> GResult<()> {
+    fn draw_texture(
+        &self,
+        renderer: &mut Renderer,
+        name: Sym,
+        x: i32,
+        y: i32
+    ) -> GResult<()> {
 
-		let texture = self.get_texture(name)?;
-		renderer.draw(&texture.borrow(), x, y)
-	}
+        let texture = self.get_texture(name)?;
+        renderer.draw(&texture.borrow(), x, y)
+    }
 }
 
 glsp::bind_rfn("draw-texture", &Textures::draw_texture)?;
@@ -190,26 +190,26 @@ be quite important!)
 
 If you want to cache a symbol, the most convenient option is usually to store it in an rglobal.
 This will ensure that you don't accidentally share symbols between one `Runtime` and another.
-	
+    
 ```rust
 struct Textures {
-	//...
+    //...
 
-	pub nearest_neighbour_sym: Sym,
-	pub bilinear_sym: Sym,
-	pub trilinear_sym: Sym
+    pub nearest_neighbour_sym: Sym,
+    pub bilinear_sym: Sym,
+    pub trilinear_sym: Sym
 }
 
 impl Textures {
-	fn new() -> Textures {
-		Textures {
-			//...
+    fn new() -> Textures {
+        Textures {
+            //...
 
-			nearest_neighbour_sym: sym!("nearest-neighbour"),
-			bilinear_sym: sym!("bilinear"),
-			trilinear_sym: sym!("trilinear")
-		}
-	}
+            nearest_neighbour_sym: sym!("nearest-neighbour"),
+            bilinear_sym: sym!("bilinear"),
+            trilinear_sym: sym!("trilinear")
+        }
+    }
 }
 ```
 
@@ -221,27 +221,27 @@ field by calling [`glsp::sym`].
 
 ```rust
 syms! {
-	pub (crate) struct Syms {
-		pub(crate) nearest_neighbour: "nearest-neighbour",
-		pub(crate) bilinear: "bilinear",
-		pub(crate) trilinear: "trilinear"
-	}
+    pub (crate) struct Syms {
+        pub(crate) nearest_neighbour: "nearest-neighbour",
+        pub(crate) bilinear: "bilinear",
+        pub(crate) trilinear: "trilinear"
+    }
 }
 
 struct Textures {
-	syms: Syms,
+    syms: Syms,
 
-	//...
+    //...
 }
 
 impl Textures {
-	fn new() -> Textures {
-		Textures {
-			syms: Syms::new(),
+    fn new() -> Textures {
+        Textures {
+            syms: Syms::new(),
 
-			//...
-		}
-	}
+            //...
+        }
+    }
 }
 ```
 
@@ -265,12 +265,12 @@ Let's imagine you have a `Clip` which stores a few seconds of PCM audio data, an
 which performs audio mixing in software. You want to load and manipulate `Clips` from your GameLisp
 scripts, while still allowing the worker thread to access their PCM samples. A naive attempt 
 would look something like this:
-	
+    
 ```rust
 struct Clip {
-	name: Sym,
-	channels: Channels,
-	samples: Vec<i16>
+    name: Sym,
+    channels: Channels,
+    samples: Vec<i16>
 }
 
 let clip = glsp::rdata(Clip::load("door-opening.wav"));
@@ -294,19 +294,19 @@ your struct in an [`Arc<T>`]:
 
 ```rust
 struct Clip {
-	name: Sym,
-	samples: Arc<Samples>
+    name: Sym,
+    samples: Arc<Samples>
 }
 
 struct Samples {
-	channels: Channels,
-	samples: Vec<i16>
+    channels: Channels,
+    samples: Vec<i16>
 }
 
 impl Clip {
-	fn play(&self, mixer: &Mixer) {
-		mixer.play_samples(Arc::clone(&self.samples));
-	}
+    fn play(&self, mixer: &Mixer) {
+        mixer.play_samples(Arc::clone(&self.samples));
+    }
 }
 ```
 
@@ -358,53 +358,53 @@ struct Position(f32, f32);
 
 //the (ecs:position) function: access a Position from a glsp script
 fn ecs_position(
-	bevy: &Bevy,
-	entity: &Entity
+    bevy: &Bevy,
+    entity: &Entity
 ) -> (f32, f32) {
 
-	let position = bevy.0.world.get::<Position>(*entity_id).unwrap();
-	(position.0, position.1)
+    let position = bevy.0.world.get::<Position>(*entity_id).unwrap();
+    (position.0, position.1)
 }
 
 //the (ecs:position=) function: mutate a Position from a glsp script
 fn ecs_set_position(
-	bevy: &mut Bevy,
-	entity_id: &Entity,
-	(x, y): (f32, f32)
+    bevy: &mut Bevy,
+    entity_id: &Entity,
+    (x, y): (f32, f32)
 ) {
 
-	let mut position = bevy.0.world.get_mut::<Position>(*entity_id).unwrap();
-	*position = Position(x, y);
+    let mut position = bevy.0.world.get_mut::<Position>(*entity_id).unwrap();
+    *position = Position(x, y);
 }
 
 fn main() {
-	let runtime = Runtime::new();
-	runtime.run(|| {
+    let runtime = Runtime::new();
+    runtime.run(|| {
 
-		//register accessor/mutator functions with glsp
-		glsp::bind_rfn("ecs:position", &ecs_position)?;
-		glsp::bind_rfn("ecs:position=", &ecs_set_position)?;
+        //register accessor/mutator functions with glsp
+        glsp::bind_rfn("ecs:position", &ecs_position)?;
+        glsp::bind_rfn("ecs:position=", &ecs_set_position)?;
 
-		//construct the ECS
-		let mut app_builder = App::build();
+        //construct the ECS
+        let mut app_builder = App::build();
 
-		//...register your usual systems, and so on...
+        //...register your usual systems, and so on...
 
-		//store the bevy App as an rglobal
-		glsp::add_rglobal(Bevy(app_builder.app));
+        //store the bevy App as an rglobal
+        glsp::add_rglobal(Bevy(app_builder.app));
 
-		//the main loop
-		loop {
-			//run bevy for a single step
-			Bevy::borrow_mut().0.update();
+        //the main loop
+        loop {
+            //run bevy for a single step
+            Bevy::borrow_mut().0.update();
 
-			//now, you can execute glsp code for this step. global
-			//functions like (ecs:position=) will automatically access a
-			//particular Entity's components, stored within the bevy App
-		}
+            //now, you can execute glsp code for this step. global
+            //functions like (ecs:position=) will automatically access a
+            //particular Entity's components, stored within the bevy App
+        }
 
-		Ok(())
-	}).unwrap();
+        Ok(())
+    }).unwrap();
 }
 ```
 

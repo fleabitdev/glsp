@@ -3,657 +3,657 @@ name = "Iterators"
 text = ""
 
 [[apis]]
-	filename = "iter"
-	starts-subcategory = "Iteration"
-	kinds = ["fn"]
-	args = ["arg iterable"]
-	returns = "iter"
-	text = """
-		Constructs an iterator over a collection.
+    filename = "iter"
+    starts-subcategory = "Iteration"
+    kinds = ["fn"]
+    args = ["arg iterable"]
+    returns = "iter"
+    text = """
+        Constructs an iterator over a collection.
 
-		The result depends on the type of `arg`:
+        The result depends on the type of `arg`:
 
-		- For an iterator, that iterator is simply returned.
-		- For an array, returns an iterator over each of the array's elements.
-		- For a string, returns an iterator over each of the string's characters.
-		- For a table, returns an iterator which produces an array for each of the 
-		  table's entries, in an arbitrary order. Each array is newly-allocated and mutable, 
-		  and it contains two elements: `(key value)`.
-			- Alternatively, consider using the [`keys`](keys) and [`values`](values) functions.
-		- For a coroutine, returns an iterator which produces each value yielded by the
-		  coroutine. The coroutine's final return value is not produced by the iterator.
-		
-		Nothing prevents `arg` from being mutated during iteration. This is memory-safe, but 
-		it may cause the iterator to behave unpredictably.
+        - For an iterator, that iterator is simply returned.
+        - For an array, returns an iterator over each of the array's elements.
+        - For a string, returns an iterator over each of the string's characters.
+        - For a table, returns an iterator which produces an array for each of the 
+          table's entries, in an arbitrary order. Each array is newly-allocated and mutable, 
+          and it contains two elements: `(key value)`.
+            - Alternatively, consider using the [`keys`](keys) and [`values`](values) functions.
+        - For a coroutine, returns an iterator which produces each value yielded by the
+          coroutine. The coroutine's final return value is not produced by the iterator.
+        
+        Nothing prevents `arg` from being mutated during iteration. This is memory-safe, but 
+        it may cause the iterator to behave unpredictably.
 
-		When an iterator is passed to `iter`, the result is an alias for `arg`. Calling 
-		[`iter-next!`](iter-next-mut) for the result will also advance the original iterator.
-		To create a non-aliasing copy of an iterator, call [`clone`](clone) instead.
-	"""
-
-[[apis]]
-	filename = "iter-next-mut"
-	kinds = ["fn"]
-	args = ["it iter"]
-	returns = "val"
-	text = """
-		Advances an iterator.
-
-		If an iterator is [finished](iter-finished-p), returns `#n`. Otherwise, advances the
-		iterator and returns the value which it produces.
-	"""
+        When an iterator is passed to `iter`, the result is an alias for `arg`. Calling 
+        [`iter-next!`](iter-next-mut) for the result will also advance the original iterator.
+        To create a non-aliasing copy of an iterator, call [`clone`](clone) instead.
+    """
 
 [[apis]]
-	filename = "iter-next-back-mut"
-	kinds = ["fn"]
-	args = ["it iter"]
-	returns = "val"
-	text = """
-		Advances the back of a double-ended iterator.
+    filename = "iter-next-mut"
+    kinds = ["fn"]
+    args = ["it iter"]
+    returns = "val"
+    text = """
+        Advances an iterator.
 
-		The argument must be [double-ended](iter-double-ended-p). If it's 
-		[finished](iter-finished-p), returns `#n`. Otherwise, advances the back of the
-		iterator and returns the value produced.
-	"""
-
-[[apis]]
-	filename = "iter-finished-p"
-	kinds = ["fn"]
-	args = ["it iter"]
-	returns = "bool"
-	text = """
-		Returns `#t` if an iterator has no more items to produce.
-
-		For a finished iterator, [`iter-next!`](iter-next-mut) will always return `#n`. However,
-		returning `#n` does not imply that the iterator is necessarily finished.
-
-			(let it (iter '(0 #n)))
-			(prn (iter-next! it))     ; prints 0
-			(prn (iter-finished? #t)) ; prints #f
-			(prn (iter-next! it))     ; prints #n
-			(prn (iter-finished? #t)) ; prints #f
-			(prn (iter-next! it))     ; prints #n
-			(prn (iter-finished? #t)) ; prints #t
-
-		`iter-finished?` is updated *after* calling `iter-next!`. It won't return `#t` until
-		`iter-next!` has returned `#n` at least once.
-	"""
+        If an iterator is [finished](iter-finished-p), returns `#n`. Otherwise, advances the
+        iterator and returns the value which it produces.
+    """
 
 [[apis]]
-	filename = "iter-double-ended-p"
-	kinds = ["fn"]
-	args = ["it iter"]
-	returns = "bool"
-	see-also = ["iter-next-back-mut"]
-	text = """
-		Returns `#t` if an iterator can be advanced from the back.
-	"""
+    filename = "iter-next-back-mut"
+    kinds = ["fn"]
+    args = ["it iter"]
+    returns = "val"
+    text = """
+        Advances the back of a double-ended iterator.
+
+        The argument must be [double-ended](iter-double-ended-p). If it's 
+        [finished](iter-finished-p), returns `#n`. Otherwise, advances the back of the
+        iterator and returns the value produced.
+    """
 
 [[apis]]
-	filename = "rn"
-	starts-subcategory = "Basic Iterators"
-	kinds = ["fn"]
-	args = ["x num", "y num|nil ?", "z num ?1"]
-	returns = "iter"
-	text = """
-		Iterates over a numeric range.
+    filename = "iter-finished-p"
+    kinds = ["fn"]
+    args = ["it iter"]
+    returns = "bool"
+    text = """
+        Returns `#t` if an iterator has no more items to produce.
 
-		`(rn x)` is equivalent to `(rn 0 x)`.
+        For a finished iterator, [`iter-next!`](iter-next-mut) will always return `#n`. However,
+        returning `#n` does not imply that the iterator is necessarily finished.
 
-		`(rn x y z)` iterates from `x` inclusive to `y` exclusive, incrementing by `z` each time.
+            (let it (iter '(0 #n)))
+            (prn (iter-next! it))     ; prints 0
+            (prn (iter-finished? #t)) ; prints #f
+            (prn (iter-next! it))     ; prints #n
+            (prn (iter-finished? #t)) ; prints #f
+            (prn (iter-next! it))     ; prints #n
+            (prn (iter-finished? #t)) ; prints #t
 
-		`(rn x #n z)` endlessly counts upwards or downwards from `x`, incrementing the counter by 
-		`z` each time.
-
-		If any argument is a float, then the iterator will produce floats. Otherwise, it will
-		produce integers.
-
-		If `z` is less than `0`, iteration is finished when the counter is `<=` `y`. Otherwise,
-		iteration ends when the counter is `>=` `y`.
-
-			(prn (arr ..(rn 3))) ; prints (0 1 2)
-			(prn (arr ..(rn 0 3))) ; prints (0 1 2)
-			(prn (arr ..(rn 0 3 1.0))) ; prints (0.0 1.0 2.0)
-
-			(prn (arr ..(rn 2 14 3))) ; prints (2 5 8 11)
-			(prn (arr ..(rn 2 14 -1))) ; prints ()
-			(prn (arr ..(rn 2 2 -1))) ; prints ()
-			(prn (arr ..(rn 5 0 -1))) ; prints (5 4 3 2 1)
-	"""
+        `iter-finished?` is updated *after* calling `iter-next!`. It won't return `#t` until
+        `iter-next!` has returned `#n` at least once.
+    """
 
 [[apis]]
-	filename = "rni"
-	kinds = ["fn"]
-	args = ["x num", "y num|nil ?", "z num ?1"]
-	returns = "iter"
-	text = """
-		Iterates over an inclusive numeric range.
-
-		This is equivalent to [`rn`](rn), except that the `y` argument is inclusive rather 
-		than exclusive.
-	"""
+    filename = "iter-double-ended-p"
+    kinds = ["fn"]
+    args = ["it iter"]
+    returns = "bool"
+    see-also = ["iter-next-back-mut"]
+    text = """
+        Returns `#t` if an iterator can be advanced from the back.
+    """
 
 [[apis]]
-	filename = "once"
-	kinds = ["fn"]
-	args = ["args val *"]
-	returns = "iter"
-	text = """
-		Iterates over zero or more arguments.
+    filename = "rn"
+    starts-subcategory = "Basic Iterators"
+    kinds = ["fn"]
+    args = ["x num", "y num|nil ?", "z num ?1"]
+    returns = "iter"
+    text = """
+        Iterates over a numeric range.
 
-		Calling `(once)` with no arguments is the idiomatic way to construct an "empty" iterator 
-		which doesn't produce anything.
+        `(rn x)` is equivalent to `(rn 0 x)`.
 
-			(prn (arr ..(once))) ; prints ()
-			(prn (arr ..(once 'a))) ; prints (a)
-			(prn (arr ..(once 'a 'b 'c))) ; prints (a b c)
-	"""
+        `(rn x y z)` iterates from `x` inclusive to `y` exclusive, incrementing by `z` each time.
 
-[[apis]]
-	filename = "once-with"
-	kinds = ["fn"]
-	args = ["f callable"]
-	returns = "iter"
-	text = """
-		Returns an iterator which lazily calls a function.
+        `(rn x #n z)` endlessly counts upwards or downwards from `x`, incrementing the counter by 
+        `z` each time.
 
-		The iterator always produces exactly one item: the result of calling `(f)`. The function
-		is not actually called until the iterator is advanced.
-	"""
+        If any argument is a float, then the iterator will produce floats. Otherwise, it will
+        produce integers.
 
-[[apis]]
-	filename = "repeat"
-	kinds = ["fn"]
-	args = ["args val +"]
-	returns = "iter"
-	text = """
-		Returns an iterator which infinitely yields its arguments.
+        If `z` is less than `0`, iteration is finished when the counter is `<=` `y`. Otherwise,
+        iteration ends when the counter is `>=` `y`.
 
-		Infinite iterators can be converted to finite iterators using [`take`](take).
+            (prn (arr ..(rn 3))) ; prints (0 1 2)
+            (prn (arr ..(rn 0 3))) ; prints (0 1 2)
+            (prn (arr ..(rn 0 3 1.0))) ; prints (0.0 1.0 2.0)
 
-			(prn ..(take 5 (repeat 1 2))) ; prints 1 2 1 2 1
-	"""
+            (prn (arr ..(rn 2 14 3))) ; prints (2 5 8 11)
+            (prn (arr ..(rn 2 14 -1))) ; prints ()
+            (prn (arr ..(rn 2 2 -1))) ; prints ()
+            (prn (arr ..(rn 5 0 -1))) ; prints (5 4 3 2 1)
+    """
 
 [[apis]]
-	filename = "repeat-with"
-	kinds = ["fn"]
-	args = ["f callable"]
-	returns = "iter"
-	text = """
-		Returns an iterator which repeatedly calls a function.
+    filename = "rni"
+    kinds = ["fn"]
+    args = ["x num", "y num|nil ?", "z num ?1"]
+    returns = "iter"
+    text = """
+        Iterates over an inclusive numeric range.
 
-		The iterator is infinite. Each time it's advanced, it calls `(f)` and produces the
-		result of the call.
-
-		Infinite iterators can be converted to finite iterators using [`take`](take).
-
-			(let n 1)
-			(let-fn powers ()
-			  (= n (* n 2))
-			  n)
-
-			(prn ..(take 4 (repeat-with powers))) ; prints 2 4 8 16
-	"""
+        This is equivalent to [`rn`](rn), except that the `y` argument is inclusive rather 
+        than exclusive.
+    """
 
 [[apis]]
-	filename = "chunks"
-	kinds = ["fn"]
-	args = ["len int", "src arr"]
-	returns = "iter"
-	text = """
-		Iterates over non-overlapping sub-arrays.
+    filename = "once"
+    kinds = ["fn"]
+    args = ["args val *"]
+    returns = "iter"
+    text = """
+        Iterates over zero or more arguments.
 
-		Each array produced by the iterator is newly-allocated and mutable. If the length of 
-		`src` is not an exact multiple of `len`, the final array will be shorter than `len`.
+        Calling `(once)` with no arguments is the idiomatic way to construct an "empty" iterator 
+        which doesn't produce anything.
 
-			(prn ..(chunks 2 '(0 1 2 3 4))) ; prints (0 1) (2 3) (4)
-	"""
-
-[[apis]]
-	filename = "chunks-exact"
-	kinds = ["fn"]
-	args = ["len int", "src arr"]
-	returns = "iter"
-	text = """
-		Iterates over non-overlapping sub-arrays with an exact size.
-
-		Each array produced by the iterator is newly-allocated and mutable, with exactly `len`
-		elements. If the length of `src` is not an exact multiple of `len`, some of its
-		elements will be skipped.
-
-			(prn ..(chunks-exact 2 '(0 1 2 3 4))) ; prints (0 1) (2 3)
-	"""
+            (prn (arr ..(once))) ; prints ()
+            (prn (arr ..(once 'a))) ; prints (a)
+            (prn (arr ..(once 'a 'b 'c))) ; prints (a b c)
+    """
 
 [[apis]]
-	filename = "rchunks"
-	kinds = ["fn"]
-	args = ["len int", "src arr"]
-	returns = "iter"
-	text = """
-		Iterates over non-overlapping sub-arrays, in reverse order.
+    filename = "once-with"
+    kinds = ["fn"]
+    args = ["f callable"]
+    returns = "iter"
+    text = """
+        Returns an iterator which lazily calls a function.
 
-		Each array produced by the iterator is newly-allocated and mutable. If the length of 
-		`src` is not an exact multiple of `len`, the final array will be shorter than `len`.
-
-			(prn ..(rchunks 2 '(0 1 2 3 4))) ; prints (3 4) (1 2) (0)
-	"""
+        The iterator always produces exactly one item: the result of calling `(f)`. The function
+        is not actually called until the iterator is advanced.
+    """
 
 [[apis]]
-	filename = "rchunks-exact"
-	kinds = ["fn"]
-	args = ["len int", "src arr"]
-	returns = "iter"
-	text = """
-		Iterates over non-overlapping sub-arrays with an exact size, in reverse order.
+    filename = "repeat"
+    kinds = ["fn"]
+    args = ["args val +"]
+    returns = "iter"
+    text = """
+        Returns an iterator which infinitely yields its arguments.
 
-		Each array produced by the iterator is newly-allocated and mutable, with exactly `len`
-		elements. If the length of `src` is not an exact multiple of `len`, some of its
-		elements will be skipped.
+        Infinite iterators can be converted to finite iterators using [`take`](take).
 
-			(prn ..(rchunks-exact 2 '(0 1 2 3 4))) ; prints (3 4) (1 2)
-	"""
+            (prn ..(take 5 (repeat 1 2))) ; prints 1 2 1 2 1
+    """
 
 [[apis]]
-	filename = "windows"
-	kinds = ["fn"]
-	args = ["len int", "src arr"]
-	returns = "iter"
-	text = """
-		Iterates over overlapping sub-arrays.
+    filename = "repeat-with"
+    kinds = ["fn"]
+    args = ["f callable"]
+    returns = "iter"
+    text = """
+        Returns an iterator which repeatedly calls a function.
 
-		Each array produced by the iterator is newly-allocated and mutable, with exactly `len`
-		elements. If `src` has fewer than `len` elements, the iterator yields nothing.
+        The iterator is infinite. Each time it's advanced, it calls `(f)` and produces the
+        result of the call.
 
-			(let it (windows 3 '(0 1 2 3 4)))
-			(prn ..it) ; prints (0 1 2) (1 2 3) (2 3 4)
-	"""
+        Infinite iterators can be converted to finite iterators using [`take`](take).
 
-[[apis]]
-	filename = "lines"
-	kinds = ["fn"]
-	args = ["st str"]
-	returns = "iter"
-	text = """
-		Iterates over lines in a string.
+            (let n 1)
+            (let-fn powers ()
+              (= n (* n 2))
+              n)
 
-		Line-endings are `\\n` or `\\r\\n`. The line endings are not included in the output.
-
-			(let text "Monsters.\\nHumans.\\nEveryone.")
-			(let ar ..(lines text))
-
-			(prn ar) ; prints ("Monsters." "Humans." "Everyone.")
-	"""
+            (prn ..(take 4 (repeat-with powers))) ; prints 2 4 8 16
+    """
 
 [[apis]]
-	filename = "split"
-	kinds = ["fn"]
-	args = ["len int", "split-at str|char"]
-	returns = "iter"
-	text = """
-		Iterates over sub-strings.
+    filename = "chunks"
+    kinds = ["fn"]
+    args = ["len int", "src arr"]
+    returns = "iter"
+    text = """
+        Iterates over non-overlapping sub-arrays.
 
-		When `split-at` is a string, each character within that string is a potential splitter
-		character. Note that this behaviour differs from Rust's [`str::split`][0] method.
+        Each array produced by the iterator is newly-allocated and mutable. If the length of 
+        `src` is not an exact multiple of `len`, the final array will be shorter than `len`.
 
-		[0]: https://doc.rust-lang.org/std/str/struct.Split.html
-
-		Multiple consecutive splitter characters are separated internally by `""`.
-
-			(let it (split "Running::jump" \\:))
-			(prn (arr ..it)) ; prints ("Running" "" "jump")
-
-		This means that `split` can't be used to identify words separated by whitespace.
-
-			(let ws-chars " \\r\\n\\t")
-			(let it (split "a \\n b" ws-chars))
-			(prn (arr ..it)) ; prints ("a" "" "" "b")
-	"""
+            (prn ..(chunks 2 '(0 1 2 3 4))) ; prints (0 1) (2 3) (4)
+    """
 
 [[apis]]
-	filename = "keys"
-	kinds = ["fn"]
-	args = ["t tab"]
-	returns = "iter"
-	text = """
-		Iterates over the keys of a table.
+    filename = "chunks-exact"
+    kinds = ["fn"]
+    args = ["len int", "src arr"]
+    returns = "iter"
+    text = """
+        Iterates over non-overlapping sub-arrays with an exact size.
 
-		The keys are returned in an arbitrary order.
+        Each array produced by the iterator is newly-allocated and mutable, with exactly `len`
+        elements. If the length of `src` is not an exact multiple of `len`, some of its
+        elements will be skipped.
 
-			(let t #((a 0) (b 1) (c 2)))
-			(prn (arr ..(keys t))) ; prints (c a b)
-	"""
-
-[[apis]]
-	filename = "values"
-	kinds = ["fn"]
-	args = ["t tab"]
-	returns = "iter"
-	text = """
-		Iterates over the values of a table.
-
-		The values are returned in an arbitrary order.
-
-			(let t #((a 0) (b 1) (c 2)))
-			(prn (arr ..(values t))) ; prints (2 0 1)
-	"""
+            (prn ..(chunks-exact 2 '(0 1 2 3 4))) ; prints (0 1) (2 3)
+    """
 
 [[apis]]
-	filename = "rev"
-	starts-subcategory = "Iterator Adapters"
-	kinds = ["fn"]
-	args = ["it iterable"]
-	returns = "iter"
-	text = """
-		Reverses an iterator.
+    filename = "rchunks"
+    kinds = ["fn"]
+    args = ["len int", "src arr"]
+    returns = "iter"
+    text = """
+        Iterates over non-overlapping sub-arrays, in reverse order.
 
-		The base iterator must be [double-ended](iter-double-ended-p). Returns an iterator 
-		for which [`iter-next!`](iter-next-mut) calls `(iter-next-back! it)`, and
-		[`iter-next-back!`](iter-next-back-mut) calls `(iter-next! it)`.
-	"""
+        Each array produced by the iterator is newly-allocated and mutable. If the length of 
+        `src` is not an exact multiple of `len`, the final array will be shorter than `len`.
 
-[[apis]]
-	filename = "enumerate"
-	kinds = ["fn"]
-	args = ["it iterable"]
-	returns = "iter"
-	text = """
-		Counts an iterator's items as they're yielded.
-
-		Returns an iterator which produces mutable arrays with two elements, `(n item)`, 
-		where `n` counts upwards starting from `0`, and `item` is the result of calling 
-		`(iter-next! it)`.
-
-			(prn ..(enumerate '(x y))) ; prints (0 x) (1 y)
-	"""
+            (prn ..(rchunks 2 '(0 1 2 3 4))) ; prints (3 4) (1 2) (0)
+    """
 
 [[apis]]
-	filename = "cloned"
-	kinds = ["fn"]
-	args = ["it iterable"]
-	returns = "iter"
-	text = """
-		Clones another iterator's items.
+    filename = "rchunks-exact"
+    kinds = ["fn"]
+    args = ["len int", "src arr"]
+    returns = "iter"
+    text = """
+        Iterates over non-overlapping sub-arrays with an exact size, in reverse order.
 
-		Returns an iterator which produces [`(clone (iter-next! it))`](clone).
-	"""
+        Each array produced by the iterator is newly-allocated and mutable, with exactly `len`
+        elements. If the length of `src` is not an exact multiple of `len`, some of its
+        elements will be skipped.
 
-[[apis]]
-	filename = "deep-cloned"
-	kinds = ["fn"]
-	args = ["it iterable"]
-	returns = "iter"
-	text = """
-		Recursively clones another iterator's items.
-
-		Returns an iterator which produces [`(deep-clone (iter-next! it))`](deep-clone).
-	"""
+            (prn ..(rchunks-exact 2 '(0 1 2 3 4))) ; prints (3 4) (1 2)
+    """
 
 [[apis]]
-	filename = "step-by"
-	kinds = ["fn"]
-	args = ["n int", "it iterable"]
-	returns = "iter"
-	text = """
-		Skips over another iterator's items by the given interval.
+    filename = "windows"
+    kinds = ["fn"]
+    args = ["len int", "src arr"]
+    returns = "iter"
+    text = """
+        Iterates over overlapping sub-arrays.
 
-		Every time this iterator is advanced, it calls `(iter-next! it)` a total of `n` times,
-		discarding all items except the first.
+        Each array produced by the iterator is newly-allocated and mutable, with exactly `len`
+        elements. If `src` has fewer than `len` elements, the iterator yields nothing.
 
-		This means that the original iterator's first item is always produced.
-	"""
-
-[[apis]]
-	filename = "map"
-	kinds = ["fn"]
-	args = ["f callable", "it iterable"]
-	returns = "iter"
-	text = """
-		Calls a function for each of another iterator's items.
-
-		Returns an iterator which produces `(f (iter-next! it))`.
-	"""
+            (let it (windows 3 '(0 1 2 3 4)))
+            (prn ..it) ; prints (0 1 2) (1 2 3) (2 3 4)
+    """
 
 [[apis]]
-	filename = "filter"
-	kinds = ["fn"]
-	args = ["f callable", "it iterable"]
-	returns = "iter"
-	text = """
-		Discards items from another iterator which fail to match a predicate.
+    filename = "lines"
+    kinds = ["fn"]
+    args = ["st str"]
+    returns = "iter"
+    text = """
+        Iterates over lines in a string.
 
-		Each time this iterator is advanced, it repeatedly calls `(iter-next! it)` until `(f item)`
-		returns a value other than `#f` or `#n`. That item is then produced by the iterator.
+        Line-endings are `\\n` or `\\r\\n`. The line endings are not included in the output.
 
-			(prn ..(filter even? '(1 2 3 4))) ; prints 2 4
-	"""
+            (let text "Monsters.\\nHumans.\\nEveryone.")
+            (let ar ..(lines text))
 
-[[apis]]
-	filename = "zip"
-	kinds = ["fn"]
-	args = ["its iterable *"]
-	returns = "iter"
-	text = """
-		Combines multiple iterators.
-
-		When this iterator is advanced, it advances each sub-iterator, collects all of their
-		results into a newly-allocated, mutable array, and produces that array.
-
-		This iterator finishes as soon as any one of its sub-iterators is finished.
-
-			(let it (zip "abcde" "12" "ABCD"))
-			(prn ..it) ; prints (\\a 1 \\A) (\\b 2 \\B)
-	"""
+            (prn ar) ; prints ("Monsters." "Humans." "Everyone.")
+    """
 
 [[apis]]
-	filename = "chain"
-	kinds = ["fn"]
-	args = ["its iterable *"]
-	returns = "iter"
-	text = """
-		Sequences multiple iterators, one after another.
+    filename = "split"
+    kinds = ["fn"]
+    args = ["len int", "split-at str|char"]
+    returns = "iter"
+    text = """
+        Iterates over sub-strings.
 
-		The resulting iterator produces all of the items from its first argument, followed by
-		all of the items from its second argument, and so on.
+        When `split-at` is a string, each character within that string is a potential splitter
+        character. Note that this behaviour differs from Rust's [`str::split`][0] method.
 
-			(let it (chain "abcde" "12" "ABCD"))
-			(prn ..it) ; prints abcde12ABCD
-	"""
+        [0]: https://doc.rust-lang.org/std/str/struct.Split.html
 
-[[apis]]
-	filename = "flatten"
-	kinds = ["fn"]
-	args = ["its iterable *"]
-	returns = "iter"
-	text = """
-		Flattens nested structure.
+        Multiple consecutive splitter characters are separated internally by `""`.
 
-		Each iterable in `its` must be an iterable which, when iterated, produces zero or more 
-		iterables. For example, `(flatten '((0 1) (2 3)))` would be valid, because the
-		argument is an array of arrays.
+            (let it (split "Running::jump" \\:))
+            (prn (arr ..it)) ; prints ("Running" "" "jump")
 
-			(prn ..(flatten '((0 1) (2 3)))) ; prints 0 1 2 3
-	"""
+        This means that `split` can't be used to identify words separated by whitespace.
+
+            (let ws-chars " \\r\\n\\t")
+            (let it (split "a \\n b" ws-chars))
+            (prn (arr ..it)) ; prints ("a" "" "" "b")
+    """
 
 [[apis]]
-	filename = "cycle"
-	kinds = ["fn"]
-	args = ["it iterable"]
-	returns = "iter"
-	text = """
-		Repeats another iterator indefinitely.
+    filename = "keys"
+    kinds = ["fn"]
+    args = ["t tab"]
+    returns = "iter"
+    text = """
+        Iterates over the keys of a table.
 
-		Returns an iterator which produces, and caches, each item from the original iterator.
-		After the original iterator is finished, it repeatedly yields all of the cached items.
+        The keys are returned in an arbitrary order.
 
-		Infinite iterators can be converted to finite iterators using [`take`](take).
-
-			(prn ..(take 5 (cycle '(0 1 2))) ; prints 0 1 2 0 1
-	"""
+            (let t #((a 0) (b 1) (c 2)))
+            (prn (arr ..(keys t))) ; prints (c a b)
+    """
 
 [[apis]]
-	filename = "take"
-	kinds = ["fn"]
-	args = ["n int", "it iterable"]
-	returns = "iter"
-	text = """
-		Limits another iterator to a fixed number of items.
+    filename = "values"
+    kinds = ["fn"]
+    args = ["t tab"]
+    returns = "iter"
+    text = """
+        Iterates over the values of a table.
 
-		Produces each item from the original iterator, finishing as soon as `n` items have
-		been produced.
-	"""
+        The values are returned in an arbitrary order.
 
-[[apis]]
-	filename = "take-while"
-	kinds = ["fn"]
-	args = ["f callable", "it iterable"]
-	returns = "iter"
-	text = """
-		Limits another iterator using a predicate.
-
-		Produces each item from the original iterator, finishing as soon as `(f item)` returns
-		`#f` or `#n`.
-	"""
+            (let t #((a 0) (b 1) (c 2)))
+            (prn (arr ..(values t))) ; prints (2 0 1)
+    """
 
 [[apis]]
-	filename = "skip"
-	kinds = ["fn"]
-	args = ["n int", "it iterable"]
-	returns = "iter"
-	text = """
-		Skips a fixed number of leading items from another iterator.
+    filename = "rev"
+    starts-subcategory = "Iterator Adapters"
+    kinds = ["fn"]
+    args = ["it iterable"]
+    returns = "iter"
+    text = """
+        Reverses an iterator.
 
-		When this iterator is first advanced, it calls `(iter-next! it)` a total of `n` times,
-		discarding each result. It then produces each remaining item from the base iterator.
-
-			(prn ..(skip 3 "abcdefg")) ; prints defg
-	"""
-
-[[apis]]
-	filename = "skip-while"
-	kinds = ["fn"]
-	args = ["f callable", "it iterable"]
-	returns = "iter"
-	text = """
-		Skips leading items which match a predicate.
-
-		When this iterator is first advanced, it repeatedly calls `(iter-next! it)` until 
-		`(f item)` returns `#f` or `#n`. It then produces each remaining item from the base 
-		iterator.
-
-			(prn ..(skip-while even? '(4 6 7 8))) ; prints 7 8
-	"""
+        The base iterator must be [double-ended](iter-double-ended-p). Returns an iterator 
+        for which [`iter-next!`](iter-next-mut) calls `(iter-next-back! it)`, and
+        [`iter-next-back!`](iter-next-back-mut) calls `(iter-next! it)`.
+    """
 
 [[apis]]
-	filename = "count"
-	starts-subcategory = "Iterator Consumers"
-	kinds = ["fn"]
-	args = ["it iterable"]
-	returns = "int"
-	text = """
-		Consumes an iterator, counting its items.
+    filename = "enumerate"
+    kinds = ["fn"]
+    args = ["it iterable"]
+    returns = "iter"
+    text = """
+        Counts an iterator's items as they're yielded.
 
-		Invokes `(iter-next! it)` until the base iterator is finished, then returns the
-		number of items which were produced.
-	"""
+        Returns an iterator which produces mutable arrays with two elements, `(n item)`, 
+        where `n` counts upwards starting from `0`, and `item` is the result of calling 
+        `(iter-next! it)`.
 
-[[apis]]
-	filename = "nth"
-	kinds = ["fn"]
-	args = ["n int", "it iterable"]
-	returns = "val"
-	text = """
-		Returns an iterator's `n`th item.
-
-		Invokes `(iter-next! it)` a total of `n` times, discarding every result except the last.
-
-		This means that if the iterator produces fewer than `n` items, the result will be `#n`.
-	"""
+            (prn ..(enumerate '(x y))) ; prints (0 x) (1 y)
+    """
 
 [[apis]]
-	filename = "nth-back"
-	kinds = ["fn"]
-	args = ["n int", "it iterable"]
-	returns = "val"
-	text = """
-		Returns a double-ended iterator's `n`th-from-last item.
+    filename = "cloned"
+    kinds = ["fn"]
+    args = ["it iterable"]
+    returns = "iter"
+    text = """
+        Clones another iterator's items.
 
-		Equivalent to [`nth`](nth), except that it invokes [`iter-next-back!`](iter-next-back-mut)
-		on the base iterator, rather than [`iter-next!`](iter-next-mut).
-	"""
-
-[[apis]]
-	filename = "any-p"
-	kinds = ["fn"]
-	args = ["f callable", "it iterable"]
-	returns = "bool"
-	text = """
-		Lazily tests whether any of an iterator's items match a predicate.
-
-		Repeatedly produces items from the base iterator and passes them to `(f item)`. If that
-		call returns something other than `#n` or `#f`, the function exits early and returns `#t`,
-		and the iterator is not completely consumed. Otherwise, the function returns `#f`.
-	"""
+        Returns an iterator which produces [`(clone (iter-next! it))`](clone).
+    """
 
 [[apis]]
-	filename = "all-p"
-	kinds = ["fn"]
-	args = ["f callable", "it iterable"]
-	returns = "bool"
-	text = """
-		Lazily tests whether all of an iterator's items match a predicate.
+    filename = "deep-cloned"
+    kinds = ["fn"]
+    args = ["it iterable"]
+    returns = "iter"
+    text = """
+        Recursively clones another iterator's items.
 
-		Repeatedly produces items from the base iterator and passes them to `(f item)`. If that
-		call returns `#n` or `#f`, the function exits early and returns `#f`, and the iterator is 
-		not completely consumed. Otherwise, the function returns `#t`.
-	"""
+        Returns an iterator which produces [`(deep-clone (iter-next! it))`](deep-clone).
+    """
 
 [[apis]]
-	filename = "find"
-	kinds = ["fn"]
-	args = ["f callable", "it iterable"]
-	returns = "val"
-	text = """
-		Returns the first of an iterator's items which match a predicate.
+    filename = "step-by"
+    kinds = ["fn"]
+    args = ["n int", "it iterable"]
+    returns = "iter"
+    text = """
+        Skips over another iterator's items by the given interval.
 
-		Repeatedly produces items from the base iterator and passes them to `(f item)`. If that
-		call returns anything other than `#n` or `#f`, the function exits early and returns the
-		item. If the iterator is finished before that occurs, the function returns `#n`.
-	"""
+        Every time this iterator is advanced, it calls `(iter-next! it)` a total of `n` times,
+        discarding all items except the first.
 
-[[apis]]
-	filename = "rfind"
-	kinds = ["fn"]
-	args = ["f callable", "it iterable"]
-	returns = "val"
-	text = """
-		Returns the first of an iterator's items which match a predicate, searching backwards.
-
-		Equivalent to [`find`](find), except that it invokes [`iter-next-back!`](iter-next-back-mut)
-		on the base iterator, rather than [`iter-next!`](iter-next-mut).
-	"""
+        This means that the original iterator's first item is always produced.
+    """
 
 [[apis]]
-	filename = "fold"
-	kinds = ["fn"]
-	args = ["f callable", "accum val", "it iterable"]
-	returns = "val"
-	text = """
-		Passes all of an iterator's items to an accumulator function.
+    filename = "map"
+    kinds = ["fn"]
+    args = ["f callable", "it iterable"]
+    returns = "iter"
+    text = """
+        Calls a function for each of another iterator's items.
 
-		Calls `(= accum (f accum item))` for each item produced by the base iterator, then
-		returns `accum`.
-
-			(prn (fold + 0 '(1 2 3 4 5))) ; prints 15
-	"""
+        Returns an iterator which produces `(f (iter-next! it))`.
+    """
 
 [[apis]]
-	filename = "rfold"
-	kinds = ["fn"]
-	args = ["f callable", "accum val", "it iterable"]
-	returns = "val"
-	text = """
-		Passes all of an iterator's items to an accumulator function in reverse order.
+    filename = "filter"
+    kinds = ["fn"]
+    args = ["f callable", "it iterable"]
+    returns = "iter"
+    text = """
+        Discards items from another iterator which fail to match a predicate.
 
-		Equivalent to [`fold`](fold), except that it invokes [`iter-next-back!`](iter-next-back-mut)
-		on the base iterator, rather than [`iter-next!`](iter-next-mut).
-	"""
+        Each time this iterator is advanced, it repeatedly calls `(iter-next! it)` until `(f item)`
+        returns a value other than `#f` or `#n`. That item is then produced by the iterator.
+
+            (prn ..(filter even? '(1 2 3 4))) ; prints 2 4
+    """
+
+[[apis]]
+    filename = "zip"
+    kinds = ["fn"]
+    args = ["its iterable *"]
+    returns = "iter"
+    text = """
+        Combines multiple iterators.
+
+        When this iterator is advanced, it advances each sub-iterator, collects all of their
+        results into a newly-allocated, mutable array, and produces that array.
+
+        This iterator finishes as soon as any one of its sub-iterators is finished.
+
+            (let it (zip "abcde" "12" "ABCD"))
+            (prn ..it) ; prints (\\a 1 \\A) (\\b 2 \\B)
+    """
+
+[[apis]]
+    filename = "chain"
+    kinds = ["fn"]
+    args = ["its iterable *"]
+    returns = "iter"
+    text = """
+        Sequences multiple iterators, one after another.
+
+        The resulting iterator produces all of the items from its first argument, followed by
+        all of the items from its second argument, and so on.
+
+            (let it (chain "abcde" "12" "ABCD"))
+            (prn ..it) ; prints abcde12ABCD
+    """
+
+[[apis]]
+    filename = "flatten"
+    kinds = ["fn"]
+    args = ["its iterable *"]
+    returns = "iter"
+    text = """
+        Flattens nested structure.
+
+        Each iterable in `its` must be an iterable which, when iterated, produces zero or more 
+        iterables. For example, `(flatten '((0 1) (2 3)))` would be valid, because the
+        argument is an array of arrays.
+
+            (prn ..(flatten '((0 1) (2 3)))) ; prints 0 1 2 3
+    """
+
+[[apis]]
+    filename = "cycle"
+    kinds = ["fn"]
+    args = ["it iterable"]
+    returns = "iter"
+    text = """
+        Repeats another iterator indefinitely.
+
+        Returns an iterator which produces, and caches, each item from the original iterator.
+        After the original iterator is finished, it repeatedly yields all of the cached items.
+
+        Infinite iterators can be converted to finite iterators using [`take`](take).
+
+            (prn ..(take 5 (cycle '(0 1 2))) ; prints 0 1 2 0 1
+    """
+
+[[apis]]
+    filename = "take"
+    kinds = ["fn"]
+    args = ["n int", "it iterable"]
+    returns = "iter"
+    text = """
+        Limits another iterator to a fixed number of items.
+
+        Produces each item from the original iterator, finishing as soon as `n` items have
+        been produced.
+    """
+
+[[apis]]
+    filename = "take-while"
+    kinds = ["fn"]
+    args = ["f callable", "it iterable"]
+    returns = "iter"
+    text = """
+        Limits another iterator using a predicate.
+
+        Produces each item from the original iterator, finishing as soon as `(f item)` returns
+        `#f` or `#n`.
+    """
+
+[[apis]]
+    filename = "skip"
+    kinds = ["fn"]
+    args = ["n int", "it iterable"]
+    returns = "iter"
+    text = """
+        Skips a fixed number of leading items from another iterator.
+
+        When this iterator is first advanced, it calls `(iter-next! it)` a total of `n` times,
+        discarding each result. It then produces each remaining item from the base iterator.
+
+            (prn ..(skip 3 "abcdefg")) ; prints defg
+    """
+
+[[apis]]
+    filename = "skip-while"
+    kinds = ["fn"]
+    args = ["f callable", "it iterable"]
+    returns = "iter"
+    text = """
+        Skips leading items which match a predicate.
+
+        When this iterator is first advanced, it repeatedly calls `(iter-next! it)` until 
+        `(f item)` returns `#f` or `#n`. It then produces each remaining item from the base 
+        iterator.
+
+            (prn ..(skip-while even? '(4 6 7 8))) ; prints 7 8
+    """
+
+[[apis]]
+    filename = "count"
+    starts-subcategory = "Iterator Consumers"
+    kinds = ["fn"]
+    args = ["it iterable"]
+    returns = "int"
+    text = """
+        Consumes an iterator, counting its items.
+
+        Invokes `(iter-next! it)` until the base iterator is finished, then returns the
+        number of items which were produced.
+    """
+
+[[apis]]
+    filename = "nth"
+    kinds = ["fn"]
+    args = ["n int", "it iterable"]
+    returns = "val"
+    text = """
+        Returns an iterator's `n`th item.
+
+        Invokes `(iter-next! it)` a total of `n` times, discarding every result except the last.
+
+        This means that if the iterator produces fewer than `n` items, the result will be `#n`.
+    """
+
+[[apis]]
+    filename = "nth-back"
+    kinds = ["fn"]
+    args = ["n int", "it iterable"]
+    returns = "val"
+    text = """
+        Returns a double-ended iterator's `n`th-from-last item.
+
+        Equivalent to [`nth`](nth), except that it invokes [`iter-next-back!`](iter-next-back-mut)
+        on the base iterator, rather than [`iter-next!`](iter-next-mut).
+    """
+
+[[apis]]
+    filename = "any-p"
+    kinds = ["fn"]
+    args = ["f callable", "it iterable"]
+    returns = "bool"
+    text = """
+        Lazily tests whether any of an iterator's items match a predicate.
+
+        Repeatedly produces items from the base iterator and passes them to `(f item)`. If that
+        call returns something other than `#n` or `#f`, the function exits early and returns `#t`,
+        and the iterator is not completely consumed. Otherwise, the function returns `#f`.
+    """
+
+[[apis]]
+    filename = "all-p"
+    kinds = ["fn"]
+    args = ["f callable", "it iterable"]
+    returns = "bool"
+    text = """
+        Lazily tests whether all of an iterator's items match a predicate.
+
+        Repeatedly produces items from the base iterator and passes them to `(f item)`. If that
+        call returns `#n` or `#f`, the function exits early and returns `#f`, and the iterator is 
+        not completely consumed. Otherwise, the function returns `#t`.
+    """
+
+[[apis]]
+    filename = "find"
+    kinds = ["fn"]
+    args = ["f callable", "it iterable"]
+    returns = "val"
+    text = """
+        Returns the first of an iterator's items which match a predicate.
+
+        Repeatedly produces items from the base iterator and passes them to `(f item)`. If that
+        call returns anything other than `#n` or `#f`, the function exits early and returns the
+        item. If the iterator is finished before that occurs, the function returns `#n`.
+    """
+
+[[apis]]
+    filename = "rfind"
+    kinds = ["fn"]
+    args = ["f callable", "it iterable"]
+    returns = "val"
+    text = """
+        Returns the first of an iterator's items which match a predicate, searching backwards.
+
+        Equivalent to [`find`](find), except that it invokes [`iter-next-back!`](iter-next-back-mut)
+        on the base iterator, rather than [`iter-next!`](iter-next-mut).
+    """
+
+[[apis]]
+    filename = "fold"
+    kinds = ["fn"]
+    args = ["f callable", "accum val", "it iterable"]
+    returns = "val"
+    text = """
+        Passes all of an iterator's items to an accumulator function.
+
+        Calls `(= accum (f accum item))` for each item produced by the base iterator, then
+        returns `accum`.
+
+            (prn (fold + 0 '(1 2 3 4 5))) ; prints 15
+    """
+
+[[apis]]
+    filename = "rfold"
+    kinds = ["fn"]
+    args = ["f callable", "accum val", "it iterable"]
+    returns = "val"
+    text = """
+        Passes all of an iterator's items to an accumulator function in reverse order.
+
+        Equivalent to [`fold`](fold), except that it invokes [`iter-next-back!`](iter-next-back-mut)
+        on the base iterator, rather than [`iter-next!`](iter-next-mut).
+    """

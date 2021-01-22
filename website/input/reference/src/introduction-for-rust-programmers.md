@@ -30,7 +30,7 @@ GameLisp has a few features which I think make it a better choice:
   amount of runtime. In a [real-world game codebase](performance-figures.md#specimen-project), 
   GameLisp's garbage collector only takes up 0.1 milliseconds of frametime (that is, only 0.6% of 
   the available time budget).
-  	- More generally, [microbenchmarks](performance-figures.md#benchmarks) suggest that GameLisp's
+    - More generally, [microbenchmarks](performance-figures.md#benchmarks) suggest that GameLisp's
       performance currently hovers somewhere between interpreted Lua and interpreted Python.
 
 - As a Lisp dialect, GameLisp is extremely customizable. Its macro system allows you to define

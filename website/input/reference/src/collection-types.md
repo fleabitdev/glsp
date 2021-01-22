@@ -100,14 +100,14 @@ clone another table and then insert each of the key-value pairs into it, similar
 let empty_tab = tab! { };
 
 let base_tab = tab! {
-	(glsp::sym("a")?, 1),
-	(glsp::sym("b")?, 2)
+    (glsp::sym("a")?, 1),
+    (glsp::sym("b")?, 2)
 };
 
 let extended_tab = tab! {
-	(glsp::sym("b")?, 20),
-	(glsp::sym("c")?, 30),
-	..base_tab
+    (glsp::sym("b")?, 20),
+    (glsp::sym("c")?, 30),
+    ..base_tab
 };
 
 assert!(extended_tab.len() == 3);
@@ -151,8 +151,8 @@ manipulate its contents.
 
 ```rust
 fn push_one_pop_one(deq: Deque, to_push: Val) -> GResult<Val> {
-	deq.push(to_push)?;
-	deq.pop_start()
+    deq.push(to_push)?;
+    deq.pop_start()
 }
 ```
 
@@ -196,7 +196,7 @@ unwrapped.
 ```rust
 let mut counter = 0u32;
 for n in arr.iter_to::<u32>() {
-	counter += n?;
+    counter += n?;
 }
 ```
 

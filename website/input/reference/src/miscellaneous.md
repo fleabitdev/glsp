@@ -22,31 +22,31 @@ accidentally mutated. You can enforce this by calling [`freeze-global!`](../std/
 (GameLisp automatically freezes a few of the built-in functions, such as `+`, so that they can be 
 optimized more aggressively.)
 
-	(def ar (arr (arr 'a 0) (arr 'b 1)))
+    (def ar (arr (arr 'a 0) (arr 'b 1)))
 
-	(push! ar (arr 'c 2))
-	(prn ar) ; prints ((a 0) (b 1) (c 2))
+    (push! ar (arr 'c 2))
+    (prn ar) ; prints ((a 0) (b 1) (c 2))
 
-	(freeze-global! 'ar)
-	;(= ar '()) ; this would be an error
+    (freeze-global! 'ar)
+    ;(= ar '()) ; this would be an error
 
-	(freeze! ar)
-	;(push! ar (arr 'd 3)) ; this would be an error
-	(push! [ar 0] 0)
-	(prn ar) ; prints ((a 0 0) (b 1) (c 2))
+    (freeze! ar)
+    ;(push! ar (arr 'd 3)) ; this would be an error
+    (push! [ar 0] 0)
+    (prn ar) ; prints ((a 0 0) (b 1) (c 2))
 
-	(deep-freeze! ar)
-	;(push! [ar 1] 1) ; this would be an error
+    (deep-freeze! ar)
+    ;(push! [ar 1] 1) ; this would be an error
 
 ### Literals
 
 Using `quote` or self-evaluating types, it's possible to create multiple aliasing references to 
 data which was originally passed in to the [evaluator](evaluation.md). For example:
-	
-	(loop
-	  (let ar ())
-	  (push! ar 1)
-	  (prn ar))
+    
+    (loop
+      (let ar ())
+      (push! ar 1)
+      (prn ar))
 
 Intuitively, you might expect `ar` to be a fresh, empty array each time it's initialized, so that
 the `prn` call prints `(1)` every time. Unfortunately, because empty arrays are self-evaluating,
@@ -118,10 +118,10 @@ If you need to test one value against multiple others, you can use the functions
 [`==any?`](../std/num-eq-any-p), [`same-any?`](../std/same-any-p) and 
 [`eq-any?`](../std/eq-any-p).
 
-	(ensure (eq-any? (coro-state c) 'newborn 'running 'paused 'finished 'poisoned))
+    (ensure (eq-any? (coro-state c) 'newborn 'running 'paused 'finished 'poisoned))
 
-	(when (same-any? current-room graveyard dungeon prison-cell)
-	  (inc! fear-level))
+    (when (same-any? current-room graveyard dungeon prison-cell)
+      (inc! fear-level))
 
 
 ## Time and Date
@@ -161,11 +161,11 @@ with zero or one arguments. `fn1` can use a single underscore, `_`, to refer to 
 Within a `fn1` form, you should try to avoid discarding a value in a pattern (e.g. 
 `(match ... (_ x))`), since it can be visually confusing.
 
-	(ensure (all? (fn1 (eq? _ 'red)) colors) "non-red color detected")
+    (ensure (all? (fn1 (eq? _ 'red)) colors) "non-red color detected")
 
-	; ...is equivalent to...
+    ; ...is equivalent to...
 
-	(ensure (all? (fn (color) (eq? color 'red)) colors) "non-red color detected")
+    (ensure (all? (fn (color) (eq? color 'red)) colors) "non-red color detected")
 
 In Section 2, we'll discuss how to invoke and tune the [garbage collector](garbage-collection.md) 
 from Rust. You might find that you prefer to do that from within GameLisp, in which case you

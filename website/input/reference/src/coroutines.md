@@ -7,51 +7,51 @@ within a function, that function pauses its execution, and control flow returns 
 Later, [`coro-run`](../std/coro-run) can be used to resume the coroutine, which causes execution 
 to restart from the `yield` form.
 
-	(defn example+ ()
-	  (pr "first ")
-	  (yield)
-	  (prn "third"))
+    (defn example+ ()
+      (pr "first ")
+      (yield)
+      (prn "third"))
 
-	; invoking a function which contains a (yield) does not start its execution.
-	; instead, it returns a coroutine which is paused at the start of the
-	; function's body.
-	(let coroutine (example+))
+    ; invoking a function which contains a (yield) does not start its execution.
+    ; instead, it returns a coroutine which is paused at the start of the
+    ; function's body.
+    (let coroutine (example+))
 
-	(coro-run coroutine) ; executes up until the yield
-	(pr "second ")
-	(coro-run coroutine) ; executes from the yield to the end of the function
+    (coro-run coroutine) ; executes up until the yield
+    (pr "second ")
+    (coro-run coroutine) ; executes from the yield to the end of the function
 
-	; the above code prints: first second third
+    ; the above code prints: first second third
 
 Coroutines can pass values back and forth to their caller when they are paused and resumed.
 `(yield x)` causes the value `x` to be returned from the `(coro-run ...)` call. 
 `(coro-run coroutine y)` causes the value `y` to be returned from the `(yield)` call. In both 
 cases, when no value is specified it defaults to `#n`.
-	
-	; this coroutine returns values to its caller. note that coroutines can
-	; receive arguments, just like a normal function call
-	(defn increment-forever+ (n)
-	  (loop
-	    (yield n)
-	    (inc! n)))
+    
+    ; this coroutine returns values to its caller. note that coroutines can
+    ; receive arguments, just like a normal function call
+    (defn increment-forever+ (n)
+      (loop
+        (yield n)
+        (inc! n)))
 
-	(let co (increment-forever+ 100))
+    (let co (increment-forever+ 100))
 
-	(prn (coro-run co)) ; prints 100
-	(prn (coro-run co)) ; prints 101
-	(prn (coro-run co)) ; prints 102
+    (prn (coro-run co)) ; prints 100
+    (prn (coro-run co)) ; prints 101
+    (prn (coro-run co)) ; prints 102
 
-	; this coroutine receives values from its caller
-	(defn overly-elaborate-prn+ ()
-	  (loop
-	    (prn (yield))))
+    ; this coroutine receives values from its caller
+    (defn overly-elaborate-prn+ ()
+      (loop
+        (prn (yield))))
 
-	(let co (overly-elaborate-prn+))
-	(coro-run co) ; run until the first (yield)...
+    (let co (overly-elaborate-prn+))
+    (coro-run co) ; run until the first (yield)...
 
-	(coro-run co 'alpha) ; the coroutine prints alpha
-	(coro-run co 'beta) ; the coroutine prints beta
-	(coro-run co 'gamma) ; the coroutine prints gamma
+    (coro-run co 'alpha) ; the coroutine prints alpha
+    (coro-run co 'beta) ; the coroutine prints beta
+    (coro-run co 'gamma) ; the coroutine prints gamma
 
 [`fn-yields?`](../std/fn-yields-p) will tell you whether or not a function will create a
 coroutine when called.
@@ -87,24 +87,24 @@ Coroutines are `iterable`. A coroutine iterator will repeatedly call `(coro-run 
 produce each value which the coroutine yields.
 
 This can be used to implement custom iterators:
-	
-	; a coroutine-based implementation of the `lines` function. copies 
-	; a string and then splits it into individual lines, yielding one 
-	; line at a time. once there are no lines left, it returns.
-	(defn lines+ (source-str)
-	  (let st (clone source-str))
-	  (while (> (len st) 0)
-	    (let pos (position st \newline))
-	    (cond
-	      ((nil? pos)
-	        (yield st)
-	        (break))
-	      (else
-	      	(let line (remove! st : pos))
-	      	(pop-start! st)
-	        (yield line)))))
+    
+    ; a coroutine-based implementation of the `lines` function. copies 
+    ; a string and then splits it into individual lines, yielding one 
+    ; line at a time. once there are no lines left, it returns.
+    (defn lines+ (source-str)
+      (let st (clone source-str))
+      (while (> (len st) 0)
+        (let pos (position st \newline))
+        (cond
+          ((nil? pos)
+            (yield st)
+            (break))
+          (else
+            (let line (remove! st : pos))
+            (pop-start! st)
+            (yield line)))))
 
-	(prn (arr ..(lines+ "aaa\nbbb\nccc"))) ; prints ("aaa" "bbb" "ccc")
+    (prn (arr ..(lines+ "aaa\nbbb\nccc"))) ; prints ("aaa" "bbb" "ccc")
 
 
 ## Stackful and Stackless Coroutines
@@ -129,23 +129,23 @@ straightforwardly as stackful coroutines. The [`yield-from` macro](../std/yield-
 through an `iterable`, repeatedly yielding each of its results until it's finished. When the 
 `iterable` is a coroutine, this is roughly equivalent to calling a function and yielding from 
 inside it.
-	
-	; a coroutine which keeps yielding until some event is triggered,
-	; and then returns
-	(defn wait-until-trigger+ (trigger-name)
-	  (until (trigger-set? trigger-name)
-	    (yield)))
+    
+    ; a coroutine which keeps yielding until some event is triggered,
+    ; and then returns
+    (defn wait-until-trigger+ (trigger-name)
+      (until (trigger-set? trigger-name)
+        (yield)))
 
-	; a coroutine which controls the behaviour of an entity. the coroutine is
-	; resumed once per frame. it will do nothing until the 'can-move event 
-	; has been triggered, and then it will horizontally slide towards the 
-	; target x coordinate, bit by bit, until it has been reached.
-	(defn move-to+ (self x-target)
-	  (yield-from (wait-until-trigger+ 'can-move))
+    ; a coroutine which controls the behaviour of an entity. the coroutine is
+    ; resumed once per frame. it will do nothing until the 'can-move event 
+    ; has been triggered, and then it will horizontally slide towards the 
+    ; target x coordinate, bit by bit, until it has been reached.
+    (defn move-to+ (self x-target)
+      (yield-from (wait-until-trigger+ 'can-move))
 
-	  (until (= [self 'x] x-target)
-	    (seek! [self 'x] x-target 1.5)
-	    (yield)))
+      (until (= [self 'x] x-target)
+        (seek! [self 'x] x-target 1.5)
+        (yield)))
 
 
 ## Why Coroutines?
@@ -167,43 +167,43 @@ Consider a cutscene script controller. We want this cutscene to show a dialogue 
 player dismisses it, then have the main character walk to the right until they reach a
 waypoint, then pause dramatically for three seconds, then show another dialogue bubble. 
 Cramming all of this state into a single event-handler function is a real challenge:
-	
-	(defn step-handler (self)
-	  (match [self 'current-state]
-	    ('start
-	      (= [self 'bubble] (speak self "You don't understand! I just have..."))
-	      (= [self 'current-state] 'bubble-0))
+    
+    (defn step-handler (self)
+      (match [self 'current-state]
+        ('start
+          (= [self 'bubble] (speak self "You don't understand! I just have..."))
+          (= [self 'current-state] 'bubble-0))
 
-	    ('bubble-0
-	      (when (bubble-finished? [self 'bubble])
-	        (= [self 'current-state] 'walking-to-waypoint)))
+        ('bubble-0
+          (when (bubble-finished? [self 'bubble])
+            (= [self 'current-state] 'walking-to-waypoint)))
 
-	    ('walking-to-waypoint
-	      (step-towards-point self (waypoint 'dramatic-pause))
-	      (when (at-waypoint? self (waypoint 'dramatic-pause))
-	        (start-sound 'howling-wind)
-	        (= [self 'pause-timer] 3.0)
-	        (= [self 'current-state] 'pausing)))
+        ('walking-to-waypoint
+          (step-towards-point self (waypoint 'dramatic-pause))
+          (when (at-waypoint? self (waypoint 'dramatic-pause))
+            (start-sound 'howling-wind)
+            (= [self 'pause-timer] 3.0)
+            (= [self 'current-state] 'pausing)))
 
-	    ('pausing
-	      (dec! [self 'pause-timer] :dt)
-	      (when (<= [self 'pause-timer] 0.0)
-	        (= [self 'bubble] (speak self "...too many Incredibly Deep Feelings."))
-	        (= [self 'current-state] 'bubble-1)))
+        ('pausing
+          (dec! [self 'pause-timer] :dt)
+          (when (<= [self 'pause-timer] 0.0)
+            (= [self 'bubble] (speak self "...too many Incredibly Deep Feelings."))
+            (= [self 'current-state] 'bubble-1)))
 
-	    ('bubble-1
-	      (when (bubble-finished? [self 'bubble])
-	        ; leave the viewer to process the scene's breathtaking emotional pathos
-	        (= [self 'current-state] 'finished)))))
+        ('bubble-1
+          (when (bubble-finished? [self 'bubble])
+            ; leave the viewer to process the scene's breathtaking emotional pathos
+            (= [self 'current-state] 'finished)))))
 
 The equivalent coroutine is a beauty:
-	
-	(defn run-cutscene+ (self)
-	  (yield-from (speak+ self "You don't understand! I just have..."))
-	  (yield-from (walk-to-point+ self (waypoint 'dramatic-pause)))
-	  (start-sound 'howling-wind)
-	  (yield-from (wait-secs+ 3.0))
-	  (yield-from (speak+ self "...too many Incredibly Deep Feelings.")))
+    
+    (defn run-cutscene+ (self)
+      (yield-from (speak+ self "You don't understand! I just have..."))
+      (yield-from (walk-to-point+ self (waypoint 'dramatic-pause)))
+      (start-sound 'howling-wind)
+      (yield-from (wait-secs+ 3.0))
+      (yield-from (speak+ self "...too many Incredibly Deep Feelings.")))
 
 All of that state which we had to manually store elsewhere is now implicit in the coroutine.
 The child functions would be simpler, too: the coroutine `walk-to-point+` is likely to be much

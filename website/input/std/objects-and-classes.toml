@@ -3,962 +3,962 @@ name = "Objects and Classes"
 text = ""
 
 [[apis]]
-	filename = "class"
-	starts-subcategory = "Declarations"
-	kinds = ["mac"]
-	args = ["clauses form *"]
-	returns = "class"
-	see-also = ["defclass"]
-	text = """
-		Defines a class.
+    filename = "class"
+    starts-subcategory = "Declarations"
+    kinds = ["mac"]
+    args = ["clauses form *"]
+    returns = "class"
+    see-also = ["defclass"]
+    text = """
+        Defines a class.
 
-		When the `class` form is evaluated, a new class is defined, allocated and returned.
-		
-		This can be an expensive operation, so it shouldn't be performed in a loop. Use
-		[`let-class`](let-class) for a locally-scoped class definition.
+        When the `class` form is evaluated, a new class is defined, allocated and returned.
+        
+        This can be an expensive operation, so it shouldn't be performed in a loop. Use
+        [`let-class`](let-class) for a locally-scoped class definition.
 
-		The class is described by a [`name`](name-clause) clause and/or a [`mixin`](mixin-clause)
-		clause, followed by zero or more of the other [class clauses](objects-and-classes).
+        The class is described by a [`name`](name-clause) clause and/or a [`mixin`](mixin-clause)
+        clause, followed by zero or more of the other [class clauses](objects-and-classes).
 
-		`#n` may appear in place of a class clause, in which case it's silently ignored.
+        `#n` may appear in place of a class clause, in which case it's silently ignored.
 
-		When [`splice`](splice) appears in place of a class clause, it's processed as it would 
-		be during macro expansion.
+        When [`splice`](splice) appears in place of a class clause, it's processed as it would 
+        be during macro expansion.
 
-		`class` performs an "auto-gensym" pass over its arguments, similar to 
-		[`backquote`](backquote). This can be useful for defining private fields, private 
-		methods, and so on.
-	"""
-
-[[apis]]
-	filename = "defclass"
-	kinds = ["mac"]
-	args = ["name sym", "clauses form *"]
-	returns = "nil"
-	text = """
-		Defines a class and binds it to a global variable.
-
-		`(defclass Name clause0 clause1)` is equivalent to:
-
-			(def Name (class
-			  (name Name)
-			  clause0
-			  clause1))
-	"""
+        `class` performs an "auto-gensym" pass over its arguments, similar to 
+        [`backquote`](backquote). This can be useful for defining private fields, private 
+        methods, and so on.
+    """
 
 [[apis]]
-	filename = "let-class"
-	kinds = ["mac"]
-	args = ["name sym", "clauses form *"]
-	returns = "nil"
-	text = """
-		Defines a class and binds it to a local variable.
+    filename = "defclass"
+    kinds = ["mac"]
+    args = ["name sym", "clauses form *"]
+    returns = "nil"
+    text = """
+        Defines a class and binds it to a global variable.
 
-		The first time each `let-class` form is evaluated, it evaluates a `class` form,
-		stores it in a [gensymmed](gensym) global variable, and also binds it to the local
-		variable `name`.
+        `(defclass Name clause0 clause1)` is equivalent to:
 
-		Each subsequent time that it's evaluated, it takes the class stored in that global
-		variable, and binds it to the local variable `name`.
-	"""
-
-[[apis]]
-	filename = "mixin"
-	kinds = ["mac"]
-	args = ["clauses form *"]
-	returns = "class"
-	see-also = ["defmixin"]
-	text = """
-		Defines a mixin.
-
-		A `mixin` form is exactly like a `class` form, but the resulting class is flagged as
-		a mixin. This means that it can't be instantiated, but it can be mixed into another
-		class definition using a [`mixin` clause](mixin-clause).
-	"""
+            (def Name (class
+              (name Name)
+              clause0
+              clause1))
+    """
 
 [[apis]]
-	filename = "defmixin"
-	kinds = ["mac"]
-	args = ["name sym", "clauses form *"]
-	returns = "nil"
-	text = """
-		Defines a mixin and binds it to a global variable.
+    filename = "let-class"
+    kinds = ["mac"]
+    args = ["name sym", "clauses form *"]
+    returns = "nil"
+    text = """
+        Defines a class and binds it to a local variable.
 
-		`(defmixin Name clause0 clause1)` is equivalent to:
+        The first time each `let-class` form is evaluated, it evaluates a `class` form,
+        stores it in a [gensymmed](gensym) global variable, and also binds it to the local
+        variable `name`.
 
-			(def Name (mixin
-			  (name Name)
-			  clause0
-			  clause1))
-	"""
-
-[[apis]]
-	filename = "let-mixin"
-	kinds = ["mac"]
-	args = ["name sym", "clauses form *"]
-	returns = "nil"
-	text = """
-		Defines a mixin and binds it to a local variable.
-
-		`let-mixin` is equivalent to [`let-class`](let-class), except that it calls the 
-		[`mixin`](mixin) macro rather than the [`class`](class) macro.
-	"""
+        Each subsequent time that it's evaluated, it takes the class stored in that global
+        variable, and binds it to the local variable `name`.
+    """
 
 [[apis]]
-	filename = "bind-classmacro-mut"
-	kinds = ["fn"]
-	args = ["name sym", "f fn"]
-	returns = "nil"
-	see-also = ["defclassmacro"]
-	text = """
-		Registers a classmacro.
+    filename = "mixin"
+    kinds = ["mac"]
+    args = ["clauses form *"]
+    returns = "class"
+    see-also = ["defmixin"]
+    text = """
+        Defines a mixin.
 
-		A classmacro is a macro which can be invoked where class clauses like 
-		[`field`](field-clause) or [`met`](met-clause) would normally appear.
-
-		Normal macros are not invoked in classmacro position, and classmacros are not invoked
-		as normal macros.
-	"""
+        A `mixin` form is exactly like a `class` form, but the resulting class is flagged as
+        a mixin. This means that it can't be instantiated, but it can be mixed into another
+        class definition using a [`mixin` clause](mixin-clause).
+    """
 
 [[apis]]
-	filename = "defclassmacro"
-	kinds = ["mac"]
-	args = ["name sym", "params arr", "body form *"]
-	returns = "nil"
-	text = """
-		Shorthand for `bind-classmacro!`.
+    filename = "defmixin"
+    kinds = ["mac"]
+    args = ["name sym", "clauses form *"]
+    returns = "nil"
+    text = """
+        Defines a mixin and binds it to a global variable.
 
-		`(defclassmacro name () body)` is equivalent to:
+        `(defmixin Name clause0 clause1)` is equivalent to:
 
-			(bind-classmacro! name (fn ()
-			  body))
-	"""
-
-[[apis]]
-	filename = "defstruct"
-	kinds = ["mac"]
-	args = ["name sym", "field-name sym *", "clause form *"]
-	returns = "class"
-	text = """
-		Defines a struct.
-
-		`defstruct` is syntax sugar for [`defclass`](defclass). It defines a class with all of
-		the specified fields, along with:
-
-		- Implementations for the methods [`op-clone`](clone) and [`op-eq?`](eq-p).
-		- A function bound to the global variable `StructName:new`, which instantiates the
-		  struct using positional arguments.
-		- A macro bound to the global variable `StructName`, which instantiates the struct
-		  using named arguments, similar to the [`tab`](tab) macro.
-		- A function bound to the global variable `StructName?`, which tests whether or not
-		  a value is an instance of this struct.
-
-		To keep structs simple, their class clauses may only be [`const`](const-clause),
-		[`met`](met-clause) or [`prop`](prop-clause). Classmacros, mixins, states, wrappers,
-		field patterns and field initializers are not supported.
-
-			(defstruct Rect
-			  x y w h
-
-			  (met area ()
-			    (* @w @h)))
-
-			(let r (Rect:new 0 0 10 10))
-			(let s (Rect
-			  (x 2)
-			  (y 2)
-			  ..r))
-
-			(prn (.area s)) ; prints 100
-			(prn (Rect? s)) ; prints #t
-			(let t (clone s))
-			(prn (eq? s t) (same? s t)) ; prints #t #f
-	"""
+            (def Name (mixin
+              (name Name)
+              clause0
+              clause1))
+    """
 
 [[apis]]
-	filename = "name-clause"
-	name = "name"
-	starts-subcategory = "Class Clauses"
-	kinds = ["clause"]
-	args = ["name sym"]
-	text = """
-		Defines the name of a class.
+    filename = "let-mixin"
+    kinds = ["mac"]
+    args = ["name sym", "clauses form *"]
+    returns = "nil"
+    text = """
+        Defines a mixin and binds it to a local variable.
 
-		That name will be returned by the [`class-name`](class-name) function and the 
-		[`@class-name`](atsign) abbreviation.
-
-		All mixins must have a `name` clause. Names defined in the toplevel scope of a mixin 
-		are [qualified](field-clause) as `MixinName:item`, rather than the usual `Main:item`.
-
-		This clause is automatically generated by [`defstruct`](defclass), 
-		[`let-class`](let-mixin), and similar macros.
-	"""
+        `let-mixin` is equivalent to [`let-class`](let-class), except that it calls the 
+        [`mixin`](mixin) macro rather than the [`class`](class) macro.
+    """
 
 [[apis]]
-	filename = "mixin-clause"
-	name = "mixin"
-	kinds = ["clause"]
-	args = ["forms form *"]
-	text = """
-		Applies mixins to a class definition.
+    filename = "bind-classmacro-mut"
+    kinds = ["fn"]
+    args = ["name sym", "f fn"]
+    returns = "nil"
+    see-also = ["defclassmacro"]
+    text = """
+        Registers a classmacro.
 
-		When the `class` clause is evaluated, each of the `forms` are evaluated in order,
-		from left to right. They must each return a class which was previously defined using the
-		[`mixin`](mixin) macro. The definitions of those classes are "mixed into" the new
-		class which is being defined.
+        A classmacro is a macro which can be invoked where class clauses like 
+        [`field`](field-clause) or [`met`](met-clause) would normally appear.
 
-		This means that:
-
-		- Any [states](state-clause) defined by the mixins are effectively copied-and-pasted at the 
-		  beginning of the class definition. Name collisions between states are forbidden.
-		- Any [fields](field-clause), [constants](const-clause), [methods](met-clause) and
-		  [properties](prop-clause), including wrappers, are copied into the toplevel of the
-		  class definition. Their fully-qualified name is `MixinName:item`, rather than the
-		  usual `Main:item`. Name collisions are forbidden; mixins do not participate in
-		  [shadowing](field-clause).
-		- The mixin's [`init-mixin`](init-mixin-clause) clause, if any, will act as a wrapper 
-		  method for the class' `init` method.
-		- The mixin's [`fini-mixin`](fini-mixin-clause) clause, if any, will be invoked after 
-		  the class' `fini` method.
-	"""
+        Normal macros are not invoked in classmacro position, and classmacros are not invoked
+        as normal macros.
+    """
 
 [[apis]]
-	filename = "field-clause"
-	name = "field"
-	kinds = ["clause"]
-	args = ["pat pat", "init form ?"]
-	text = """
-		Defines one or more fields.
+    filename = "defclassmacro"
+    kinds = ["mac"]
+    args = ["name sym", "params arr", "body form *"]
+    returns = "nil"
+    text = """
+        Shorthand for `bind-classmacro!`.
 
-		The arguments to `field` are similar to [`let`](let): the initializer is optional, and 
-		`(field a b c d)` is equivalent to `(field a b)` followed by `(field c d)`.
+        `(defclassmacro name () body)` is equivalent to:
 
-		`pat` must introduce at least one name binding. Each such binding is allocated some
-		storage within each object of this class. Name collisions within the same
-		state are forbidden.
-
-		Object fields can be read or written using [`[]`](access), just like a table.
-
-		When an initializer form is present, it will automatically be executed at the beginning 
-		of the state's [initializer method](init-clause).
-
-		When two fields in different states share the same unqualified name, and that unqualified
-		name is passed to [`[]`](access) or [`@`](atsign), one field will shadow the other:
-
-		- Child states always shadow their parent state.
-		- Between sibling states, or within a single state, fields defined textually later 
-		  shadow those which were defined earlier.
-		- Fields defined in mixins are considered to be "textually earlier" than those defined
-		  inline in the class. Between two mixins, those towards the left of the
-		  [`mixin`](mixin-clause) clause are textually earlier than those towards the right.
-
-		Name shadowing can be bypassed by referring to a field by its qualified name, 
-		`StateName:item`, rather than its unqualified name, `item`. Fields defined at the toplevel
-		of a class prefix their qualified name with `Main:`. Fields defined at the toplevel of
-		a mixin prefix their qualified name with `MixinName:`.
-	"""
+            (bind-classmacro! name (fn ()
+              body))
+    """
 
 [[apis]]
-	filename = "const-clause"
-	name = "const"
-	kinds = ["clause"]
-	args = ["pat pat", "init form"]
-	text = """
-		Defines one or more associated constants.
+    filename = "defstruct"
+    kinds = ["mac"]
+    args = ["name sym", "field-name sym *", "clause form *"]
+    returns = "class"
+    text = """
+        Defines a struct.
 
-		`(const a b c d)` is equivalent to `(const a b)` followed by `(const c d)`.
+        `defstruct` is syntax sugar for [`defclass`](defclass). It defines a class with all of
+        the specified fields, along with:
 
-		Constants don't take up any space in the object; they are stored in the class instead.
-		Their initializer forms are evaluated while the `class` or `mixin` form is being evaluated. 
-		Those initializers may refer to constants defined earlier in the same state, or constants 
-		defined in parent states, using the [`@` syntax](atsign).
+        - Implementations for the methods [`op-clone`](clone) and [`op-eq?`](eq-p).
+        - A function bound to the global variable `StructName:new`, which instantiates the
+          struct using positional arguments.
+        - A macro bound to the global variable `StructName`, which instantiates the struct
+          using named arguments, similar to the [`tab`](tab) macro.
+        - A function bound to the global variable `StructName?`, which tests whether or not
+          a value is an instance of this struct.
 
-		Constants participate in [name shadowing](field-clause), just like fields. Constants
-		can shadow fields, and vice versa.
+        To keep structs simple, their class clauses may only be [`const`](const-clause),
+        [`met`](met-clause) or [`prop`](prop-clause). Classmacros, mixins, states, wrappers,
+        field patterns and field initializers are not supported.
 
-		When a constant is defined at the toplevel of a class, it can be read by indexing the
-		class itself using [`[]`](access).
+            (defstruct Rect
+              x y w h
 
-			(defclass Example
-			  (const a 100)
-			  (const b (* @a 5)))
+              (met area ()
+                (* @w @h)))
 
-			(let ob (Example))
+            (let r (Rect:new 0 0 10 10))
+            (let s (Rect
+              (x 2)
+              (y 2)
+              ..r))
 
-			(prn [ob 'b]) ; prints 500
-			(prn [ob 'Main:b]) ; prints 500
-			(prn [Example 'b]) ; prints 500
-			(prn [Example 'Main:b]) ; prints 500
-	"""
-
-[[apis]]
-	filename = "met-clause"
-	name = "met"
-	kinds = ["clause"]
-	args = ["name sym", "params arr", "body form *"]
-	text = """
-		Defines a method.
-
-		Methods can be invoked using [`met-name`](met-name) or [`call-met`](call-met).
-		Just like [fields](field-clause), methods are bound to both a qualified name and an 
-		unqualified name.
-
-		Methods don't participate in [name shadowing](field-clause). Instead, consider using a
-		[wrapper method](wrap-clause).
-
-		Methods don't receive an explicit "self object" parameter. Within the body of a method, 
-		the [`@` syntax](atsign) can be used to access the self-object. 
-
-		Any of a method's parameters can be prefixed with [`@`](atsign). This causes the form
-		`(= @param-name param-name)` to be automatically emitted at the beginning of the
-		method's body.
-
-			(defclass Example
-			  (field x)
-			  (prop y (get) (set))
-
-			  (met receive-values (@x @y)
-			    (prn @x @y)))
-
-			; ...is equivalent to...
-
-			(defclass Example
-			  (field x)
-			  (prop y (get) (set))
-
-			  (met receive-values (x y)
-			    (= @x x)
-			    (= @y y)
-			    (prn @x @y)))
-	"""
+            (prn (.area s)) ; prints 100
+            (prn (Rect? s)) ; prints #t
+            (let t (clone s))
+            (prn (eq? s t) (same? s t)) ; prints #t #f
+    """
 
 [[apis]]
-	filename = "prop-clause"
-	name = "prop"
-	kinds = ["clause"]
-	args = ["name sym", "subclauses form *"]
-	text = """
-		Defines a property.
+    filename = "name-clause"
+    name = "name"
+    starts-subcategory = "Class Clauses"
+    kinds = ["clause"]
+    args = ["name sym"]
+    text = """
+        Defines the name of a class.
 
-		A property is a field combined with a "getter" method and/or a "setter" method. Those
-		methods can't be invoked directly, but they will automatically be invoked when the
-		field is accessed using [`[]`](access) or [`@`](atsign).
+        That name will be returned by the [`class-name`](class-name) function and the 
+        [`@class-name`](atsign) abbreviation.
 
-		The sub-clauses are an optional initializer form, followed by either or both of a
-		`(get ..body)` and `(set (arg) ..body)` form, not necessarily in that order. Note that
-		the `get` form does not have a parameter list, because it's always invoked without
-		any arguments.
+        All mixins must have a `name` clause. Names defined in the toplevel scope of a mixin 
+        are [qualified](field-clause) as `MixinName:item`, rather than the usual `Main:item`.
 
-		The underlying field has the same name as the property, but suffixed with `:field`.
-		For example, the backing field for the property `fizz` might have the unqualified name
-		`fizz:field`, and the qualified name `Main:fizz:field`. Within a getter or setter method's
-		body, the [`@field`](atsign-field) shorthand can be used to access the backing field.
-
-			(defclass Example
-			  (prop doubled 5.5
-			    (get (* @field 2.0))
-			    (set (n) (= @field (/ n 2.0)))))
-
-			(let ob (Example))
-			(prn [ob 'doubled]) ; prints 11.0
-			(prn [ob 'doubled:field]) ; prints 5.5
-
-			(= [ob 'doubled] 21.0)
-			(prn [ob 'Main:doubled]) ; prints 21.0
-			(prn [ob 'Main:doubled:field]) ; prints 10.5
-
-		`(get)` is equivalent to `(get @field)`.
-
-		`(set)` is equivalent to `(set (x) (= @field x))`.
-
-		Properties can be [wrapped](wrap-prop-clause) like normal methods. Unlike fields and
-		constants, they don't participate in [name-shadowing](field-clause).
-	"""
+        This clause is automatically generated by [`defstruct`](defclass), 
+        [`let-class`](let-mixin), and similar macros.
+    """
 
 [[apis]]
-	filename = "init-clause"
-	name = "init"
-	kinds = ["clause"]
-	args = ["params arr", "body form *"]
-	text = """
-		Defines an initializer method.
+    filename = "mixin-clause"
+    name = "mixin"
+    kinds = ["clause"]
+    args = ["forms form *"]
+    text = """
+        Applies mixins to a class definition.
 
-		To construct an object, invoke its class as though calling a function: `(Class a b)`.
-		This will...
+        When the `class` clause is evaluated, each of the `forms` are evaluated in order,
+        from left to right. They must each return a class which was previously defined using the
+        [`mixin`](mixin) macro. The definitions of those classes are "mixed into" the new
+        class which is being defined.
 
-		- Allocate a new object which belongs to that class, with all of its fields set to
-		  `#n` and all of its states disabled.
-		- Invoke the `init` method, passing in `a` and `b` as its arguments.
-		- Automatically enable any toplevel `state*` forms.
-		- Return the object.
+        This means that:
 
-		The `init` clause will automatically prepend field initializers to the beginning of its
-		method body:
-
-		- When a [`field` clause](field-clause) has an explicit initializer form, that form is
-		  evaluated directly and assigned to those field(s).
-		- When one of the `init` method's parameters is prefixed with `@`, the value of that
-		  parameter is assigned to the corresponding field, which must not have an explicit
-		  initializer form.
-
-		Fields are always initialized in the same order that they were declared. This means that
-		field-initializer forms can access fields defined earlier in the same class.
-
-			(defclass Example
-			  (field a)
-			  (field b (* @a 10))
-
-			  (init (@a)
-			    (prn b)))
-
-			; ...is equivalent to...
-
-			(defclass Example
-			  (field a #n)
-			  (field b #n)
-
-			  (init (a)
-			    (= @a a)
-			    (= @b (* @a 10))
-			    (prn b)))
-	"""
+        - Any [states](state-clause) defined by the mixins are effectively copied-and-pasted at the 
+          beginning of the class definition. Name collisions between states are forbidden.
+        - Any [fields](field-clause), [constants](const-clause), [methods](met-clause) and
+          [properties](prop-clause), including wrappers, are copied into the toplevel of the
+          class definition. Their fully-qualified name is `MixinName:item`, rather than the
+          usual `Main:item`. Name collisions are forbidden; mixins do not participate in
+          [shadowing](field-clause).
+        - The mixin's [`init-mixin`](init-mixin-clause) clause, if any, will act as a wrapper 
+          method for the class' `init` method.
+        - The mixin's [`fini-mixin`](fini-mixin-clause) clause, if any, will be invoked after 
+          the class' `fini` method.
+    """
 
 [[apis]]
-	filename = "init-mixin-clause"
-	name = "init-mixin"
-	kinds = ["clause"]
-	args = ["params arr", "body form *"]
-	text = """
-		Defines a mixin initializer method.
+    filename = "field-clause"
+    name = "field"
+    kinds = ["clause"]
+    args = ["pat pat", "init form ?"]
+    text = """
+        Defines one or more fields.
 
-		This is effectively a [wrapper method](wrap-clause) for [`init`](init-clause). 
-		When a class has the clause `(mixin First Second)`, it has an `init` method, which is 
-		wrapped by `Second:init-mixin`, which is in turn wrapped by `First:init-mixin`.
+        The arguments to `field` are similar to [`let`](let): the initializer is optional, and 
+        `(field a b c d)` is equivalent to `(field a b)` followed by `(field c d)`.
 
-		Don't forget to call [`(@base args)`](atsign-base) to execute the wrapped initializer!
-	"""
+        `pat` must introduce at least one name binding. Each such binding is allocated some
+        storage within each object of this class. Name collisions within the same
+        state are forbidden.
 
-[[apis]]
-	filename = "fini-clause"
-	name = "fini"
-	kinds = ["clause"]
-	args = ["body form *"]
-	text = """
-		Defines a finalizer method.
+        Object fields can be read or written using [`[]`](access), just like a table.
 
-		When an object is [killed](obj-kill-mut), its `fini` method is invoked, followed by the
-		[`fini-mixin`](fini-mixin-clause) method for each of its mixins, in order from right 
-		to left.
+        When an initializer form is present, it will automatically be executed at the beginning 
+        of the state's [initializer method](init-clause).
 
-		Finalizers are *not* invoked when an object is garbage collected, or when a `Runtime`
-		is dropped.
+        When two fields in different states share the same unqualified name, and that unqualified
+        name is passed to [`[]`](access) or [`@`](atsign), one field will shadow the other:
 
-		Note that the `fini` clause does not have a parameter list.
-	"""
+        - Child states always shadow their parent state.
+        - Between sibling states, or within a single state, fields defined textually later 
+          shadow those which were defined earlier.
+        - Fields defined in mixins are considered to be "textually earlier" than those defined
+          inline in the class. Between two mixins, those towards the left of the
+          [`mixin`](mixin-clause) clause are textually earlier than those towards the right.
 
-[[apis]]
-	filename = "fini-mixin-clause"
-	name = "fini-mixin"
-	kinds = ["clause"]
-	args = ["body form *"]
-	text = """
-		Defines a mixin finalizer method.
-
-		When an object is [killed](obj-kill-mut), its [`fini`](fini-clause) method is invoked, 
-		followed by the `fini-mixin` method for each of its mixins, in order from right to left.
-
-		`fini-mixin` is not a wrapper method, so there's no need to call [`@base`](atsign-base).
-		Also note that it does not have a parameter list.
-	"""
+        Name shadowing can be bypassed by referring to a field by its qualified name, 
+        `StateName:item`, rather than its unqualified name, `item`. Fields defined at the toplevel
+        of a class prefix their qualified name with `Main:`. Fields defined at the toplevel of
+        a mixin prefix their qualified name with `MixinName:`.
+    """
 
 [[apis]]
-	filename = "wrap-clause"
-	name = "wrap"
-	kinds = ["clause"]
-	args = ["name sym", "params arr", "body form *"]
-	text = """
-		Wraps another method in the same class.
+    filename = "const-clause"
+    name = "const"
+    kinds = ["clause"]
+    args = ["pat pat", "init form"]
+    text = """
+        Defines one or more associated constants.
 
-		When a method is invoked using its *unqualified* name, the runtime...
+        `(const a b c d)` is equivalent to `(const a b)` followed by `(const c d)`.
 
-		- Collects all of the active methods and active wrapper methods in the current object 
-		  which share that unqualified name.
-		- Arranges all of those methods into a stack.
-		- Sets up the [`@base`](atsign-base) abbreviation so that it calls the next method
-		  down the stack, or performs a no-op if we're at the bottom of the stack.
-		- Invokes the topmost method in the stack, returning its result.
+        Constants don't take up any space in the object; they are stored in the class instead.
+        Their initializer forms are evaluated while the `class` or `mixin` form is being evaluated. 
+        Those initializers may refer to constants defined earlier in the same state, or constants 
+        defined in parent states, using the [`@` syntax](atsign).
 
-		The wrapper method's name must be the qualified name of the method which is being
-		wrapped. To wrap the `met dance` method in the `Joyful` state, write `wrap Joyful:dance`
-		in a different state or mixin.
+        Constants participate in [name shadowing](field-clause), just like fields. Constants
+        can shadow fields, and vice versa.
 
-		If you replace the name of the state with an underscore, e.g. `_:dance`, then this clause 
-		will define a "wildcard wrapper" method. A wildcard wrapper can wrap any method which 
-		shares the same unqualified name. In practice, this means that all of the wildcard methods 
-		are placed on top of the method stack, in an unspecified order.
-	"""
+        When a constant is defined at the toplevel of a class, it can be read by indexing the
+        class itself using [`[]`](access).
 
-[[apis]]
-	filename = "wrap-prop-clause"
-	name = "wrap-prop"
-	kinds = ["clause"]
-	args = ["name sym", "subclauses form *"]
-	text = """
-		Wraps another property in the same class.
+            (defclass Example
+              (const a 100)
+              (const b (* @a 5)))
 
-		Defines a getter and/or a setter method which [wrap](wrap-clause) the equivalent methods
-		defined in a [`prop` clause](prop-clause). Wildcard wrappers are supported.
+            (let ob (Example))
 
-		`get` and `set` must match the property which is being wrapped. For example, when wrapping
-		a prop clause which has a `get` but no `set`, the wrapper must also have a `get` but
-		no `set`.
-
-		The wrapper methods cannot use [`@field`](atsign-field) - they should call
-		[`@base`](atsign-base) instead.
-
-		`(get)` is equivalent to `(get (@base))`.
-
-		`(set)` is equivalent to `(set (x) (@base x))`.
-	"""
+            (prn [ob 'b]) ; prints 500
+            (prn [ob 'Main:b]) ; prints 500
+            (prn [Example 'b]) ; prints 500
+            (prn [Example 'Main:b]) ; prints 500
+    """
 
 [[apis]]
-	filename = "state-clause"
-	name = "state"
-	kinds = ["clause"]
-	args = ["name sym", "clauses form *"]
-	text = """
-		Defines a class state.
+    filename = "met-clause"
+    name = "met"
+    kinds = ["clause"]
+    args = ["name sym", "params arr", "body form *"]
+    text = """
+        Defines a method.
 
-		A state is part of an object which can be dynamically [enabled](enab-mut) and
-		[disabled](disab-mut). It may contain most of the same [class clauses](objects-and-classes)
-		which might appear at the toplevel of a class, but when the state is inactive, the
-		object behaves as though those clauses are absent.
+        Methods can be invoked using [`met-name`](met-name) or [`call-met`](call-met).
+        Just like [fields](field-clause), methods are bound to both a qualified name and an 
+        unqualified name.
 
-		`state`, [`state*`](statex-clause) and [`fsm`](fsm-clause) clauses may be nested within
-		another state. We emit automatic state changes to ensure that, when the child state is 
-		active, the parent state must also be active:
+        Methods don't participate in [name shadowing](field-clause). Instead, consider using a
+        [wrapper method](wrap-clause).
 
-		- When a child state would be enabled, and its parent is inactive, the parent is 
-		  automatically enabled first.
-		- When a parent state would be disabled, any active child states are automatically 
-		  disabled first.
-		- After a parent state is enabled, any child `state*` forms are automatically enabled.
-	"""
+        Methods don't receive an explicit "self object" parameter. Within the body of a method, 
+        the [`@` syntax](atsign) can be used to access the self-object. 
 
-[[apis]]
-	filename = "statex-clause"
-	name = "state*"
-	kinds = ["clause"]
-	args = ["name sym", "clauses form *"]
-	text = """
-		Defines a class state which is enabled by default.
+        Any of a method's parameters can be prefixed with [`@`](atsign). This causes the form
+        `(= @param-name param-name)` to be automatically emitted at the beginning of the
+        method's body.
 
-		Other than the fact that it's enabled by default, `state*` is exactly equivalent
-		to [`state`](state-clause).
-	"""
+            (defclass Example
+              (field x)
+              (prop y (get) (set))
 
-[[apis]]
-	filename = "fsm-clause"
-	name = "fsm"
-	kinds = ["clause"]
-	args = ["state-clauses form *"]
-	text = """
-		Defines a set of mutually exclusive states.
+              (met receive-values (@x @y)
+                (prn @x @y)))
 
-		The immediate children of an `fsm` clause must all be [`state`](state-clause) or
-		[`state*`](statex-clause) clauses.
+            ; ...is equivalent to...
 
-		The only effect of the `fsm` clause is that, when one of its immediate children would
-		be [enabled](enab-mut), and one of its other children is already active, the active child 
-		is automatically [disabled](disab-mut) first.
-	"""
+            (defclass Example
+              (field x)
+              (prop y (get) (set))
+
+              (met receive-values (x y)
+                (= @x x)
+                (= @y y)
+                (prn @x @y)))
+    """
 
 [[apis]]
-	filename = "init-state-clause"
-	name = "init-state"
-	kinds = ["clause"]
-	args = ["params arr", "body form *"]
-	text = """
-		Defines a state initializer method.
+    filename = "prop-clause"
+    name = "prop"
+    kinds = ["clause"]
+    args = ["name sym", "subclauses form *"]
+    text = """
+        Defines a property.
 
-		After a state is enabled using [`enab!`](enab-mut), its initializer method is 
-		automatically invoked with the given arguments.
+        A property is a field combined with a "getter" method and/or a "setter" method. Those
+        methods can't be invoked directly, but they will automatically be invoked when the
+        field is accessed using [`[]`](access) or [`@`](atsign).
 
-		When a state is automatically enabled (for example, because it was defined using a 
-		[`state*` clause](statex-clause)), its initializer method will be invoked without any 
-		arguments.
+        The sub-clauses are an optional initializer form, followed by either or both of a
+        `(get ..body)` and `(set (arg) ..body)` form, not necessarily in that order. Note that
+        the `get` form does not have a parameter list, because it's always invoked without
+        any arguments.
 
-		`@`-parameters are supported, exactly as for an [`init`](init-clause) clause.
-	"""
+        The underlying field has the same name as the property, but suffixed with `:field`.
+        For example, the backing field for the property `fizz` might have the unqualified name
+        `fizz:field`, and the qualified name `Main:fizz:field`. Within a getter or setter method's
+        body, the [`@field`](atsign-field) shorthand can be used to access the backing field.
 
-[[apis]]
-	filename = "fini-state-clause"
-	name = "fini-state"
-	kinds = ["clause"]
-	args = ["body form *"]
-	text = """
-		Defines a state finalizer method.
+            (defclass Example
+              (prop doubled 5.5
+                (get (* @field 2.0))
+                (set (n) (= @field (/ n 2.0)))))
 
-		The finalizer is invoked just before a state is [disabled](disab-mut).
+            (let ob (Example))
+            (prn [ob 'doubled]) ; prints 11.0
+            (prn [ob 'doubled:field]) ; prints 5.5
 
-		Note that, when an object is [killed](obj-kill-mut), all of its states are 
-		automatically disabled first.
-	"""
+            (= [ob 'doubled] 21.0)
+            (prn [ob 'Main:doubled]) ; prints 21.0
+            (prn [ob 'Main:doubled:field]) ; prints 10.5
 
-[[apis]]
-	filename = "atsign"
-	name = "atsign"
-	starts-subcategory = "Abbreviations"
-	kinds = ["abbrv"]
-	args = ["tag sym"]
-	text = """
-		Accesses a method's self-object.
+        `(get)` is equivalent to `(get @field)`.
 
-		`(atsign sym)` is usually [abbreviated](../reference/syntax-and-types.html#abbreviations) 
-		as [`@sym`](atsign-abbrv).
+        `(set)` is equivalent to `(set (x) (= @field x))`.
 
-		`atsign` is only meaningful within the body or parameter list of a [method](met-clause), 
-		or the initializer form of a [field](field-clause), [constant](const-clause) or 
-		[property](prop-clause).
-
-		In all of those contexts, there is a hidden local variable which represents the "self 
-		object" - that is, the object which is receiving the method call, or the object which
-		contains the field, or the class which contains the constant, etc. `@` can be used to 
-		access that hidden local variable.
-
-		The local variable can be captured by a closure, so [`fn`](fn) will work as expected.
-
-		There are various symbols which have special meaning when passed to `@`, such as
-		[`@base`](atsign-base) or [`@self`](atsign-self).
-
-		Otherwise, for an arbitrary symbol `name`, `@name` has one of the following meanings:
-
-		- `@name` is equivalent to `[@self 'name]`. It accesses a field or property on the
-		  self-object.
-
-		- `(? @name)` is equivalent to `[@self (? 'name)]`. It accesses a field or property
-		  on the self-object which may be absent.
-
-		- `(@name arg0)` is equivalent to `(.name @self arg0)`. It invokes a method on the
-		  self-object.
-
-		- `((? @name) arg0)` is equivalent to `((? .name) @self arg0)`. It invokes a method
-		  on the self-object which may be absent.
-
-		In a method parameter list, when a parameter's name is prefixed with `@`, that method
-		will [prefix its body with `(= @name name)`](met-clause), assigning the value of that
-		parameter to the corresponding field or property.
-	"""
+        Properties can be [wrapped](wrap-prop-clause) like normal methods. Unlike fields and
+        constants, they don't participate in [name-shadowing](field-clause).
+    """
 
 [[apis]]
-	filename = "atsign-self"
-	name = "@self"
-	kinds = ["abbrv"]
-	args = []
-	pre-text = "@self"
-	see-also = ["atsign"]
-	text = """
-		Returns a reference to a method's self-object.
-	"""
+    filename = "init-clause"
+    name = "init"
+    kinds = ["clause"]
+    args = ["params arr", "body form *"]
+    text = """
+        Defines an initializer method.
+
+        To construct an object, invoke its class as though calling a function: `(Class a b)`.
+        This will...
+
+        - Allocate a new object which belongs to that class, with all of its fields set to
+          `#n` and all of its states disabled.
+        - Invoke the `init` method, passing in `a` and `b` as its arguments.
+        - Automatically enable any toplevel `state*` forms.
+        - Return the object.
+
+        The `init` clause will automatically prepend field initializers to the beginning of its
+        method body:
+
+        - When a [`field` clause](field-clause) has an explicit initializer form, that form is
+          evaluated directly and assigned to those field(s).
+        - When one of the `init` method's parameters is prefixed with `@`, the value of that
+          parameter is assigned to the corresponding field, which must not have an explicit
+          initializer form.
+
+        Fields are always initialized in the same order that they were declared. This means that
+        field-initializer forms can access fields defined earlier in the same class.
+
+            (defclass Example
+              (field a)
+              (field b (* @a 10))
+
+              (init (@a)
+                (prn b)))
+
+            ; ...is equivalent to...
+
+            (defclass Example
+              (field a #n)
+              (field b #n)
+
+              (init (a)
+                (= @a a)
+                (= @b (* @a 10))
+                (prn b)))
+    """
 
 [[apis]]
-	filename = "atsign-class"
-	name = "@class"
-	kinds = ["abbrv"]
-	args = []
-	pre-text = "@class"
-	see-also = ["atsign", "class-of"]
-	text = """
-		Equivalent to `(class-of @self)`.
-	"""
+    filename = "init-mixin-clause"
+    name = "init-mixin"
+    kinds = ["clause"]
+    args = ["params arr", "body form *"]
+    text = """
+        Defines a mixin initializer method.
+
+        This is effectively a [wrapper method](wrap-clause) for [`init`](init-clause). 
+        When a class has the clause `(mixin First Second)`, it has an `init` method, which is 
+        wrapped by `Second:init-mixin`, which is in turn wrapped by `First:init-mixin`.
+
+        Don't forget to call [`(@base args)`](atsign-base) to execute the wrapped initializer!
+    """
 
 [[apis]]
-	filename = "atsign-class-name"
-	name = "@class-name"
-	kinds = ["abbrv"]
-	args = []
-	pre-text = "@class-name"
-	see-also = ["atsign", "class-name"]
-	text = """
-		Equivalent to `(class-name (class-of @self))`.
-	"""
+    filename = "fini-clause"
+    name = "fini"
+    kinds = ["clause"]
+    args = ["body form *"]
+    text = """
+        Defines a finalizer method.
+
+        When an object is [killed](obj-kill-mut), its `fini` method is invoked, followed by the
+        [`fini-mixin`](fini-mixin-clause) method for each of its mixins, in order from right 
+        to left.
+
+        Finalizers are *not* invoked when an object is garbage collected, or when a `Runtime`
+        is dropped.
+
+        Note that the `fini` clause does not have a parameter list.
+    """
 
 [[apis]]
-	filename = "atsign-state-name"
-	name = "@state-name"
-	kinds = ["abbrv"]
-	args = []
-	pre-text = "@state-name"
-	see-also = ["atsign"]
-	text = """
-		Returns the name of the enclosing `state` or `state*` form.
+    filename = "fini-mixin-clause"
+    name = "fini-mixin"
+    kinds = ["clause"]
+    args = ["body form *"]
+    text = """
+        Defines a mixin finalizer method.
 
-		At the toplevel of a `class` or `mixin` form, this will return the symbol `Main`.
-	"""
+        When an object is [killed](obj-kill-mut), its [`fini`](fini-clause) method is invoked, 
+        followed by the `fini-mixin` method for each of its mixins, in order from right to left.
 
-[[apis]]
-	filename = "atsign-field"
-	name = "@field"
-	kinds = ["abbrv"]
-	args = []
-	pre-text = "@field"
-	see-also = ["atsign", "prop-clause"]
-	text = """
-		Refers to a property's backing field.
-	"""
+        `fini-mixin` is not a wrapper method, so there's no need to call [`@base`](atsign-base).
+        Also note that it does not have a parameter list.
+    """
 
 [[apis]]
-	filename = "atsign-base"
-	name = "@base"
-	kinds = ["abbrv"]
-	args = ["args val *"]
-	returns = "val"
-	see-also = ["atsign", "wrap-clause"]
-	text = """
-		Invokes a wrapped method, returning its result.
-	"""
+    filename = "wrap-clause"
+    name = "wrap"
+    kinds = ["clause"]
+    args = ["name sym", "params arr", "body form *"]
+    text = """
+        Wraps another method in the same class.
+
+        When a method is invoked using its *unqualified* name, the runtime...
+
+        - Collects all of the active methods and active wrapper methods in the current object 
+          which share that unqualified name.
+        - Arranges all of those methods into a stack.
+        - Sets up the [`@base`](atsign-base) abbreviation so that it calls the next method
+          down the stack, or performs a no-op if we're at the bottom of the stack.
+        - Invokes the topmost method in the stack, returning its result.
+
+        The wrapper method's name must be the qualified name of the method which is being
+        wrapped. To wrap the `met dance` method in the `Joyful` state, write `wrap Joyful:dance`
+        in a different state or mixin.
+
+        If you replace the name of the state with an underscore, e.g. `_:dance`, then this clause 
+        will define a "wildcard wrapper" method. A wildcard wrapper can wrap any method which 
+        shares the same unqualified name. In practice, this means that all of the wildcard methods 
+        are placed on top of the method stack, in an unspecified order.
+    """
 
 [[apis]]
-	filename = "atsign-enab-mut"
-	name = "@enab!"
-	kinds = ["abbrv"]
-	args = ["state-name sym", "args val *"]
-	returns = "nil"
-	see-also = ["atsign", "enab-mut"]
-	text = """
-		Equivalent to `(enab! @self state-name ..args)`.
-	"""
+    filename = "wrap-prop-clause"
+    name = "wrap-prop"
+    kinds = ["clause"]
+    args = ["name sym", "subclauses form *"]
+    text = """
+        Wraps another property in the same class.
+
+        Defines a getter and/or a setter method which [wrap](wrap-clause) the equivalent methods
+        defined in a [`prop` clause](prop-clause). Wildcard wrappers are supported.
+
+        `get` and `set` must match the property which is being wrapped. For example, when wrapping
+        a prop clause which has a `get` but no `set`, the wrapper must also have a `get` but
+        no `set`.
+
+        The wrapper methods cannot use [`@field`](atsign-field) - they should call
+        [`@base`](atsign-base) instead.
+
+        `(get)` is equivalent to `(get (@base))`.
+
+        `(set)` is equivalent to `(set (x) (@base x))`.
+    """
 
 [[apis]]
-	filename = "atsign-enab-p"
-	name = "@enab?"
-	kinds = ["abbrv"]
-	args = ["state-name sym"]
-	returns = "bool"
-	see-also = ["atsign", "enab-p"]
-	text = """
-		Equivalent to `(enab? @self state-name)`.
-	"""
+    filename = "state-clause"
+    name = "state"
+    kinds = ["clause"]
+    args = ["name sym", "clauses form *"]
+    text = """
+        Defines a class state.
+
+        A state is part of an object which can be dynamically [enabled](enab-mut) and
+        [disabled](disab-mut). It may contain most of the same [class clauses](objects-and-classes)
+        which might appear at the toplevel of a class, but when the state is inactive, the
+        object behaves as though those clauses are absent.
+
+        `state`, [`state*`](statex-clause) and [`fsm`](fsm-clause) clauses may be nested within
+        another state. We emit automatic state changes to ensure that, when the child state is 
+        active, the parent state must also be active:
+
+        - When a child state would be enabled, and its parent is inactive, the parent is 
+          automatically enabled first.
+        - When a parent state would be disabled, any active child states are automatically 
+          disabled first.
+        - After a parent state is enabled, any child `state*` forms are automatically enabled.
+    """
 
 [[apis]]
-	filename = "atsign-disab-mut"
-	name = "@disab!"
-	kinds = ["abbrv"]
-	args = ["state-name sym"]
-	returns = "nil"
-	see-also = ["atsign", "disab-mut"]
-	text = """
-		Equivalent to `(disab! @self state-name)`.
-	"""
+    filename = "statex-clause"
+    name = "state*"
+    kinds = ["clause"]
+    args = ["name sym", "clauses form *"]
+    text = """
+        Defines a class state which is enabled by default.
+
+        Other than the fact that it's enabled by default, `state*` is exactly equivalent
+        to [`state`](state-clause).
+    """
 
 [[apis]]
-	filename = "call-met"
-	starts-subcategory = "Functions"
-	kinds = ["fn", "mac"]
-	args = ["name sym", "receiver obj|class|rdata", "args val *"]
-	returns = "val"
-	text = """
-		Invokes a method.
+    filename = "fsm-clause"
+    name = "fsm"
+    kinds = ["clause"]
+    args = ["state-clauses form *"]
+    text = """
+        Defines a set of mutually exclusive states.
 
-		If the receiver is an object, `name` must be the qualified or unqualified name of a
-		method, or a field, constant or property which stores a [callable](callable-p) value.
+        The immediate children of an `fsm` clause must all be [`state`](state-clause) or
+        [`state*`](statex-clause) clauses.
 
-		If the receiver is a class, `name` must be the qualified or unqualified name of a
-		toplevel constant which stores a [callable](callable-p) value.
-
-		If the receiver is an RData, `name` must be the exact name of one of the methods which
-		was registered using the 
-		[`RClassBuilder`](https://docs.rs/glsp/*/glsp/struct.RClassBuilder.html).
-
-		`call-met` supports the `?` special syntax. When the method `name` doesn't actually
-		exist, `(call-met (? name) rcv ...)` will succeed and return `#n`.
-
-		`(call-met 'name rcv)` is usually [abbreviated][0] as [`(.name rcv)`](met-name).
-		
-		Similarly, `(call-met (? 'name) rcv)` is usually abbreviated as `((? .name) rcv)`.
-
-		[0]: ../reference/syntax-and-types.html#abbreviations
-	"""
+        The only effect of the `fsm` clause is that, when one of its immediate children would
+        be [enabled](enab-mut), and one of its other children is already active, the active child 
+        is automatically [disabled](disab-mut) first.
+    """
 
 [[apis]]
-	filename = "has-met-p"
-	kinds = ["fn"]
-	args = ["receiver obj|class|rdata", "name sym"]
-	returns = "bool"
-	text = """
-		Returns `#t` if the given name is bound to a method.
+    filename = "init-state-clause"
+    name = "init-state"
+    kinds = ["clause"]
+    args = ["params arr", "body form *"]
+    text = """
+        Defines a state initializer method.
 
-		In other words, if `(has-met? rcv name)` returns `#t`, then it would be possible to 
-		invoke a method using `(call-met name rcv ...)`.
-	"""
+        After a state is enabled using [`enab!`](enab-mut), its initializer method is 
+        automatically invoked with the given arguments.
 
-[[apis]]
-	filename = "is-p"
-	kinds = ["fn"]
-	args = ["ob val", "class val"]
-	returns = "bool"
-	text = """
-		Returns `#t` if an object or RData belongs to the specified class.
+        When a state is automatically enabled (for example, because it was defined using a 
+        [`state*` clause](statex-clause)), its initializer method will be invoked without any 
+        arguments.
 
-		For an object, its class is identified using a reference to a `class` object. For an
-		RData, its RClass (if any) is identified using a symbol.
-
-			(is? obj Rect)
-			(is? rdata 'Sprite)
-
-		The arguments to `is?` may belong to any type. If the types are other than those noted
-		above, the function will succeed and return `#f`.
-	"""
+        `@`-parameters are supported, exactly as for an [`init`](init-clause) clause.
+    """
 
 [[apis]]
-	filename = "class-of"
-	kinds = ["fn"]
-	args = ["ob obj|rdata"]
-	returns = "class|sym|nil"
-	text = """
-		Returns the class of an object or RData.
+    filename = "fini-state-clause"
+    name = "fini-state"
+    kinds = ["clause"]
+    args = ["body form *"]
+    text = """
+        Defines a state finalizer method.
 
-		For an object, its class is identified using a reference to a `class` object. For an
-		RData, its RClass is identified using a symbol, or nil if it has no RClass.
+        The finalizer is invoked just before a state is [disabled](disab-mut).
 
-			(prn (class-of obj)) ; prints #<class:Rect>
-			(prn (class-of rdata)) ; prints Sprite
-	"""
-
-[[apis]]
-	filename = "class-name"
-	kinds = ["fn"]
-	args = ["cls class"]
-	returns = "sym|nil"
-	text = """
-		Returns the name of a class.
-
-		This is the symbol which was passed to the class' [`name` clause](name-clause), or
-		`#n` if that clause was absent.
-	"""
+        Note that, when an object is [killed](obj-kill-mut), all of its states are 
+        automatically disabled first.
+    """
 
 [[apis]]
-	filename = "class-has-mixin-p"
-	kinds = ["fn"]
-	args = ["c class", "m class"]
-	returns = "bool"
-	text = """
-		Returns `#t` if a class incorporates a particular mixin.
+    filename = "atsign"
+    name = "atsign"
+    starts-subcategory = "Abbreviations"
+    kinds = ["abbrv"]
+    args = ["tag sym"]
+    text = """
+        Accesses a method's self-object.
 
-		In other words, returns `#t` if `m` was present in the [`mixin` clause](mixin-clause)
-		for `c`.
-	"""
+        `(atsign sym)` is usually [abbreviated](../reference/syntax-and-types.html#abbreviations) 
+        as [`@sym`](atsign-abbrv).
 
-[[apis]]
-	filename = "class-mixins"
-	kinds = ["fn"]
-	args = ["cls class"]
-	returns = "arr"
-	text = """
-		Returns all of a class' mixins.
+        `atsign` is only meaningful within the body or parameter list of a [method](met-clause), 
+        or the initializer form of a [field](field-clause), [constant](const-clause) or 
+        [property](prop-clause).
 
-		This is an array of each of the values which were passed to the class' 
-		[`mixin` clause](mixin-clause), or the empty array `()` if that clause was absent.
-	"""
+        In all of those contexts, there is a hidden local variable which represents the "self 
+        object" - that is, the object which is receiving the method call, or the object which
+        contains the field, or the class which contains the constant, etc. `@` can be used to 
+        access that hidden local variable.
 
-[[apis]]
-	filename = "mixin-p"
-	kinds = ["fn"]
-	args = ["cls class"]
-	returns = "bool"
-	text = """
-		Returns `#t` if a class is a mixin.
-	"""
+        The local variable can be captured by a closure, so [`fn`](fn) will work as expected.
 
-[[apis]]
-	filename = "enab-mut"
-	kinds = ["fn"]
-	args = ["ob obj", "state-name sym", "args val *"]
-	returns = "nil"
-	see-also = ["atsign-enab-mut", "init-state-clause"]
-	text = """
-		Enables a state.
+        There are various symbols which have special meaning when passed to `@`, such as
+        [`@base`](atsign-base) or [`@self`](atsign-self).
 
-		This activates all of a state's clauses, and calls its [`init-state` 
-		method](init-state-clause), passing in all of the given `args`.
+        Otherwise, for an arbitrary symbol `name`, `@name` has one of the following meanings:
 
-		If the state is already active, it's an error.
+        - `@name` is equivalent to `[@self 'name]`. It accesses a field or property on the
+          self-object.
 
-		If the state's parent is inactive, it will automatically be enabled before 
-		the child state is enabled. If the state has any child states which were defined using
-		a [`state*` clause](statex-clause), they will automatically be enabled just after enabling
-		this state.
-	"""
+        - `(? @name)` is equivalent to `[@self (? 'name)]`. It accesses a field or property
+          on the self-object which may be absent.
+
+        - `(@name arg0)` is equivalent to `(.name @self arg0)`. It invokes a method on the
+          self-object.
+
+        - `((? @name) arg0)` is equivalent to `((? .name) @self arg0)`. It invokes a method
+          on the self-object which may be absent.
+
+        In a method parameter list, when a parameter's name is prefixed with `@`, that method
+        will [prefix its body with `(= @name name)`](met-clause), assigning the value of that
+        parameter to the corresponding field or property.
+    """
 
 [[apis]]
-	filename = "enab-p"
-	kinds = ["fn"]
-	args = ["ob obj", "state-name sym"]
-	returns = "bool"
-	see-also = ["atsign-enab-p"]
-	text = """
-		Returns `#t` if a state is currently enabled.
-	"""
+    filename = "atsign-self"
+    name = "@self"
+    kinds = ["abbrv"]
+    args = []
+    pre-text = "@self"
+    see-also = ["atsign"]
+    text = """
+        Returns a reference to a method's self-object.
+    """
 
 [[apis]]
-	filename = "disab-mut"
-	kinds = ["fn"]
-	args = ["ob obj", "state-name sym"]
-	returns = "nil"
-	see-also = ["atsign-disab-mut", "init-state-clause"]
-	text = """
-		Disables a state.
-
-		This calls the state's [`fini-state` method](fini-state-clause), and then deactivates
-		all of the state's clauses.
-
-		The `Main` state, which contains all of the class' toplevel forms, can't be disabled.
-
-		If the state is already inactive, it's an error.
-
-		If the state has any active child states, they will automatically be disabled before
-		the parent state is disabled.
-	"""
+    filename = "atsign-class"
+    name = "@class"
+    kinds = ["abbrv"]
+    args = []
+    pre-text = "@class"
+    see-also = ["atsign", "class-of"]
+    text = """
+        Equivalent to `(class-of @self)`.
+    """
 
 [[apis]]
-	filename = "has-state-p"
-	kinds = ["fn"]
-	args = ["receiver obj|class", "state-name sym"]
-	returns = "bool"
-	text = """
-		Returns `#t` if an object or class has a particular state.
-
-		`(has-state? rcv 'Main)` always returns `#t`.
-	"""
-
-[[apis]]
-	filename = "obj-kill-mut"
-	kinds = ["fn"]
-	args = ["ob obj"]
-	returns = "nil"
-	text = """
-		Permanently deactivates an object.
-
-		A killed object has no fields, properties, methods or states. It still belongs to a
-		class, so [`is?`](is-p), [`class-of`](class-of) and [`has-state?`](has-state-p) will 
-		continue to work as expected.
-
-		When an object is killed, all of its states will be disabled; then, the 
-		[`fini`](fini-clause) method will be invoked; then, each of the 
-		[`fini-mixin`](fini-mixin-clause) methods will be invoked, from right to left.
-
-		Killing an object which has previous been killed is a silent no-op.
-
-		When an error bubbles through initialization or finalization code, the object will be
-		killed automatically. Under those circumstances, no finalizers will be executed.
-	"""
+    filename = "atsign-class-name"
+    name = "@class-name"
+    kinds = ["abbrv"]
+    args = []
+    pre-text = "@class-name"
+    see-also = ["atsign", "class-name"]
+    text = """
+        Equivalent to `(class-name (class-of @self))`.
+    """
 
 [[apis]]
-	filename = "obj-killed-p"
-	kinds = ["fn"]
-	args = ["ob obj"]
-	returns = "bool"
-	see-also = ["obj-kill-mut"]
-	text = """
-		Returns `#t` if an object has been killed.
-	"""
+    filename = "atsign-state-name"
+    name = "@state-name"
+    kinds = ["abbrv"]
+    args = []
+    pre-text = "@state-name"
+    see-also = ["atsign"]
+    text = """
+        Returns the name of the enclosing `state` or `state*` form.
+
+        At the toplevel of a `class` or `mixin` form, this will return the symbol `Main`.
+    """
+
+[[apis]]
+    filename = "atsign-field"
+    name = "@field"
+    kinds = ["abbrv"]
+    args = []
+    pre-text = "@field"
+    see-also = ["atsign", "prop-clause"]
+    text = """
+        Refers to a property's backing field.
+    """
+
+[[apis]]
+    filename = "atsign-base"
+    name = "@base"
+    kinds = ["abbrv"]
+    args = ["args val *"]
+    returns = "val"
+    see-also = ["atsign", "wrap-clause"]
+    text = """
+        Invokes a wrapped method, returning its result.
+    """
+
+[[apis]]
+    filename = "atsign-enab-mut"
+    name = "@enab!"
+    kinds = ["abbrv"]
+    args = ["state-name sym", "args val *"]
+    returns = "nil"
+    see-also = ["atsign", "enab-mut"]
+    text = """
+        Equivalent to `(enab! @self state-name ..args)`.
+    """
+
+[[apis]]
+    filename = "atsign-enab-p"
+    name = "@enab?"
+    kinds = ["abbrv"]
+    args = ["state-name sym"]
+    returns = "bool"
+    see-also = ["atsign", "enab-p"]
+    text = """
+        Equivalent to `(enab? @self state-name)`.
+    """
+
+[[apis]]
+    filename = "atsign-disab-mut"
+    name = "@disab!"
+    kinds = ["abbrv"]
+    args = ["state-name sym"]
+    returns = "nil"
+    see-also = ["atsign", "disab-mut"]
+    text = """
+        Equivalent to `(disab! @self state-name)`.
+    """
+
+[[apis]]
+    filename = "call-met"
+    starts-subcategory = "Functions"
+    kinds = ["fn", "mac"]
+    args = ["name sym", "receiver obj|class|rdata", "args val *"]
+    returns = "val"
+    text = """
+        Invokes a method.
+
+        If the receiver is an object, `name` must be the qualified or unqualified name of a
+        method, or a field, constant or property which stores a [callable](callable-p) value.
+
+        If the receiver is a class, `name` must be the qualified or unqualified name of a
+        toplevel constant which stores a [callable](callable-p) value.
+
+        If the receiver is an RData, `name` must be the exact name of one of the methods which
+        was registered using the 
+        [`RClassBuilder`](https://docs.rs/glsp/*/glsp/struct.RClassBuilder.html).
+
+        `call-met` supports the `?` special syntax. When the method `name` doesn't actually
+        exist, `(call-met (? name) rcv ...)` will succeed and return `#n`.
+
+        `(call-met 'name rcv)` is usually [abbreviated][0] as [`(.name rcv)`](met-name).
+        
+        Similarly, `(call-met (? 'name) rcv)` is usually abbreviated as `((? .name) rcv)`.
+
+        [0]: ../reference/syntax-and-types.html#abbreviations
+    """
+
+[[apis]]
+    filename = "has-met-p"
+    kinds = ["fn"]
+    args = ["receiver obj|class|rdata", "name sym"]
+    returns = "bool"
+    text = """
+        Returns `#t` if the given name is bound to a method.
+
+        In other words, if `(has-met? rcv name)` returns `#t`, then it would be possible to 
+        invoke a method using `(call-met name rcv ...)`.
+    """
+
+[[apis]]
+    filename = "is-p"
+    kinds = ["fn"]
+    args = ["ob val", "class val"]
+    returns = "bool"
+    text = """
+        Returns `#t` if an object or RData belongs to the specified class.
+
+        For an object, its class is identified using a reference to a `class` object. For an
+        RData, its RClass (if any) is identified using a symbol.
+
+            (is? obj Rect)
+            (is? rdata 'Sprite)
+
+        The arguments to `is?` may belong to any type. If the types are other than those noted
+        above, the function will succeed and return `#f`.
+    """
+
+[[apis]]
+    filename = "class-of"
+    kinds = ["fn"]
+    args = ["ob obj|rdata"]
+    returns = "class|sym|nil"
+    text = """
+        Returns the class of an object or RData.
+
+        For an object, its class is identified using a reference to a `class` object. For an
+        RData, its RClass is identified using a symbol, or nil if it has no RClass.
+
+            (prn (class-of obj)) ; prints #<class:Rect>
+            (prn (class-of rdata)) ; prints Sprite
+    """
+
+[[apis]]
+    filename = "class-name"
+    kinds = ["fn"]
+    args = ["cls class"]
+    returns = "sym|nil"
+    text = """
+        Returns the name of a class.
+
+        This is the symbol which was passed to the class' [`name` clause](name-clause), or
+        `#n` if that clause was absent.
+    """
+
+[[apis]]
+    filename = "class-has-mixin-p"
+    kinds = ["fn"]
+    args = ["c class", "m class"]
+    returns = "bool"
+    text = """
+        Returns `#t` if a class incorporates a particular mixin.
+
+        In other words, returns `#t` if `m` was present in the [`mixin` clause](mixin-clause)
+        for `c`.
+    """
+
+[[apis]]
+    filename = "class-mixins"
+    kinds = ["fn"]
+    args = ["cls class"]
+    returns = "arr"
+    text = """
+        Returns all of a class' mixins.
+
+        This is an array of each of the values which were passed to the class' 
+        [`mixin` clause](mixin-clause), or the empty array `()` if that clause was absent.
+    """
+
+[[apis]]
+    filename = "mixin-p"
+    kinds = ["fn"]
+    args = ["cls class"]
+    returns = "bool"
+    text = """
+        Returns `#t` if a class is a mixin.
+    """
+
+[[apis]]
+    filename = "enab-mut"
+    kinds = ["fn"]
+    args = ["ob obj", "state-name sym", "args val *"]
+    returns = "nil"
+    see-also = ["atsign-enab-mut", "init-state-clause"]
+    text = """
+        Enables a state.
+
+        This activates all of a state's clauses, and calls its [`init-state` 
+        method](init-state-clause), passing in all of the given `args`.
+
+        If the state is already active, it's an error.
+
+        If the state's parent is inactive, it will automatically be enabled before 
+        the child state is enabled. If the state has any child states which were defined using
+        a [`state*` clause](statex-clause), they will automatically be enabled just after enabling
+        this state.
+    """
+
+[[apis]]
+    filename = "enab-p"
+    kinds = ["fn"]
+    args = ["ob obj", "state-name sym"]
+    returns = "bool"
+    see-also = ["atsign-enab-p"]
+    text = """
+        Returns `#t` if a state is currently enabled.
+    """
+
+[[apis]]
+    filename = "disab-mut"
+    kinds = ["fn"]
+    args = ["ob obj", "state-name sym"]
+    returns = "nil"
+    see-also = ["atsign-disab-mut", "init-state-clause"]
+    text = """
+        Disables a state.
+
+        This calls the state's [`fini-state` method](fini-state-clause), and then deactivates
+        all of the state's clauses.
+
+        The `Main` state, which contains all of the class' toplevel forms, can't be disabled.
+
+        If the state is already inactive, it's an error.
+
+        If the state has any active child states, they will automatically be disabled before
+        the parent state is disabled.
+    """
+
+[[apis]]
+    filename = "has-state-p"
+    kinds = ["fn"]
+    args = ["receiver obj|class", "state-name sym"]
+    returns = "bool"
+    text = """
+        Returns `#t` if an object or class has a particular state.
+
+        `(has-state? rcv 'Main)` always returns `#t`.
+    """
+
+[[apis]]
+    filename = "obj-kill-mut"
+    kinds = ["fn"]
+    args = ["ob obj"]
+    returns = "nil"
+    text = """
+        Permanently deactivates an object.
+
+        A killed object has no fields, properties, methods or states. It still belongs to a
+        class, so [`is?`](is-p), [`class-of`](class-of) and [`has-state?`](has-state-p) will 
+        continue to work as expected.
+
+        When an object is killed, all of its states will be disabled; then, the 
+        [`fini`](fini-clause) method will be invoked; then, each of the 
+        [`fini-mixin`](fini-mixin-clause) methods will be invoked, from right to left.
+
+        Killing an object which has previous been killed is a silent no-op.
+
+        When an error bubbles through initialization or finalization code, the object will be
+        killed automatically. Under those circumstances, no finalizers will be executed.
+    """
+
+[[apis]]
+    filename = "obj-killed-p"
+    kinds = ["fn"]
+    args = ["ob obj"]
+    returns = "bool"
+    see-also = ["obj-kill-mut"]
+    text = """
+        Returns `#t` if an object has been killed.
+    """

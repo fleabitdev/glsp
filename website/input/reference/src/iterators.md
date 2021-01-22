@@ -7,10 +7,10 @@ This kind of expressiveness seemed like a great fit for GameLisp, so the languag
 iterator library which is, for the most part, shamelessly copied from Rust. (To be fair, Rust 
 originally copied many of its iterator APIs from Python...)
 
-	(let text "Revered. Exalted. Wise.")
+    (let text "Revered. Exalted. Wise.")
 
-	(for word in (->> (split text \space) (rev) (map uppercase))
-	  (pr word " ")) ; prints WISE. EXALTED. REVERED. 
+    (for word in (->> (split text \space) (rev) (map uppercase))
+      (pr word " ")) ; prints WISE. EXALTED. REVERED. 
 
 
 ## Iteration
@@ -25,13 +25,13 @@ The simplest way to allocate a new iterator is by calling [`(iter x)`](../std/it
 some kind of collection or sequence. We say that if something can be passed to the `iter` 
 function, it belongs to the [`iterable` abstract type](syntax-and-types.md#abstract-types). 
 The following types are iterable:
-	
+    
 - Arrays iterate over their elements.
 - Strings iterate over their characters.
 - Tables iterate over their entries as `(key value)` pairs. Each pair is a newly-allocated, 
   two-element array.
-	- Alternatively, you can use the [`(keys tbl)`](../std/keys) function to iterate over a 
-	  table's keys, or the [`(values tbl)`](../std/values) function to iterate over its values.
+    - Alternatively, you can use the [`(keys tbl)`](../std/keys) function to iterate over a 
+      table's keys, or the [`(values tbl)`](../std/values) function to iterate over its values.
 - Coroutines will be discussed in the [next chapter](coroutines.md).
 - Passing an iterator to `(iter x)` is the identity operation - it just returns `x`.
 
@@ -50,12 +50,12 @@ takes an iterable, and evaluates its body once for each item produced by the ite
 that item to a [pattern](patterns.md). [`break`](../std/break) and [`continue`](../std/continue) 
 work as expected.
 
-	(for element in '(1 2 3 4 5)
-	  (prn (* element 10)))
+    (for element in '(1 2 3 4 5)
+      (prn (* element 10)))
 
-	(for (key value) in table
-	  (ensure (sym? key))
-	  (prn "{key}: {value}"))
+    (for (key value) in table
+      (ensure (sym? key))
+      (prn "{key}: {value}"))
 
 `for` isn't doing anything special - it just invokes the `iter`, `iter-next!` and `iter-finished?`
 functions.
@@ -79,14 +79,14 @@ you can use [`rni`](../std/rni): `(rni -5 5)` is equivalent to `-5 ..= 5`.
 Because `rn` is such a common iterator, we provide the [`forn` macro](../std/forn) to make it more
 convenient to use. (`forn` should be read as a contraction of `for rn`, in the same way that
 `defn` is a contraction of `def fn`.)
-	
-	(forn (digit 0 10)
-	  (prn digit))
+    
+    (forn (digit 0 10)
+      (prn digit))
 
-	; ...is equivalent to...
+    ; ...is equivalent to...
 
-	(for digit in (rn 0 10)
-	  (prn digit))
+    (for digit in (rn 0 10)
+      (prn digit))
 
 ### Double-Ended Iterators
 
@@ -114,10 +114,10 @@ memory in advance.
 Instead, the [`len`](../std/len) function can accept an iterator as its argument. If that iterator
 knows its exact length, it returns an integer; if it knows itself to be infinite, it returns the
 symbol `infinite`; and otherwise it returns the symbol `unknown`.
-	
-	(prn (len (rn 5))) ; prints 5
-	(prn (len (repeat #t))) ; prints infinite
-	(prn (len (split text \space))) ; prints unknown
+    
+    (prn (len (rn 5))) ; prints 5
+    (prn (len (repeat #t))) ; prints infinite
+    (prn (len (split text \space))) ; prints unknown
 
 There's nothing to prevent an array or string from being mutated during iteration (although
 this is strongly discouraged). This means that array and string iterators do not know their exact 
@@ -129,9 +129,9 @@ pushing or popping from the start may cause the iterator to behave unpredictably
 
 We've previously mentioned that you can use [`..`](../std/splay-abbrv), an abbreviation for
 [`splay`](../std/splay), to pass all of an array's elements to the array constructor.
-	
-	(let triad '(x y z))
-	(prn (arr 'a 'b 'c ..triad 1 2 3)) ; prints (a b c x y z 1 2 3)
+    
+    (let triad '(x y z))
+    (prn (arr 'a 'b 'c ..triad 1 2 3)) ; prints (a b c x y z 1 2 3)
 
 The splay operator is actually much more powerful than this. It will accept *any* iterable, 
 and pass all of its items as arguments to *any* function call.
@@ -141,8 +141,8 @@ an iterator while calling [`arr`](../std/arr), [`str`](../std/str), [`tab`](../s
 other constructor function.
 
 [1]: https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.collect
-	
-	(prn (str ..(take 5 (repeat \A)))) ; prints AAAAA
+    
+    (prn (str ..(take 5 (repeat \A)))) ; prints AAAAA
 
 There's also no need for GameLisp to have [`apply`](http://clhs.lisp.se/Body/f_apply.htm): you 
 can just splay an array as a function's last argument instead.
@@ -162,26 +162,26 @@ This returns a new iterator which takes each item in turn from the original iter
 the collection using [`[coll item]`](../std/access), and produces the resulting element.
 
 In effect, `[coll iterable]` is equivalent to [`(map (fn1 [coll _]) iterable)`](../std/map).
-	
-	; re-order an array's elements
-	(let shuf (arr ..[src-arr '(1 3 0 2)]))
-	
-	; equivalent to...
-	(let shuf (arr [src-arr 1] [src-arr 3] [src-arr 0] [src-arr 2]))
+    
+    ; re-order an array's elements
+    (let shuf (arr ..[src-arr '(1 3 0 2)]))
+    
+    ; equivalent to...
+    (let shuf (arr [src-arr 1] [src-arr 3] [src-arr 0] [src-arr 2]))
 
-	; swizzle an object's fields
-	(let offset (Vec3 x y z))
-	(let swizzled (Vec3 ..[offset '(y z x)]))
+    ; swizzle an object's fields
+    (let offset (Vec3 x y z))
+    (let swizzled (Vec3 ..[offset '(y z x)]))
 
-	; discard every second character in a string
-	(let text "You're filled with DETERMINATION.")
-	(prn ..[text (step-by 2 (rn (len text)))]) ; prints Yur ildwt EEMNTO.
+    ; discard every second character in a string
+    (let text "You're filled with DETERMINATION.")
+    (prn ..[text (step-by 2 (rn (len text)))]) ; prints Yur ildwt EEMNTO.
 
-	; use multiple object fields as consecutive function arguments
-	(draw-sprite spr ..[very-long-coordinates-name '(x y)])
+    ; use multiple object fields as consecutive function arguments
+    (draw-sprite spr ..[very-long-coordinates-name '(x y)])
 
-	; equivalent to...
-	(draw-sprite spr [very-long-coordinates-name 'x] [very-long-coordinates-name 'y])
+    ; equivalent to...
+    (draw-sprite spr [very-long-coordinates-name 'x] [very-long-coordinates-name 'y])
 
 Note that tables do not support this kind of indexing. This is because table keys can belong
 to any primitive type, including iterators, arrays, strings, and so on. If you were to call
@@ -197,18 +197,18 @@ As ever, the [arrow macros](built-in-macros.md#arrows) are the best way to flatt
 a deep call hierarchy. `->>` is often a good choice when working with iterators,
 because [iterator adapters](../std/iterators#iterator-adapters) usually expect an iterator or 
 iterable as their last argument.
-	
-	(->> my-array (step-by 3) (map (fn1 (+ _ 10))) enumerate)
+    
+    (->> my-array (step-by 3) (map (fn1 (+ _ 10))) enumerate)
 
-	; ...is equivalent to...
+    ; ...is equivalent to...
 
-	(enumerate (map (fn1 (+ _ 10)) (step-by 3 my-array)))
+    (enumerate (map (fn1 (+ _ 10)) (step-by 3 my-array)))
 
 The arrow macros include special handling for the splay operator. If you prefix one of the 
 arrowed function calls with `..`, then the result of the previous function will be splayed.
 
-	(->> my-array (step-by 3) (map abs) (filter (fn1 (< _ 10))) ..arr)
+    (->> my-array (step-by 3) (map abs) (filter (fn1 (< _ 10))) ..arr)
 
-	; ... is equivalent to...
+    ; ... is equivalent to...
 
-	(arr ..(filter (fn1 (< _ 10)) (map abs (step-by 3 my-array))))
+    (arr ..(filter (fn1 (< _ 10)) (map abs (step-by 3 my-array))))

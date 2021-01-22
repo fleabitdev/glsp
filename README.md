@@ -23,12 +23,12 @@ Short-term goals for the language, in descending order of priority:
 - Syntax-highlighting for more text editors
 - Reporting the location of mismatched parentheses when parsing
 - Working off some recent technical debt
-	- Make gc timing more consistent when `"unsafe-internals"` is disabled
-	- Optimize `forn`, collections, objects, and the write-barrier
-	- Forbid names like `iter` from being bound as local variables
+    - Make gc timing more consistent when `"unsafe-internals"` is disabled
+    - Optimize `forn`, collections, objects, and the write-barrier
+    - Forbid names like `iter` from being bound as local variables
 - Built-in functions for debugging
-	- Convenient functions for running a REPL in-game
-	- Some level of support for hotloading
+    - Convenient functions for running a REPL in-game
+    - Some level of support for hotloading
 - Auditing the crate's integer conversions and overflow (e.g. `usize as u32` casts)
 - Bindings to the `regex` and `chrono` crates, behind feature flags
 - Generalizing `let-macro` - this will enable things like classmacros, patterns and struct

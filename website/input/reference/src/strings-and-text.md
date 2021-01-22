@@ -9,13 +9,13 @@ is that assigning a non-character value to a string is an error.
 This enables you to write code which is generic over both strings and arrays. For example,
 a function which reverses a string or array in-place:
 
-	(defn rev! (deq)
-	  (ensure (deque? deq))
+    (defn rev! (deq)
+      (ensure (deque? deq))
 
-	  (forn (i (/ (len deq) 2))
-	    (swap! [deq i] [deq (- i)]))
+      (forn (i (/ (len deq) 2))
+        (swap! [deq i] [deq (- i)]))
 
-	  deq)
+      deq)
 
 Notice that we test for the type `deque`, which is the [abstract type](syntax-and-types.md#type-summary) 
 implemented by anything which supports an array-like interface. For a string, 
@@ -50,11 +50,11 @@ arguments; inserts spaces between adjacent non-character, non-string arguments; 
 of those arguments to text; and returns the concatenation of all of the arguments' text as a 
 newly-allocated, mutable string.
 
-	(str)                      ; ""
-	(str \a \b \c)             ; "abc"
-	(str 1 2 3)                ; "1 2 3": note the spaces
-	(str 1 " " 2 " " 3)        ; "1 2 3": equivalent to the previous call
-	(str "hello" \w "or" "ld") ; "helloworld": no spaces added between strs/chars
+    (str)                      ; ""
+    (str \a \b \c)             ; "abc"
+    (str 1 2 3)                ; "1 2 3": note the spaces
+    (str 1 " " 2 " " 3)        ; "1 2 3": equivalent to the previous call
+    (str "hello" \w "or" "ld") ; "helloworld": no spaces added between strs/chars
 
 This is also how [`pr`](../std/pr) and [`prn`](../std/prn-fn) process their arguments. `prn` 
 appends a UNIX-style line ending, `"\n"`, to its output.
@@ -64,24 +64,24 @@ its arguments, and it converts the result into a symbol. It's an error if the st
 if it contains anything other than the [valid symbol characters](syntax-and-types.md#sym). You can
 test this using the functions [`valid-sym-char?`](../std/valid-sym-char-p) and
 [`valid-sym-str?`](../std/valid-sym-str-p).
-	
-	(valid-sym-str? "") ; #f
-	(valid-sym-str? "hello-world") ; #t
-	(valid-sym-str? "hello world") ; #f
-	(valid-sym-str? "42.42") ; #t
+    
+    (valid-sym-str? "") ; #f
+    (valid-sym-str? "hello-world") ; #t
+    (valid-sym-str? "hello world") ; #f
+    (valid-sym-str? "42.42") ; #t
 
-	(prn (sym "suffixed-" 100)) ; prints suffixed-100
-	(prn (sym "*invalid()\ncharacters[]")) ; an error
+    (prn (sym "suffixed-" 100)) ; prints suffixed-100
+    (prn (sym "*invalid()\ncharacters[]")) ; an error
 
 We also support [template strings](syntax-and-types.md#abbreviations). A template string evaluates 
 to a newly-allocated, mutable string with values printed into it. It's like the `format!()`
 macro in Rust, but more convenient.
 
-	(let arg 2)
-	(prn "1 + {arg} = {(+ 1 arg)}") ; prints 1 + 2 = 3
+    (let arg 2)
+    (prn "1 + {arg} = {(+ 1 arg)}") ; prints 1 + 2 = 3
 
-	; within curly braces, adjacent values are separated by spaces
-	(prn "{(+ 1 1) (+ 1 2)} 4 {(+ 1 4)}") ; prints 2 3 4 5
+    ; within curly braces, adjacent values are separated by spaces
+    (prn "{(+ 1 1) (+ 1 2)} 4 {(+ 1 4)}") ; prints 2 3 4 5
 
 Finally, you'll sometimes want to customize how numbers are printed. 
 [`(int->str i radix)`](../std/int-to-str) will convert an integer to a string with the given 
@@ -101,9 +101,9 @@ It's still possible to print non-representable values, or convert them to a stri
 will usually prefix them with `#<` and suffix them with `>`, to make it obvious that they can't be
 parsed.
 
-	(prn (gensym)) ; prints #<gs:0>
-	(prn (arr type-of +)) ; prints (#<rfn:type-of> #<rfn:+>)
-	(prn (fn () #n)) ; prints #<fn>
+    (prn (gensym)) ; prints #<gs:0>
+    (prn (arr type-of +)) ; prints (#<rfn:type-of> #<rfn:+>)
+    (prn (fn () #n)) ; prints #<fn>
 
 
 ## Parsing and Unparsing
@@ -114,15 +114,15 @@ string. It's an error if the string contains invalid syntax.
 
 When you know that the input contains exactly one form, [`parse-1`](../std/parse-1) will parse
 and return that form.
-	
-	(parse-all "1 (a b)") ; returns the array (1 (a b))
-	(parse-all "hello") ; returns the array (hello)
-	(parse-1 "hello") ; returns the symbol hello
+    
+    (parse-all "1 (a b)") ; returns the array (1 (a b))
+    (parse-all "hello") ; returns the array (hello)
+    (parse-1 "hello") ; returns the symbol hello
 
 You'll sometimes have data which you want to store as text and then read back in later - for
 example, in a savegame or a configuration file. Under those circumstances, it's important that
 the data is representable. You'll need to avoid the following:
-	
+    
 - Values which belong to a non-representable type, such as functions or iterators
 - A reference cycle, which would cause the printer to get stuck in an endless loop
 - Symbols like `-10` or `..name`, which will be read back in as numbers or abbreviations
@@ -137,12 +137,12 @@ Checking all of these conditions every time would be tedious, so we provide a fu
 that if the resulting string is passed to `parse-all`, the parsed values will be equal
 to `unparse`'s arguments.
 
-	(prn (unparse "w" \x (arr 'y 'z))) ; prints "w" \x (y z)
-	(prn (str "w" \x (arr 'y 'z))) ; prints wx(y z)
+    (prn (unparse "w" \x (arr 'y 'z))) ; prints "w" \x (y z)
+    (prn (str "w" \x (arr 'y 'z))) ; prints wx(y z)
 
-	(let non-repr-sym (sym "42"))
-	(prn (str non-repr-sym)) ; prints 42
-	(prn (unparse non-repr-sym)) ; an error
+    (let non-repr-sym (sym "42"))
+    (prn (str non-repr-sym)) ; prints 42
+    (prn (unparse non-repr-sym)) ; an error
 
 
 ## Output Streams
@@ -161,30 +161,30 @@ output somewhere else - we'll discuss that in [Section 2](the-glsp-crate.md#outp
 Although GameLisp's syntax is easy enough to write, the raw data is not very pleasant to read 
 when printed:
 
-	(prn '(cond
-	  ((>= (len ar) 2)
-	    (run [ar 0] [ar 1]))
-	  (else
-	    (run [ar 0]))))
+    (prn '(cond
+      ((>= (len ar) 2)
+        (run [ar 0] [ar 1]))
+      (else
+        (run [ar 0]))))
 
-	; prints (cond ((>= (len ar) 2) (run [ar 0] [ar 1])) (else (run [ar 0])))
+    ; prints (cond ((>= (len ar) 2) (run [ar 0] [ar 1])) (else (run [ar 0])))
 
 GameLisp comes with a simple pretty-printer which attempts to format data/code with reasonable
 whitespace. It's not gold-standard, but it's usually good enough for debugging.
 
-	(pretty-prn '(cond
-	  ((>= (len ar) 2)
-	    (run [ar 0] [ar 1]))
-	  (else
-	    (run [ar 0]))))
+    (pretty-prn '(cond
+      ((>= (len ar) 2)
+        (run [ar 0] [ar 1]))
+      (else
+        (run [ar 0]))))
 
-	#|
-	  prints:
+    #|
+      prints:
 
-  	  (cond
-  	    ((>= (len ar) 2) (run [ar 0] [ar 1]))
-  	    (else (run [ar 0])))
-	|#
+      (cond
+        ((>= (len ar) 2) (run [ar 0] [ar 1]))
+        (else (run [ar 0])))
+    |#
 
 All of the pretty-printing functions only accept a single value, which they convert to a pretty
 string with no leading or trailing whitespace. Those functions are 

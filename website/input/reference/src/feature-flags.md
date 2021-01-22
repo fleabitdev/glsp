@@ -3,19 +3,19 @@
 By default, the `glsp` crate's only transitive dependencies are [`smallvec`], [`owning_ref`], 
 [`stable_deref_trait`], [`fnv`], and the Rust standard library.
 
-	$ cargo tree
-	glsp v0.2.0
-	+-- glsp-engine v0.2.0
-	|   +-- fnv v1.0.7
-	|   +-- owning_ref v0.4.1
-	|   |   +-- stable_deref_trait v1.1.1
-	|   +-- smallvec v1.4.0
-	+-- glsp-proc-macros v0.2.0
-	|   +-- glsp-engine v0.2.0 (*)
-	+-- glsp-stdlib v0.2.0
-		+-- glsp-engine v0.2.0 (*)
-		+-- glsp-proc-macros v0.2.0 (*)
-		+-- smallvec v1.4.0 (*)
+    $ cargo tree
+    glsp v0.2.0
+    +-- glsp-engine v0.2.0
+    |   +-- fnv v1.0.7
+    |   +-- owning_ref v0.4.1
+    |   |   +-- stable_deref_trait v1.1.1
+    |   +-- smallvec v1.4.0
+    +-- glsp-proc-macros v0.2.0
+    |   +-- glsp-engine v0.2.0 (*)
+    +-- glsp-stdlib v0.2.0
+        +-- glsp-engine v0.2.0 (*)
+        +-- glsp-proc-macros v0.2.0 (*)
+        +-- smallvec v1.4.0 (*)
 
 All large or non-essential dependencies are feature-gated, and all features are disabled by
 default.

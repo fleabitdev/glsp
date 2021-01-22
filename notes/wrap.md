@@ -15,18 +15,18 @@ wrappers, eventually calling a `met`, without skipping any enabled explicit `wra
 
 We particularly need to support code like this, which has the potential to dynamically become 
 invalid if the wrong set of states are enabled simultaneously:
-	
-	(class A
-	  (met x ())
-	  (state B
-	    (wrap A:x ()))
-	  (state C
-	    (wrap A:x ())))
+    
+    (class A
+      (met x ())
+      (state B
+        (wrap A:x ()))
+      (state C
+        (wrap A:x ())))
 
-	(let a (A))
-	(enab! a 'B)
-	(enab! a 'C)
-	(.x a) ; which is called, B:x or C:x?
+    (let a (A))
+    (enab! a 'B)
+    (enab! a 'C)
+    (.x a) ; which is called, B:x or C:x?
 
 This means that we can't statically prove whether or not a class is valid when we compile it...
 static analysis would suggest that the above class is invalid, but preventing it from compiling

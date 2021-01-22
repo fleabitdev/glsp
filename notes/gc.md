@@ -11,9 +11,9 @@ Our garbage-collector is designed to be a good fit for a "typical" video game us
   consistent amount of work from one frame to the next. In exchange, the programmer can expect 
   each yield point to take up a predictable amount of runtime, with no latency spikes.
 
-	- Our goal is not to be perfectly consistent, but instead to be proportional to the 
-	  amount of new allocation each frame - if the programmer allocates twice as many bytes 
-	  this frame, then the GC is allowed to run for twice as long.
+    - Our goal is not to be perfectly consistent, but instead to be proportional to the 
+      amount of new allocation each frame - if the programmer allocates twice as many bytes 
+      this frame, then the GC is allowed to run for twice as long.
 
 We currently approach this use-case by pairing a generational algorithm with a tri-colour 
 incremental algorithm. (For a good summary of the prior art, see
@@ -84,7 +84,7 @@ hover around 7.5mb after its first cycle or two.
 exceeds 1mb, even if all gray objects have been processed.)
 
 We anticipate that except for long-lived allocations, the heap will be evenly split between:
-	
+    
 - Unreachable white objects from the previous cycle.
 
 - Unreachable black objects which were promoted from the young generation this cycle, AND
@@ -96,15 +96,15 @@ bytes of young objects, we also need to have traversed all of the long-lived byt
 
 We can use this information to calculate `R`: the ratio between the number of promoted bytes each
 step, and the number of long-lived bytes which we need to traverse that step.
-	
-	R = 2/(U - 1)
+    
+    R = 2/(U - 1)
 
 By default, `U = 1.5`, so `R = 4.0`. For each 100kb of black objects promoted from the young
 generation, the collector will convert 400kb of gray objects into black objects.
 
 Incidentally, although it's not tuneable, we also store the ratio W at the end of each cycle.
-	
-	W = [number of ghost bytes] / [number of surviving bytes]
+    
+    W = [number of ghost bytes] / [number of surviving bytes]
 
 When we produce 100kb of black objects (either promoted or traversed), we must also free
 `W * 100`kb of ghost objects. The goal is that we will evenly spread out our ghost-object
@@ -120,7 +120,7 @@ both permit any `'static` type (like `Root`!) to be given an indefinite lifetime
 `Syms` will just cause harmless undefined behaviour or out-of-bounds panics when moved 
 between `Runtimes`, but if a `Root` (or a `Raw` derived from it) is stored in a foreign `Heap`, 
 that would cause use-after-free bugs in `"unsafe-internals"` mode. For example...
-	
+    
 - Store a `Root<Arr>` from `Heap` A in a `thread_local` variable
 
 - Call an rfn from Heap B. Access the `thread_local`, and return the `Root<Arr>` from the rfn
@@ -139,31 +139,31 @@ that would cause use-after-free bugs in `"unsafe-internals"` mode. For example..
 We prevent this behaviour by aborting the process if a `Root` or `Raw` could outlive its
 originating `Heap`. We have to abort rather than panicking, because panics in Rust are recoverable 
 using `catch_unwind`. Specifically...
-	
+    
 - If a `Heap` is dropped with at least one extant `Root`, we abort the process.
 
-	- This means that the only way for a `Root` to outlive its Heap is for it to be converted 
-	  into a `Raw`; since `Raw` is an undocumented type (which the user is completely forbidden
-	  from accessing, for safety reasons), this can only happen within the `glsp-engine` crate.
+    - This means that the only way for a `Root` to outlive its Heap is for it to be converted 
+      into a `Raw`; since `Raw` is an undocumented type (which the user is completely forbidden
+      from accessing, for safety reasons), this can only happen within the `glsp-engine` crate.
 
 - Whenever a `Root` is converted to a `Raw`, or a `Root` is created, cloned or dropped, if 
   the pointed-to object's originating `Runtime` ID differs from the active `Runtime` ID, we 
   abort the process.
-	
-	- If we didn't do this then we would need to screen every `Slot` that's passed to `vm.rs` 
-	  as an argument or return value - it would be a lot more complex, while also probably 
-	  leaking like a sieve. Checking the `Root`/`Raw` conversions is simple and safe.
-	- This is only safe if there's no race condition which would allow the active `Runtime` 
-	  to change between creating a `Raw` or `Slot` and storing it on the active `Heap`. This 
-	  isn't currently plausible, but I suppose that could change in the future.
+    
+    - If we didn't do this then we would need to screen every `Slot` that's passed to `vm.rs` 
+      as an argument or return value - it would be a lot more complex, while also probably 
+      leaking like a sieve. Checking the `Root`/`Raw` conversions is simple and safe.
+    - This is only safe if there's no race condition which would allow the active `Runtime` 
+      to change between creating a `Raw` or `Slot` and storing it on the active `Heap`. This 
+      isn't currently plausible, but I suppose that could change in the future.
 
 - Finally, the write barrier tests for a mismatch between the `Heap` on which a `Raw` is
   being stored, and the `Heap` to which the `Raw` points.
 
-	- This is necessary for the case where you have an active `Heap` A, a `Root<Arr>` pointing
-	  into `Heap` B, a `Root<GFn>` pointing into `Heap` A, and you call `the_arr.set(0, the_gfn)?`.
-	  This won't be caught by the `Root`-to-`Raw` conversion check, because the `Root<GFn>` matches 
-	  the active `Heap`, even though it doesn't match the `Heap` on which it's about to be stored.
+    - This is necessary for the case where you have an active `Heap` A, a `Root<Arr>` pointing
+      into `Heap` B, a `Root<GFn>` pointing into `Heap` A, and you call `the_arr.set(0, the_gfn)?`.
+      This won't be caught by the `Root`-to-`Raw` conversion check, because the `Root<GFn>` matches 
+      the active `Heap`, even though it doesn't match the `Heap` on which it's about to be stored.
 
 I think I've covered everything, but security audits are always welcome!
 
@@ -187,8 +187,8 @@ many types as they are, because they can never produce a reference cycle:
 - `GFns` only refer to a `Lambda` and some `Stays`.
 - `Lambdas` only refer to the `Bytecode` generated with them during compilation.
 - `Bytecodes` refer to any `Lambdas` they may create, and to their literal `Slots`.
-	- The references between `Bytecodes` and `Lambdas` are tree-shaped; they can't form cycles.
-	- Literal `Slots` may only refer to `Arrs`, `Strs` and `Tabs` (see `quote_to_node`).
+    - The references between `Bytecodes` and `Lambdas` are tree-shaped; they can't form cycles.
+    - Literal `Slots` may only refer to `Arrs`, `Strs` and `Tabs` (see `quote_to_node`).
 - `Classes` only have their constant table, which is frozen before the `Class` itself exists.
 
 Currently, the main downside of this approach is that it could potentially cause ghost objects to

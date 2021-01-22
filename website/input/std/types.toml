@@ -3,280 +3,280 @@ name = "Types"
 text = ""
 
 [[apis]]
-	filename = "type-of"
-	starts-subcategory = "Primitive Types"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "sym"
-	text = """
-		Returns the primitive type of its argument as a symbol.
+    filename = "type-of"
+    starts-subcategory = "Primitive Types"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "sym"
+    text = """
+        Returns the primitive type of its argument as a symbol.
 
-		The result is one of the symbols `nil`, `bool`, `int`, `flo`, `sym`, `char`, `arr`,
-		`str`, `tab`, `iter`, `obj`, `class`, `fn`, `coro`, `rfn` or `rdata`.
-	"""
-
-[[apis]]
-	filename = "nil-p"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = "Returns `#t` if its argument is `#n`."
+        The result is one of the symbols `nil`, `bool`, `int`, `flo`, `sym`, `char`, `arr`,
+        `str`, `tab`, `iter`, `obj`, `class`, `fn`, `coro`, `rfn` or `rdata`.
+    """
 
 [[apis]]
-	filename = "bool-p"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = "Returns `#t` if its argument is a boolean."
+    filename = "nil-p"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = "Returns `#t` if its argument is `#n`."
 
 [[apis]]
-	filename = "int-p"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = "Returns `#t` if its argument is an integer."
+    filename = "bool-p"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = "Returns `#t` if its argument is a boolean."
 
 [[apis]]
-	filename = "flo-p"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = "Returns `#t` if its argument is a floating-point number."
+    filename = "int-p"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = "Returns `#t` if its argument is an integer."
 
 [[apis]]
-	filename = "sym-p"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = "Returns `#t` if its argument is a symbol."
+    filename = "flo-p"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = "Returns `#t` if its argument is a floating-point number."
 
 [[apis]]
-	filename = "char-p"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = "Returns `#t` if its argument is a character."
+    filename = "sym-p"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = "Returns `#t` if its argument is a symbol."
 
 [[apis]]
-	filename = "arr-p"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = "Returns `#t` if its argument is an array."
+    filename = "char-p"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = "Returns `#t` if its argument is a character."
 
 [[apis]]
-	filename = "str-p"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = "Returns `#t` if its argument is a string."
+    filename = "arr-p"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = "Returns `#t` if its argument is an array."
 
 [[apis]]
-	filename = "tab-p"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = "Returns `#t` if its argument is a table."
+    filename = "str-p"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = "Returns `#t` if its argument is a string."
 
 [[apis]]
-	filename = "iter-p"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = "Returns `#t` if its argument is an iterator."
+    filename = "tab-p"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = "Returns `#t` if its argument is a table."
 
 [[apis]]
-	filename = "obj-p"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = "Returns `#t` if its argument is an object."
+    filename = "iter-p"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = "Returns `#t` if its argument is an iterator."
 
 [[apis]]
-	filename = "class-p"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = "Returns `#t` if its argument is a class."
+    filename = "obj-p"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = "Returns `#t` if its argument is an object."
 
 [[apis]]
-	filename = "fn-p"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = "Returns `#t` if its argument is a GameLisp function."
+    filename = "class-p"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = "Returns `#t` if its argument is a class."
 
 [[apis]]
-	filename = "coro-p"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = "Returns `#t` if its argument is a coroutine."
+    filename = "fn-p"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = "Returns `#t` if its argument is a GameLisp function."
 
 [[apis]]
-	filename = "rfn-p"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = "Returns `#t` if its argument is a Rust function."
+    filename = "coro-p"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = "Returns `#t` if its argument is a coroutine."
 
 [[apis]]
-	filename = "rdata-p"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = "Returns `#t` if its argument is Rust data."
+    filename = "rfn-p"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = "Returns `#t` if its argument is a Rust function."
 
 [[apis]]
-	filename = "int"
-	starts-subcategory = "Conversions"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "int"
-	text = """
-		Converts its argument to an integer.
-
-		- If the argument is already an integer, it's returned.
-
-		- If the argument is a floating-point number, the float is rounded towards zero.
-		  Values outside the representable range for a 32-bit signed integer are
-		  saturated (they return `int`'s maximum or minimum value). `nan.0` returns `0`.
-
-		- If the argument is a character, returns its Unicode scalar value. This value can
-		  be passed to the [`char` function](char) to losslessly convert it back to a character.
-
-		- If the argument is a boolean, returns `0` for `#f` or `1` for `#t`.
-
-		- Any other argument is an error.
-	"""
+    filename = "rdata-p"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = "Returns `#t` if its argument is Rust data."
 
 [[apis]]
-	filename = "flo"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "flo"
-	text = """
-		Converts its argument to a floating-point number.
+    filename = "int"
+    starts-subcategory = "Conversions"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "int"
+    text = """
+        Converts its argument to an integer.
 
-		- If the argument is already a floating-point number, it's returned.
+        - If the argument is already an integer, it's returned.
 
-		- If the argument is an integer, it's converted to floating-point. Integers with an
-		  absolute value up to `2 ^ 24` are represented exactly. Other integers may be rounded -
-		  the rounding strategy is unspecified.
+        - If the argument is a floating-point number, the float is rounded towards zero.
+          Values outside the representable range for a 32-bit signed integer are
+          saturated (they return `int`'s maximum or minimum value). `nan.0` returns `0`.
 
-		- If the argument is a character, it's [converted to an integer](int), then converted
-		  to a floating-point number as above.
+        - If the argument is a character, returns its Unicode scalar value. This value can
+          be passed to the [`char` function](char) to losslessly convert it back to a character.
 
-		- If the argument is a boolean, returns `0.0` for `#f` or `1.0` for `#t`.
+        - If the argument is a boolean, returns `0` for `#f` or `1` for `#t`.
 
-		- Any other argument is an error.
-	"""
-
-[[apis]]
-	filename = "char"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "char"
-	text = """
-		Converts its argument to a character.
-
-		- If the argument is already a character, this function is a no-op.
-
-		- If the argument is an integer in the range `0x0000 ..= 0xD7FF` or 
-		  `0xE000 ..= 0x10FFFF`, returns the character with that Unicode scalar value.
-
-		- If the argument is a floating-point number, it's [converted to an integer](int),
-		  then converted to a character as above.
-
-		- Any other argument is an error.
-	"""
+        - Any other argument is an error.
+    """
 
 [[apis]]
-	filename = "bool"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = """
-		Converts its argument to a boolean.
+    filename = "flo"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "flo"
+    text = """
+        Converts its argument to a floating-point number.
 
-		If the argument is `#f` or `#n`, the result is `#f`. Otherwise, the result is `#t`.
-	"""
+        - If the argument is already a floating-point number, it's returned.
 
-[[apis]]
-	filename = "not"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = """
-		Converts its argument to a boolean and negates it.
+        - If the argument is an integer, it's converted to floating-point. Integers with an
+          absolute value up to `2 ^ 24` are represented exactly. Other integers may be rounded -
+          the rounding strategy is unspecified.
 
-		If the argument is `#f` or `#n`, the result is `#t`. Otherwise, the result is `#f`.
-	"""
+        - If the argument is a character, it's [converted to an integer](int), then converted
+          to a floating-point number as above.
 
-[[apis]]
-	filename = "num-p"
-	starts-subcategory = "Abstract Types"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = """
-		Returns `#t` if its argument is a number.
+        - If the argument is a boolean, returns `0.0` for `#f` or `1.0` for `#t`.
 
-		Numbers can be passed to all of the basic numeric APIs, such as [`+`](add), 
-		[`==`](clamp) and [`min`](min).
-
-		Currently, the number interface is supported by the primitive types `int` and `flo`.
-	"""
+        - Any other argument is an error.
+    """
 
 [[apis]]
-	filename = "deque-p"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = """
-		Returns `#t` if its argument is a double-ended queue.
+    filename = "char"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "char"
+    text = """
+        Converts its argument to a character.
 
-		Double-ended queues support `O(1)` random access using integer keys, and they can be 
-		manipulated using APIs like [`push-start!`](push-start-mut) and
-		[`swap-remove!`](swap-remove-mut).
+        - If the argument is already a character, this function is a no-op.
 
-		Currently, the double-ended queue API is only supported by the primitive types
-		`arr` and `str`.
-	"""
+        - If the argument is an integer in the range `0x0000 ..= 0xD7FF` or 
+          `0xE000 ..= 0x10FFFF`, returns the character with that Unicode scalar value.
 
-[[apis]]
-	filename = "callable-p"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = """
-		Returns `#t` if its argument can be invoked as a function.
+        - If the argument is a floating-point number, it's [converted to an integer](int),
+          then converted to a character as above.
 
-		Currently, this is only possible for the primitive types `fn`, `rfn` and `class`.
-	"""
+        - Any other argument is an error.
+    """
 
 [[apis]]
-	filename = "expander-p"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = """
-		Returns `#t` if its argument can be registered as a macro expander.
+    filename = "bool"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = """
+        Converts its argument to a boolean.
 
-		Currently, this is only possible for the primitive types `fn` and `rfn`.
-	"""
+        If the argument is `#f` or `#n`, the result is `#f`. Otherwise, the result is `#t`.
+    """
 
 [[apis]]
-	filename = "iterable-p"
-	kinds = ["fn"]
-	args = ["val val"]
-	returns = "bool"
-	text = """
-		Returns `#t` if its argument can be iterated.
+    filename = "not"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = """
+        Converts its argument to a boolean and negates it.
 
-		In other words, a type is `iterable` if it can be passed to the [`iter`](iter) 
-		function without producing an error.
+        If the argument is `#f` or `#n`, the result is `#t`. Otherwise, the result is `#f`.
+    """
 
-		Currently, this is only true for the primitive types `arr`, `str`, `tab`, `coro`
-		and `iter`.
-	"""
+[[apis]]
+    filename = "num-p"
+    starts-subcategory = "Abstract Types"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = """
+        Returns `#t` if its argument is a number.
+
+        Numbers can be passed to all of the basic numeric APIs, such as [`+`](add), 
+        [`==`](clamp) and [`min`](min).
+
+        Currently, the number interface is supported by the primitive types `int` and `flo`.
+    """
+
+[[apis]]
+    filename = "deque-p"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = """
+        Returns `#t` if its argument is a double-ended queue.
+
+        Double-ended queues support `O(1)` random access using integer keys, and they can be 
+        manipulated using APIs like [`push-start!`](push-start-mut) and
+        [`swap-remove!`](swap-remove-mut).
+
+        Currently, the double-ended queue API is only supported by the primitive types
+        `arr` and `str`.
+    """
+
+[[apis]]
+    filename = "callable-p"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = """
+        Returns `#t` if its argument can be invoked as a function.
+
+        Currently, this is only possible for the primitive types `fn`, `rfn` and `class`.
+    """
+
+[[apis]]
+    filename = "expander-p"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = """
+        Returns `#t` if its argument can be registered as a macro expander.
+
+        Currently, this is only possible for the primitive types `fn` and `rfn`.
+    """
+
+[[apis]]
+    filename = "iterable-p"
+    kinds = ["fn"]
+    args = ["val val"]
+    returns = "bool"
+    text = """
+        Returns `#t` if its argument can be iterated.
+
+        In other words, a type is `iterable` if it can be passed to the [`iter`](iter) 
+        function without producing an error.
+
+        Currently, this is only true for the primitive types `arr`, `str`, `tab`, `coro`
+        and `iter`.
+    """

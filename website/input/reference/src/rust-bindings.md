@@ -31,87 +31,87 @@ values, it instead requires the user to indirectly manipulate an opaque "stack" 
 
 ```c
 typedef struct Texture {
-	GLuint tex_id;
-	GLsizei width;
-	GLsizei height;
+    GLuint tex_id;
+    GLsizei width;
+    GLsizei height;
 } Texture;
 
 static int create_texture(lua_State* L) {
-	/* receive two integer arguments as "width" and "height" */
-	int width = luaL_checkinteger(L, 1);
-	int height = luaL_checkinteger(L, 2);
+    /* receive two integer arguments as "width" and "height" */
+    int width = luaL_checkinteger(L, 1);
+    int height = luaL_checkinteger(L, 2);
 
-	/* generate the OpenGL texture object itself */
-	GLuint tex_id = 0;
-	glGenTextures(1, &tex_id);
-	glBindTexture(GL_TEXTURE_2D, tex_id);
-	glTexImage2D(
-		GL_TEXTURE_2D, 0, GL_RGBA, width, height, 
-		0, GL_RGBA, GL_UNSIGNED_BYTE, NULL
-	);
-	assert(glGetError() == GL_NO_ERROR);
+    /* generate the OpenGL texture object itself */
+    GLuint tex_id = 0;
+    glGenTextures(1, &tex_id);
+    glBindTexture(GL_TEXTURE_2D, tex_id);
+    glTexImage2D(
+        GL_TEXTURE_2D, 0, GL_RGBA, width, height, 
+        0, GL_RGBA, GL_UNSIGNED_BYTE, NULL
+    );
+    assert(glGetError() == GL_NO_ERROR);
 
-	/* allocate a Texture object as a Lua userdata, push
-	   it to the stack, and initialize it */
-	Texture* texture = (Texture*) lua_newuserdata(L, sizeof(Texture));
-	texture->tex_id = tex_id;
-	texture->width = width;
-	texture->height = height;
+    /* allocate a Texture object as a Lua userdata, push
+       it to the stack, and initialize it */
+    Texture* texture = (Texture*) lua_newuserdata(L, sizeof(Texture));
+    texture->tex_id = tex_id;
+    texture->width = width;
+    texture->height = height;
 
-	/* push the Texture metatable to the stack, then pop it and
-	   attach it to the userdata */
-	luaL_getmetatable(L, "Texture");
-	lua_setmetatable(L, -2);
+    /* push the Texture metatable to the stack, then pop it and
+       attach it to the userdata */
+    luaL_getmetatable(L, "Texture");
+    lua_setmetatable(L, -2);
 
-	/* return the userdata to the caller, via the stack */
-	return 1;
+    /* return the userdata to the caller, via the stack */
+    return 1;
 }
 
 static int texture_get_width(lua_State* L) {
-	/* receive a Texture userdata as the first argument */
-	Texture* texture = (Texture*) luaL_checkudata(L, 1, "Texture");
+    /* receive a Texture userdata as the first argument */
+    Texture* texture = (Texture*) luaL_checkudata(L, 1, "Texture");
 
-	/* push its width onto the stack and return it */
-	lua_pushinteger(L, texture->width);
-	return 1;
+    /* push its width onto the stack and return it */
+    lua_pushinteger(L, texture->width);
+    return 1;
 }
 
 static int texture_get_height(lua_State* L) {
-	/* receive a Texture userdata as the first argument */
-	Texture* texture = (Texture*) luaL_checkudata(L, 1, "Texture");
+    /* receive a Texture userdata as the first argument */
+    Texture* texture = (Texture*) luaL_checkudata(L, 1, "Texture");
 
-	/* push its height onto the stack and return it */
-	lua_pushinteger(L, texture->height);
-	return 1;
+    /* push its height onto the stack and return it */
+    lua_pushinteger(L, texture->height);
+    return 1;
 }
 
 void init(lua_State* L) {
-	/* construct the Texture metatable */
-	luaL_newmetatable(L, "Texture");
+    /* construct the Texture metatable */
+    luaL_newmetatable(L, "Texture");
 
-	/* push the string key "__index" to the stack */
-	lua_pushstring(L, "__index");
+    /* push the string key "__index" to the stack */
+    lua_pushstring(L, "__index");
 
-	/* construct a table which contains the width/height accessor
-	   functions, bound to the string keys "width" and "height" */
-	lua_createtable(L, 0, 2);
+    /* construct a table which contains the width/height accessor
+       functions, bound to the string keys "width" and "height" */
+    lua_createtable(L, 0, 2);
 
-	lua_pushstring(L, "width");
-	lua_pushcfunction(L, texture_get_width);
-	lua_settable(L, -3);
+    lua_pushstring(L, "width");
+    lua_pushcfunction(L, texture_get_width);
+    lua_settable(L, -3);
 
-	lua_pushstring(L, "height");
-	lua_pushcfunction(L, texture_get_height);
-	lua_settable(L, -3);
+    lua_pushstring(L, "height");
+    lua_pushcfunction(L, texture_get_height);
+    lua_settable(L, -3);
 
-	/* bind that table to the Texture metatable's "__index" key */
-	lua_settable(L, -3);
+    /* bind that table to the Texture metatable's "__index" key */
+    lua_settable(L, -3);
 
-	/* remove the Texture metatable from the stack */
-	lua_pop(L, 1);
+    /* remove the Texture metatable from the stack */
+    lua_pop(L, 1);
 
-	/* bind the create_texture function to a global variable */
-	lua_register(L, "create_texture", create_texture);
+    /* bind the create_texture function to a global variable */
+    lua_register(L, "create_texture", create_texture);
 }
 ```
 
@@ -126,35 +126,35 @@ hides all of the above complexity by exploiting C++'s template system.
 ```c++
 class Texture {
   public:
-	Texture(GLsizei width, GLsizei height)
-	: mTexId(0), mWidth(width), mHeight(height)
-	{
-		//generate the OpenGL texture object itself
-		glGenTextures(1, &mTexId);
-		glBindTexture(GL_TEXTURE_2D, mTexId);
-		glTexImage2D(
-			GL_TEXTURE_2D, 0, GL_RGBA, width, height, 
-			0, GL_RGBA, GL_UNSIGNED_BYTE, NULL
-		);
-		assert(glGetError() == GL_NO_ERROR);
-	}
+    Texture(GLsizei width, GLsizei height)
+    : mTexId(0), mWidth(width), mHeight(height)
+    {
+        //generate the OpenGL texture object itself
+        glGenTextures(1, &mTexId);
+        glBindTexture(GL_TEXTURE_2D, mTexId);
+        glTexImage2D(
+            GL_TEXTURE_2D, 0, GL_RGBA, width, height, 
+            0, GL_RGBA, GL_UNSIGNED_BYTE, NULL
+        );
+        assert(glGetError() == GL_NO_ERROR);
+    }
 
-	GLsizei width() { return mWidth; }
-	GLsizei height() { return mHeight; }
+    GLsizei width() { return mWidth; }
+    GLsizei height() { return mHeight; }
 
   private:
-	GLuint mTexId;
-	GLsizei mWidth;
-	GLsizei mHeight;
+    GLuint mTexId;
+    GLsizei mWidth;
+    GLsizei mHeight;
 };
 
 void init(lua_State* L) {
-	luabridge::getGlobalNamespace(L)
-		.beginClass<Texture>("Texture")
-			.addConstructor<void (*) (::GLsizei, ::GLsizei)>()
-			.addFunction("width", &Texture::width)
-			.addFunction("height", &Texture::height)
-		.endClass();
+    luabridge::getGlobalNamespace(L)
+        .beginClass<Texture>("Texture")
+            .addConstructor<void (*) (::GLsizei, ::GLsizei)>()
+            .addFunction("width", &Texture::width)
+            .addFunction("height", &Texture::height)
+        .endClass();
 }
 ```
 
@@ -185,32 +185,32 @@ use gl::types::{GLint, GLsizei, GLuint};
 use std::ptr::{null};
 
 struct Texture {
-	tex_id: GLuint,
-	width: GLsizei,
-	height: GLsizei
+    tex_id: GLuint,
+    width: GLsizei,
+    height: GLsizei
 }
 
 impl Texture {
-	fn empty(width: GLsizei, height: GLsizei) -> Texture {
-		let mut tex_id = 0;
+    fn empty(width: GLsizei, height: GLsizei) -> Texture {
+        let mut tex_id = 0;
 
-		unsafe {
-			//generate the OpenGL texture object itself
-			gl::GenTextures(1, &mut tex_id);
-			gl::BindTexture(gl::TEXTURE_2D, tex_id);
-			gl::TexImage2D(
-				gl::TEXTURE_2D, 0, gl::RGBA as GLint, width, height,
-				0, gl::RGBA, gl::UNSIGNED_BYTE, null()
-			);
-			assert!(gl::GetError() == gl::NO_ERROR);
-		}
+        unsafe {
+            //generate the OpenGL texture object itself
+            gl::GenTextures(1, &mut tex_id);
+            gl::BindTexture(gl::TEXTURE_2D, tex_id);
+            gl::TexImage2D(
+                gl::TEXTURE_2D, 0, gl::RGBA as GLint, width, height,
+                0, gl::RGBA, gl::UNSIGNED_BYTE, null()
+            );
+            assert!(gl::GetError() == gl::NO_ERROR);
+        }
 
-		//construct the Texture
-		Texture { tex_id, width, height }
-	}
+        //construct the Texture
+        Texture { tex_id, width, height }
+    }
 
-	fn width(&self) -> GLsizei { self.width }
-	fn height(&self) -> GLsizei { self.height }
+    fn width(&self) -> GLsizei { self.width }
+    fn height(&self) -> GLsizei { self.height }
 }
 ```
 
@@ -220,28 +220,28 @@ And here's the `rlua` glue code:
 use rlua::{Context, prelude::LuaResult, UserData, UserDataMethods};
 
 impl UserData for Texture {
-	fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-		methods.add_method("width", |_, this, _: ()| {
-			Ok(this.width())
-		});
+    fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
+        methods.add_method("width", |_, this, _: ()| {
+            Ok(this.width())
+        });
 
-		methods.add_method("height", |_, this, _: ()| {
-			Ok(this.height())
-		});
-	}
+        methods.add_method("height", |_, this, _: ()| {
+            Ok(this.height())
+        });
+    }
 }
 
 fn init(lua_ctx: Context) -> LuaResult<()> {
-	let create_texture = lua_ctx.create_function(
-		|_, (width, height): (GLsizei, GLsizei)| {
-			Ok(Texture::empty(width, height))
-		}
-	)?;
+    let create_texture = lua_ctx.create_function(
+        |_, (width, height): (GLsizei, GLsizei)| {
+            Ok(Texture::empty(width, height))
+        }
+    )?;
 
-	let globals = lua_ctx.globals();
-	globals.set("create_texture", create_texture)?;
+    let globals = lua_ctx.globals();
+    globals.set("create_texture", create_texture)?;
 
-	Ok(())
+    Ok(())
 }
 ```
 
@@ -262,20 +262,20 @@ use pyo3::prelude::*;
 
 #[pyclass]
 struct Texture {
-	tex_id: GLuint,
-	width: GLsizei,
-	height: GLsizei
+    tex_id: GLuint,
+    width: GLsizei,
+    height: GLsizei
 }
 
 #[pymethods]
 impl Texture {
-	#[new]
-	fn empty(width: GLsizei, height: GLsizei) -> Texture {
-		//...
-	}
+    #[new]
+    fn empty(width: GLsizei, height: GLsizei) -> Texture {
+        //...
+    }
 
-	fn width(&self) -> GLsizei { self.width }
-	fn height(&self) -> GLsizei { self.height }
+    fn width(&self) -> GLsizei { self.width }
+    fn height(&self) -> GLsizei { self.height }
 }
 ```
 
@@ -305,14 +305,14 @@ GameLisp's glue code looks like this:
 use glsp::prelude::*;
 
 fn init() -> GResult<()> {
-	glsp::bind_rfn("create-texture", &Texture::empty)?;
+    glsp::bind_rfn("create-texture", &Texture::empty)?;
 
-	RClassBuilder::<Texture>::new()
-		.met("width", &Texture::width)
-		.met("height", &Texture::height)
-		.build();
+    RClassBuilder::<Texture>::new()
+        .met("width", &Texture::width)
+        .met("height", &Texture::height)
+        .build();
 
-	Ok(())
+    Ok(())
 }
 ```
 

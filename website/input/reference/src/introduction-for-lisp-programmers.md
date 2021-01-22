@@ -29,14 +29,14 @@ increased cost of `(rest x)` hasn't been a problem in practice.
 Finally, I've made GameLisp's syntax and keywords as "Rust-like" as possible, to minimize the
 mental friction when switching between the Rust and GameLisp parts of your codebase. I've also 
 changed a handful of names to make them more concise or more descriptive. Notable changes:
-	
+    
 - `lambda` has been renamed to `fn`.
 
 - `set!`/`setf` has been renamed to `=`.
-	- The numeric-equality test `=` has been renamed to `==`.
-	- The naming convention for assignment, `set-something!`, is now `something=`.
-	- I've retained the `!` suffix for other mutating functions, like `push!` and `inc!`, and the 
-	  `?` suffix for predicates, like `int?`.
+    - The numeric-equality test `=` has been renamed to `==`.
+    - The naming convention for assignment, `set-something!`, is now `something=`.
+    - I've retained the `!` suffix for other mutating functions, like `push!` and `inc!`, and the 
+      `?` suffix for predicates, like `int?`.
 
 - `progn`/`begin` has been renamed to `do`.
 
@@ -55,11 +55,11 @@ changed a handful of names to make them more concise or more descriptive. Notabl
 
 - A small number of new abbreviations (all of which have a [straightforward 
   representation](syntax-and-types.md#abbreviations)): 
-	- `[a b]` to access the field `b` in the collection `a`.
-	- `@name` to access the field `name` on a method's self-object.
-	- `(.met-name a b c)` to invoke the method `met-name` on the object `a`.
-	- `(callee ..args x)` to splay the contents of the `args` collection into individual 
-	  function arguments. This is similar to `(apply)`, but more powerful and versatile.
+    - `[a b]` to access the field `b` in the collection `a`.
+    - `@name` to access the field `name` on a method's self-object.
+    - `(.met-name a b c)` to invoke the method `met-name` on the object `a`.
+    - `(callee ..args x)` to splay the contents of the `args` collection into individual 
+      function arguments. This is similar to `(apply)`, but more powerful and versatile.
 
 - The quasiquote syntax resembles Clojure. Forms are unquoted with `~` rather than `,`, and symbols 
   can be auto-gensymed with a `#` suffix, as in `name#`. We parse commas as whitespace so that 

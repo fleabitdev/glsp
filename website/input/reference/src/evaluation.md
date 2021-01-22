@@ -28,7 +28,7 @@ which is being evaluated, it's an error.
 Arrays are a little more complicated:
 
 - Empty arrays are self-evaluating.
-	
+    
 - When the array's first element is a symbol which names a [special form](#special-forms), such 
   as `quote`, `if` or `do`, then that form's special evaluation rules are applied.
 
@@ -65,16 +65,16 @@ For now, the main built-in functions you need to know are:
 - [`arr`](../std/arr) constructs a new array which contains all of its arguments. For example, 
   `(arr)` will return a new empty array, and `(arr 1 2 3)` will return a new array which contains
   those three numbers.
-  	- You can "splay" the contents of one array into another with the abbreviation `..`; for
-  	  example, `(arr 10 ..src)` will create a new array which contains the integer `10`,
-  	  followed by all of the elements from the array `src`.
+    - You can "splay" the contents of one array into another with the abbreviation `..`; for
+      example, `(arr 10 ..src)` will create a new array which contains the integer `10`,
+      followed by all of the elements from the array `src`.
 
 A few examples of nested function calls:
-	
-	(prn (> (+ 1 1 1) 2)) ; prints #t
-	(prn (pr "a ") (pr "b ")) ; prints a b #n #n
-	(prn (nil? #n) (int? 10) (bool? (int? "hello"))) ; prints #t #t #t
-	(prn (nil? 1 2)) ; error: too many arguments
+    
+    (prn (> (+ 1 1 1) 2)) ; prints #t
+    (prn (pr "a ") (pr "b ")) ; prints a b #n #n
+    (prn (nil? #n) (int? 10) (bool? (int? "hello"))) ; prints #t #t #t
+    (prn (nil? 1 2)) ; error: too many arguments
 
 [infix notation]: https://en.wikipedia.org/wiki/Infix_notation
 
@@ -98,26 +98,26 @@ as `'`, so we would write `(quote val)` as `'val`. Quote is most often used eith
 symbol from being evaluated as a variable, or to stop an array from being evaluated as a function
 call:
 
-	; without the quotes, this would be evaluated as printing the values of 
-	; variables named "hello" and "world". with the quotes, it prints two
-	; symbols instead.
-	(prn 'hello 'world)
+    ; without the quotes, this would be evaluated as printing the values of 
+    ; variables named "hello" and "world". with the quotes, it prints two
+    ; symbols instead.
+    (prn 'hello 'world)
 
-	; without the quote, this would be evaluated as a call to the function 
-	; named "alice", passing in the values of the variables "betty" 
-	; and "carlo" as arguments, and then printing the call's return value. 
-	; with the quote, it prints a literal array instead.
-	(prn '(alice betty carlo))
+    ; without the quote, this would be evaluated as a call to the function 
+    ; named "alice", passing in the values of the variables "betty" 
+    ; and "carlo" as arguments, and then printing the call's return value. 
+    ; with the quote, it prints a literal array instead.
+    (prn '(alice betty carlo))
 
 [`if`](../std/if) performs conditional evaluation. It must always receive three forms: a 
 "condition" form, a "then" form, and an "else" form. First, the "condition" form is evaluated. 
 If its result is [truthy](syntax-and-types.md#bool), the "then" form is evaluated and returned; 
 otherwise, the "else" form is evaluated and returned. 
-	
-	; prints 5, but doesn't print 4
-	(prn (if (> 2 1) 
-	  5 
-	  (prn 4)))
+    
+    ; prints 5, but doesn't print 4
+    (prn (if (> 2 1) 
+      5 
+      (prn 4)))
 
 
 ## Local Variables
@@ -130,15 +130,15 @@ Its first argument should be a symbol, and its optional second argument is a for
 evaluated to initialize the variable. When the second argument is absent, the variable's initial 
 value will be `#n`.
 
-	(let a 20)
-	(let b (* 20 a))
-	(prn b) ; prints 400
+    (let a 20)
+    (let b (* 20 a))
+    (prn b) ; prints 400
 
 When `let` has three or more arguments, it's equivalent to multiple consecutive `let` forms
 with one or two arguments each. We could rewrite the above as:
-	
-	(let a 20, b (* 20 a))
-	(prn b) ; prints 400
+    
+    (let a 20, b (* 20 a))
+    (prn b) ; prints 400
 
 `let`'s first argument can be an arbitrary pattern rather than a symbol, but we'll discuss that 
 in a [later chapter](patterns.md).
@@ -167,17 +167,17 @@ starts up, the symbol `prn` is bound to a global variable. The initial value of 
 variable is set to a Rust function which prints its arguments.
 
 A local variable "shadows" a global variable which is bound to the same name:
-	
-	(prn 'hello) ; prints hello
-	(let prn 10)
-	(prn 'world) ; error: callee is an int
+    
+    (prn 'hello) ; prints hello
+    (let prn 10)
+    (prn 'world) ; error: callee is an int
 
 Late binding enables some useful tricks. For example, if you're creating a 2D game and you find it
 inconvenient to look up your sprites in a hash table, you could arrange for them to be
 automatically bound to global variables instead:
-	
-	(draw spr:zombie-head (- x 10) (- y 10))
-	(draw spr:zombie-body (- x 10) y)
+    
+    (draw spr:zombie-head (- x 10) (- y 10))
+    (draw spr:zombie-body (- x 10) y)
 
 [late binding]: https://en.wikipedia.org/wiki/Late_binding#Late_binding_in_Lisp
 [forward declaration]: https://en.wikipedia.org/wiki/Forward_declaration
@@ -192,11 +192,11 @@ have the type `rfn`.
 The `fn` special form defines a new function, which can then be called just like one of the
 built-in functions:
 
-	(let triple (fn (n)
-	  (let doubled (+ n n))
-	  (+ n doubled)))
+    (let triple (fn (n)
+      (let doubled (+ n n))
+      (+ n doubled)))
 
-	(prn (triple 70)) ; prints 210
+    (prn (triple 70)) ; prints 210
 
 The body of a function establishes an "implicit `do`", like the `do` special form. Each of
 its body forms are evaluated one after the other, and the value of the final form is returned as 
@@ -204,35 +204,35 @@ the result of the function call. You can return early using the [`return` specia
 form](../std/return).
 
 By default, a function only accepts a fixed number of arguments:
-	
-	(prn (triple)) ; error: too few arguments
-	(prn (triple 1 2)) ; error: too many arguments
+    
+    (prn (triple)) ; error: too few arguments
+    (prn (triple 1 2)) ; error: too many arguments
 
 However, a fn's parameter list is a [pattern](patterns.md#functions). Among other things, this
 allows you to describe an optional parameter with the special syntax `(? name default-val)`, or
 capture zero or more arguments with the special syntax `..name`.
-	
-	(let sum-and-triple (fn (..nums)
-	  (* 3 (+ ..nums))))
+    
+    (let sum-and-triple (fn (..nums)
+      (* 3 (+ ..nums))))
 
-	(prn (sum-and-triple 10 20 30)) ; prints 180
+    (prn (sum-and-triple 10 20 30)) ; prints 180
 
-	(let print-multi (fn (item (? times 1))
-	  (forn (_ times)
-	    (pr item " "))
-	  (prn)))
+    (let print-multi (fn (item (? times 1))
+      (forn (_ times)
+        (pr item " "))
+      (prn)))
 
-	(print-multi 'badgers) ; prints badgers 
-	(print-multi 'badgers 3) ; prints badgers badgers badgers 
-	
+    (print-multi 'badgers) ; prints badgers 
+    (print-multi 'badgers 3) ; prints badgers badgers badgers 
+    
 Functions capture the [lexical environment][0] at their definition site. This means that you don't
 need to worry about local variables going out of scope:
-	
-	(let f (do
-	  (let captured 10)
-	  (fn ()
-	    captured)))
+    
+    (let f (do
+      (let captured 10)
+      (fn ()
+        captured)))
 
-	(prn (f)) ; prints 10, even though `captured` is out-of-scope
+    (prn (f)) ; prints 10, even though `captured` is out-of-scope
 
 [0]: https://en.wikipedia.org/wiki/Scope_(computer_science)#Lexical_scoping

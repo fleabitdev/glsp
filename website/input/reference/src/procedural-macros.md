@@ -68,7 +68,7 @@ such as [`Val`] or [`Root<Arr>`].
 
 ```rust
 let ai_priorities: Root<Arr> = quote!(r#"
-	(harvest-materials defend-self guard-allies build-structures)
+    (harvest-materials defend-self guard-allies build-structures)
 "#);
 creature.set("ai-priorities", ai_priorities)?;
 ```
@@ -88,14 +88,14 @@ Rust code within a [`backquote!`].
 
 ```rust
 fn test_numbers_macro(attempt: Val) -> Val {
-	let numbers: [i32; 4] = [36, -10, 59, 97];
-	backquote!(r#"
-		(cond 
-		  ((eq? ~attempt '(~..numbers))
-		    (prn "I have a bad feeling about this..."))
-		  (else
-		    (prn "Hint: one of the numbers is " (rand-pick ~..numbers))))
-	"#)
+    let numbers: [i32; 4] = [36, -10, 59, 97];
+    backquote!(r#"
+        (cond 
+          ((eq? ~attempt '(~..numbers))
+            (prn "I have a bad feeling about this..."))
+          (else
+            (prn "Hint: one of the numbers is " (rand-pick ~..numbers))))
+    "#)
 }
 ```
 

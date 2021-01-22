@@ -3,563 +3,563 @@ name = "Evaluation"
 text = ""
 
 [[apis]]
-	filename = "global"
-	starts-subcategory = "Globals"
-	kinds = ["fn", "mac"]
-	args = ["name sym"]
-	returns = "val"
-	text = """
-		Accesses a global variable.
+    filename = "global"
+    starts-subcategory = "Globals"
+    kinds = ["fn", "mac"]
+    args = ["name sym"]
+    returns = "val"
+    text = """
+        Accesses a global variable.
 
-		The symbol `name` must have been previously [bound](bind-global-mut) to a global variable.
-		This function returns that variable's current value.
+        The symbol `name` must have been previously [bound](bind-global-mut) to a global variable.
+        This function returns that variable's current value.
 
-		Rather than calling `global` directly, you should usually just write `name`. This
-		will attempt to look up the global variable bound to `name`, unless it's currently
-		shadowed by a [local variable](let).
+        Rather than calling `global` directly, you should usually just write `name`. This
+        will attempt to look up the global variable bound to `name`, unless it's currently
+        shadowed by a [local variable](let).
 
-		The `?` special syntax is supported. `(global (? name))` will succeed, and return `#n`,
-		if `name` is not currently bound to a global.
-	"""
-
-[[apis]]
-	filename = "set-global"
-	name = "global="
-	kinds = ["fn", "mac"]
-	args = ["name sym", "new-val val"]
-	returns = "nil"
-	text = """
-		Assigns a new value to a global variable.
-
-		The symbol `name` must have been previously [bound](bind-global-mut) to a global
-		variable, and that variable must not have been [frozen](freeze-global-mut). This 
-		function changes the value currently stored in the global variable.
-
-		Rather than calling `global=` directly, you should usually just write `(= name new-val)`. 
-		This will attempt to mutate the global variable bound to `name`, unless it's currently
-		shadowed by a [local variable](let).
-
-		The `?` special syntax is supported. `(global= (? name) new-val)` will succeed, and do
-		nothing, if `name` is not currently bound to a global.
-	"""
+        The `?` special syntax is supported. `(global (? name))` will succeed, and return `#n`,
+        if `name` is not currently bound to a global.
+    """
 
 [[apis]]
-	filename = "freeze-global-mut"
-	kinds = ["fn"]
-	args = ["name sym"]
-	returns = "nil"
-	text = """
-		Freezes a global variable.
+    filename = "set-global"
+    name = "global="
+    kinds = ["fn", "mac"]
+    args = ["name sym", "new-val val"]
+    returns = "nil"
+    text = """
+        Assigns a new value to a global variable.
 
-		The symbol `name` must have been previously [bound](bind-global-mut) to a global.
-		This function permanently prevents that global from being [mutated](set-global)
-		or [deleted](del-global-mut).
+        The symbol `name` must have been previously [bound](bind-global-mut) to a global
+        variable, and that variable must not have been [frozen](freeze-global-mut). This 
+        function changes the value currently stored in the global variable.
 
-		Various basic functions, such as [`+`](add), are frozen at startup by the
-		GameLisp runtime. This enables some optimizations which would otherwise be impossible.
-	"""
+        Rather than calling `global=` directly, you should usually just write `(= name new-val)`. 
+        This will attempt to mutate the global variable bound to `name`, unless it's currently
+        shadowed by a [local variable](let).
 
-[[apis]]
-	filename = "has-global-p"
-	kinds = ["fn"]
-	args = ["name sym"]
-	returns = "bool"
-	see-also = ["bind-global-mut"]
-	text = """
-		Returns `#t` if the given symbol has a global binding.
-	"""
+        The `?` special syntax is supported. `(global= (? name) new-val)` will succeed, and do
+        nothing, if `name` is not currently bound to a global.
+    """
 
 [[apis]]
-	filename = "bind-global-mut"
-	kinds = ["fn"]
-	args = ["name sym", "init val"]
-	returns = "nil"
-	text = """
-		Binds a global variable.
+    filename = "freeze-global-mut"
+    kinds = ["fn"]
+    args = ["name sym"]
+    returns = "nil"
+    text = """
+        Freezes a global variable.
 
-		This function associates the symbol `name` with a global variable, initializing it with
-		the value `init`.
+        The symbol `name` must have been previously [bound](bind-global-mut) to a global.
+        This function permanently prevents that global from being [mutated](set-global)
+        or [deleted](del-global-mut).
 
-		It's an error if the symbol `name` is already bound to a global variable.
-	"""
-
-[[apis]]
-	filename = "del-global-mut"
-	kinds = ["fn"]
-	args = ["name sym"]
-	returns = "nil"
-	text = """
-		Unbinds a global variable.
-
-		This function deletes a symbol's associated global variable. Future attempts to
-		access that variable will trigger an error.
-
-		It's an error if the symbol `name` is not currently [bound](bind-global-mut) to a
-		global variable, or if its global binding has been [frozen](freeze-global-mut).
-	"""
+        Various basic functions, such as [`+`](add), are frozen at startup by the
+        GameLisp runtime. This enables some optimizations which would otherwise be impossible.
+    """
 
 [[apis]]
-	filename = "def"
-	kinds = ["mac"]
-	args = ["name sym", "init val"]
-	returns = "nil"
-	text = """
-		A shorthand for `bind-global!`.
-
-		`(def name init)` is equivalent to [`(bind-global! 'name init)`](bind-global-mut).
-	"""
-
-[[apis]]
-	filename = "with-global"
-	kinds = ["mac"]
-	args = ["pat pat", "new-val val"]
-	returns = "nil"
-	text = """
-		Mutates a global variable for the duration of a dynamic scope.
-
-		The macro emits a [`global=`](set-global) call to change the value of each name bound 
-		by the pattern `pat`, and emits [`defer`](defer) and [`defer-yield`](defer-yield) forms
-		to restore their original values at the end of the current lexical scope.
-
-		Any number of arguments are valid. `(with-global a b c d)` is equivalent to:
-
-			(with-global a b)
-			(with-global c d)
-	"""
+    filename = "has-global-p"
+    kinds = ["fn"]
+    args = ["name sym"]
+    returns = "bool"
+    see-also = ["bind-global-mut"]
+    text = """
+        Returns `#t` if the given symbol has a global binding.
+    """
 
 [[apis]]
-	filename = "defn"
-	starts-subcategory = "Functions"
-	kinds = ["mac"]
-	args = ["name sym", "params arr", "body form *"]
-	see-also = ["def", "fn"]
-	text = """
-		Defines a function and binds it to a global variable.
+    filename = "bind-global-mut"
+    kinds = ["fn"]
+    args = ["name sym", "init val"]
+    returns = "nil"
+    text = """
+        Binds a global variable.
 
-		`(defn name () form0 form1)` is equivalent to:
+        This function associates the symbol `name` with a global variable, initializing it with
+        the value `init`.
 
-			(def name (fn &name name ()
-			  form0
-			  form1))
-	"""
+        It's an error if the symbol `name` is already bound to a global variable.
+    """
 
 [[apis]]
-	filename = "let-fn"
-	kinds = ["mac"]
-	args = ["name sym", "params arr", "body form *"]
-	see-also = ["let", "fn"]
-	text = """
-		Defines a function and binds it to a local variable.
+    filename = "del-global-mut"
+    kinds = ["fn"]
+    args = ["name sym"]
+    returns = "nil"
+    text = """
+        Unbinds a global variable.
 
-		`(let-fn name () form0 form1)` is equivalent to:
+        This function deletes a symbol's associated global variable. Future attempts to
+        access that variable will trigger an error.
 
-			(let name)
-			(= name (fn &name name ()
-			  form0
-			  form1))
-
-		Note that, because the declaration of `name` is separate from its initialization,
-		the function is able to call itself recursively.
-	"""
+        It's an error if the symbol `name` is not currently [bound](bind-global-mut) to a
+        global variable, or if its global binding has been [frozen](freeze-global-mut).
+    """
 
 [[apis]]
-	filename = "fn-name"
-	kinds = ["fn"]
-	args = ["f fn|rfn"]
-	returns = "sym|nil"
-	text = """
-		Returns a function's name.
+    filename = "def"
+    kinds = ["mac"]
+    args = ["name sym", "init val"]
+    returns = "nil"
+    text = """
+        A shorthand for `bind-global!`.
 
-		For a GameLisp function, this is the symbol assigned using the `&name` flag in the 
-		[`fn`](fn) special form, or `#n` if that flag was absent. A `&name` flag is automatically 
-		generated by macros like [`defn`](defn) and [`let-fn`](let-fn).
-
-		This function is normally used for debugging. For example, [`stack-trace`](stack-trace)
-		uses `fn-name` to print the name of each call-stack entry.
-	"""
+        `(def name init)` is equivalent to [`(bind-global! 'name init)`](bind-global-mut).
+    """
 
 [[apis]]
-	filename = "arg-limits"
-	kinds = ["fn"]
-	args = ["f callable"]
-	returns = "arr"
-	see-also = ["min-args", "max-args"]
-	text = """
-		Returns a function's minimum and maximum argument count.
+    filename = "with-global"
+    kinds = ["mac"]
+    args = ["pat pat", "new-val val"]
+    returns = "nil"
+    text = """
+        Mutates a global variable for the duration of a dynamic scope.
 
-		This is equivalent to `(arr (min-args f) (max-args f))`.
+        The macro emits a [`global=`](set-global) call to change the value of each name bound 
+        by the pattern `pat`, and emits [`defer`](defer) and [`defer-yield`](defer-yield) forms
+        to restore their original values at the end of the current lexical scope.
 
-			(defn example (a b (? c))
-			  (prn a b c))
+        Any number of arguments are valid. `(with-global a b c d)` is equivalent to:
 
-			(prn (arg-limits example)) ; prints (2 3)
-	"""
-
-[[apis]]
-	filename = "min-args"
-	kinds = ["fn"]
-	args = ["f callable"]
-	returns = "int"
-	text = """
-		Returns a function's minimum argument count.
-	"""
+            (with-global a b)
+            (with-global c d)
+    """
 
 [[apis]]
-	filename = "max-args"
-	kinds = ["fn"]
-	args = ["f callable"]
-	returns = "int|nil"
-	text = """
-		Returns a function's maximum argument count.
+    filename = "defn"
+    starts-subcategory = "Functions"
+    kinds = ["mac"]
+    args = ["name sym", "params arr", "body form *"]
+    see-also = ["def", "fn"]
+    text = """
+        Defines a function and binds it to a global variable.
 
-		`..rest` parameters can capture an arbitrarily high number of arguments, so this function 
-		will return `#n` for a function with a `..rest` parameter.
-	"""
+        `(defn name () form0 form1)` is equivalent to:
 
-[[apis]]
-	filename = "fn0"
-	kinds = ["mac"]
-	args = ["body form *"]
-	see-also = ["fn1"]
-	text = """
-		Defines a function with zero arguments.
-
-		`(fn0 x y z)` is equivalent to `(fn () x y z)`.
-	"""
+            (def name (fn &name name ()
+              form0
+              form1))
+    """
 
 [[apis]]
-	filename = "fn1"
-	kinds = ["mac"]
-	args = ["body form *"]
-	see-also = ["fn0"]
-	text = """
-		Defines a function with one argument.
+    filename = "let-fn"
+    kinds = ["mac"]
+    args = ["name sym", "params arr", "body form *"]
+    see-also = ["let", "fn"]
+    text = """
+        Defines a function and binds it to a local variable.
 
-		`(fn1 x _ z)` is equivalent to `(fn (arg) x arg z)`.
+        `(let-fn name () form0 form1)` is equivalent to:
 
-		The macro recursively searches through all of its body forms, replacing the `_` symbol
-		with a [gensymmed](gensym) argument name.
-	"""
+            (let name)
+            (= name (fn &name name ()
+              form0
+              form1))
 
-[[apis]]
-	filename = "no-op"
-	kinds = ["fn"]
-	args = ["arg val *"]
-	returns = "nil"
-	text = """
-		Discards any number of arguments and returns `#n`.
-
-		This is occasionally useful as a first-class function.
-	"""
+        Note that, because the declaration of `name` is separate from its initialization,
+        the function is able to call itself recursively.
+    """
 
 [[apis]]
-	filename = "identity"
-	kinds = ["fn"]
-	args = ["arg val"]
-	returns = "val"
-	text = """
-		Returns its argument.
+    filename = "fn-name"
+    kinds = ["fn"]
+    args = ["f fn|rfn"]
+    returns = "sym|nil"
+    text = """
+        Returns a function's name.
 
-		This is occasionally useful as a first-class function.
-	"""
+        For a GameLisp function, this is the symbol assigned using the `&name` flag in the 
+        [`fn`](fn) special form, or `#n` if that flag was absent. A `&name` flag is automatically 
+        generated by macros like [`defn`](defn) and [`let-fn`](let-fn).
 
-[[apis]]
-	filename = "fn-yields-p"
-	starts-subcategory = "Coroutines"
-	kinds = ["fn"]
-	args = ["f fn"]
-	returns = "bool"
-	text = """
-		Returns `#t` if a function might yield.
-
-		The presence or absence of at least one [`yield` form](yield) is what differentiates
-		a coroutine function from a normal function.
-
-		When a coroutine function is invoked, it returns a [`newborn`](coro-state) coroutine
-		paused at the start of the function body, rather than evaluating the function body 
-		immediately. That coroutine can then be executed using [`coro-run`](coro-run).
-	"""
+        This function is normally used for debugging. For example, [`stack-trace`](stack-trace)
+        uses `fn-name` to print the name of each call-stack entry.
+    """
 
 [[apis]]
-	filename = "coro-state"
-	kinds = ["fn"]
-	args = ["co coro"]
-	returns = "sym"
-	see-also = ["coro-run", "coro-finish-mut"]
-	text = """
-		Returns the current status of a coroutine.
+    filename = "arg-limits"
+    kinds = ["fn"]
+    args = ["f callable"]
+    returns = "arr"
+    see-also = ["min-args", "max-args"]
+    text = """
+        Returns a function's minimum and maximum argument count.
 
-		The return value is one of the symbols `newborn`, `running`, `paused`, `finished`
-		or `poisoned`. The meaning of each symbol is described in [the Reference Manual][0].
+        This is equivalent to `(arr (min-args f) (max-args f))`.
 
-		[0]: ../reference/coroutines.html#life-cycle-of-a-coroutine
-	"""
+            (defn example (a b (? c))
+              (prn a b c))
 
-[[apis]]
-	filename = "coro-run"
-	kinds = ["fn"]
-	args = ["co coro", "arg val ?#n"]
-	returns = "val"
-	text = """
-		Resumes a paused coroutine.
-
-		The `co` argument must be either [`newborn` or `paused`](coro-state). The coroutine will
-		run until it yields, returns, or triggers an error.
-
-		If the coroutine was `paused`, then `arg` will be returned from the corresponding
-		[`yield`](yield) form. If the coroutine was `newborn`, then `arg` must be absent.
-
-		`coro-run` returns the value passed to `yield`, or the return value of the coroutine
-		function.
-	"""
+            (prn (arg-limits example)) ; prints (2 3)
+    """
 
 [[apis]]
-	filename = "coro-finish-mut"
-	kinds = ["fn"]
-	args = ["co coro"]
-	returns = "nil"
-	text = """
-		Prematurely finishes a coroutine.
-
-		This forces a coroutine into the [`finished` state](coro-state), running any pending
-		[`defer`](defer) forms.
-
-		If a `paused` coroutine is garbage-collected without calling `coro-finish!`, its `defer` 
-		forms will never be executed.
-	"""
+    filename = "min-args"
+    kinds = ["fn"]
+    args = ["f callable"]
+    returns = "int"
+    text = """
+        Returns a function's minimum argument count.
+    """
 
 [[apis]]
-	filename = "load"
-	starts-subcategory = "Evaluation"
-	kinds = ["fn"]
-	args = ["path str"]
-	returns = "val"
-	see-also = ["require"]
-	text = """
-		Evaluates the contents of a file.
+    filename = "max-args"
+    kinds = ["fn"]
+    args = ["f callable"]
+    returns = "int|nil"
+    text = """
+        Returns a function's maximum argument count.
 
-		`path` must refer to a text file which contains valid GameLisp source code, relative
-		to the current working directory. (For a Rust program, the working directory is usually
-		the directory which contains your `Cargo.toml` file.)
-
-		This function reads in that source file, [parses](parse-all) it, and 
-		[evaluates](eval-multi) each parsed form in the same toplevel scope. It returns the
-		result of evaluating the last form, or `#n` if no forms were present in the file.
-
-		In a [sandboxed `Runtime`](../reference/the-glsp-crate.html#sandboxing), this macro is 
-		not defined.
-	"""
+        `..rest` parameters can capture an arbitrarily high number of arguments, so this function 
+        will return `#n` for a function with a `..rest` parameter.
+    """
 
 [[apis]]
-	filename = "require"
-	kinds = ["fn"]
-	args = ["path str"]
-	returns = "val"
-	text = """
-		Evaluates the contents of a file, if it hasn't been seen before.
+    filename = "fn0"
+    kinds = ["mac"]
+    args = ["body form *"]
+    see-also = ["fn1"]
+    text = """
+        Defines a function with zero arguments.
 
-		This function is equivalent to [`(load path)`](load), except that if the specified file
-		has previously been passed to a `require` call in the current `Runtime`, it's a
-		silent no-op.
-
-		When you have a complicated source hierarchy, this function can be useful to avoid 
-		accidentally loading the same source file twice.
-
-		Deduplication is based on the file which is being referred to, rather than the
-		literal text of the `path` argument. For example, these three `require` calls would
-		only load `example.glsp` once:
-
-			(require "src/example.glsp")
-			(require "./src/example.glsp")
-			(require "src/../src/example.glsp")
-
-		In a [sandboxed `Runtime`](../reference/the-glsp-crate.html#sandboxing), this macro is 
-		not defined.
-	"""
+        `(fn0 x y z)` is equivalent to `(fn () x y z)`.
+    """
 
 [[apis]]
-	filename = "eval"
-	kinds = ["fn"]
-	args = ["val val", "env-mode sym ?'fresh"]
-	returns = "val"
-	text = """
-		Evaluates a value as a form.
+    filename = "fn1"
+    kinds = ["mac"]
+    args = ["body form *"]
+    see-also = ["fn0"]
+    text = """
+        Defines a function with one argument.
 
-		See the [Evaluation](../reference/evaluation.html) chapter of the Reference Manual for
-		the full details.
+        `(fn1 x _ z)` is equivalent to `(fn (arg) x arg z)`.
 
-		`env-mode` must be one of:
-
-		- `fresh`, which causes evaluation to occur in a new, empty lexical scope.
-
-		- `copied`, which causes evaluation to inherit the lexical scope of the macro which 
-		  is currently being expanded, if any. This currently has no effect except for
-		  preserving [local macro definitions](let-macro).
-	"""
+        The macro recursively searches through all of its body forms, replacing the `_` symbol
+        with a [gensymmed](gensym) argument name.
+    """
 
 [[apis]]
-	filename = "eval-multi"
-	kinds = ["fn"]
-	args = ["vals arr", "env-mode sym ?'fresh"]
-	returns = "val"
-	see-also = ["eval", "load"]
-	text = """
-		Evaluates multiple values as forms.
+    filename = "no-op"
+    kinds = ["fn"]
+    args = ["arg val *"]
+    returns = "nil"
+    text = """
+        Discards any number of arguments and returns `#n`.
 
-		All of the forms are evaluated in the same [toplevel scope][0]. The result of evaluating
-		the final form is returned, or `#n` when `vals` is an empty array.
-
-		[0]: ../reference/macros.html#toplevel-scopes
-	"""
+        This is occasionally useful as a first-class function.
+    """
 
 [[apis]]
-	filename = "load-str"
-	starts-subcategory = "Evaluation"
-	kinds = ["fn"]
-	args = ["text str"]
-	returns = "val"
-	see-also = ["load", "eval-multi", "parse-all"]
-	text = """
-		Parses and evaluates a string.
+    filename = "identity"
+    kinds = ["fn"]
+    args = ["arg val"]
+    returns = "val"
+    text = """
+        Returns its argument.
 
-		This API only exists for convenience. It's equivalent to:
-
-			(eval-multi (parse-all text))
-	"""
+        This is occasionally useful as a first-class function.
+    """
 
 [[apis]]
-	filename = "expand"
-	starts-subcategory = "Macros"
-	kinds = ["fn"]
-	args = ["val val", "env-mode sym ?'fresh"]
-	returns = "val"
-	see-also = ["expand-multi", "expand-1"]
-	text = """
-		Completely expands a form.
+    filename = "fn-yields-p"
+    starts-subcategory = "Coroutines"
+    kinds = ["fn"]
+    args = ["f fn"]
+    returns = "bool"
+    text = """
+        Returns `#t` if a function might yield.
 
-		Recursively performs the [expansion algorithm][0] for a form and all of its children,
-		returning a fully-expanded form.
+        The presence or absence of at least one [`yield` form](yield) is what differentiates
+        a coroutine function from a normal function.
 
-		[0]: ../reference/macros.html#the-expansion-algorithm
-
-		For the meaning of the `env-mode` parameter, see [`eval`](eval).
-	"""
-
-[[apis]]
-	filename = "expand-multi"
-	kinds = ["fn"]
-	args = ["vals arr", "env-mode sym ?'fresh"]
-	returns = "arr"
-	text = """
-		Completely expands multiple forms.
-
-		Equivalent to [`expand`](expand), except that all of the values in `vals` are expanded
-		in the same [toplevel scope][0].
-
-		[0]: ../reference/evaluation.html#toplevel-scopes
-
-		Note that the resulting array may not have the same length as the input array, due to
-		the possibility of a [`splice`](splice) form appearing at the toplevel.
-	"""
+        When a coroutine function is invoked, it returns a [`newborn`](coro-state) coroutine
+        paused at the start of the function body, rather than evaluating the function body 
+        immediately. That coroutine can then be executed using [`coro-run`](coro-run).
+    """
 
 [[apis]]
-	filename = "expand-1"
-	kinds = ["fn"]
-	args = ["arg val", "expander expander|nil ?", "env-mode sym ?'fresh"]
-	returns = "arr"
-	text = """
-		Partially expands a form.
+    filename = "coro-state"
+    kinds = ["fn"]
+    args = ["co coro"]
+    returns = "sym"
+    see-also = ["coro-run", "coro-finish-mut"]
+    text = """
+        Returns the current status of a coroutine.
 
-		*Non-recursively* invokes the [expansion algorithm][0] for a form, returning after
-		having invoked no more than one macro-expander.
+        The return value is one of the symbols `newborn`, `running`, `paused`, `finished`
+        or `poisoned`. The meaning of each symbol is described in [the Reference Manual][0].
 
-		[0]: ../reference/macros.html#the-expansion-algorithm
-
-		The result is a two-element array which starts with a symbol, one of:
-
-		- `(not-a-macro arg)` if no expander was invoked.
-		- `(expanded-to result)` if an expander was invoked.
-			- `(macro-no-op arg)` if that expander called [`macro-no-op`](macro-no-op).
-
-		The function will normally attempt to look up the current [global](bind-macro-mut) or
-		[local](let-macro) macro binding for an array's first element. This can be overridden by 
-		passing a `fn` or `rfn` as the `expander` argument, which forces that particular expander 
-		to be invoked.
-
-		For the meaning of the `env-mode` parameter, see [`eval`](eval).
-	"""
+        [0]: ../reference/coroutines.html#life-cycle-of-a-coroutine
+    """
 
 [[apis]]
-	filename = "macro"
-	kinds = ["fn", "mac"]
-	args = ["name sym"]
-	returns = "expander"
-	text = """
-		Accesses a global macro.
+    filename = "coro-run"
+    kinds = ["fn"]
+    args = ["co coro", "arg val ?#n"]
+    returns = "val"
+    text = """
+        Resumes a paused coroutine.
 
-		This is comparable to [`global`](global), but it accesses a symbol's global macro binding,
-		rather than its global variable binding.
-	"""
+        The `co` argument must be either [`newborn` or `paused`](coro-state). The coroutine will
+        run until it yields, returns, or triggers an error.
 
-[[apis]]
-	filename = "set-macro"
-	name = "macro="
-	kinds = ["fn", "mac"]
-	args = ["name sym", "expander expander"]
-	returns = "nil"
-	text = """
-		Assigns a new global macro to a symbol.
+        If the coroutine was `paused`, then `arg` will be returned from the corresponding
+        [`yield`](yield) form. If the coroutine was `newborn`, then `arg` must be absent.
 
-		This is comparable to [`global=`](set-global), but it mutates a symbol's macro binding,
-		rather than its global variable binding.
-	"""
+        `coro-run` returns the value passed to `yield`, or the return value of the coroutine
+        function.
+    """
 
 [[apis]]
-	filename = "has-macro-p"
-	kinds = ["fn"]
-	args = ["name sym"]
-	returns = "bool"
-	see-also = ["bind-macro-mut"]
-	text = """
-		Returns `#t` if the given symbol has a global macro binding.
-	"""
+    filename = "coro-finish-mut"
+    kinds = ["fn"]
+    args = ["co coro"]
+    returns = "nil"
+    text = """
+        Prematurely finishes a coroutine.
+
+        This forces a coroutine into the [`finished` state](coro-state), running any pending
+        [`defer`](defer) forms.
+
+        If a `paused` coroutine is garbage-collected without calling `coro-finish!`, its `defer` 
+        forms will never be executed.
+    """
 
 [[apis]]
-	filename = "bind-macro-mut"
-	kinds = ["fn"]
-	args = ["name sym", "init expander"]
-	returns = "nil"
-	text = """
-		Binds a global macro.
+    filename = "load"
+    starts-subcategory = "Evaluation"
+    kinds = ["fn"]
+    args = ["path str"]
+    returns = "val"
+    see-also = ["require"]
+    text = """
+        Evaluates the contents of a file.
 
-		This is comparable to [`bind-global!`](bind-global-mut), but it binds a global macro to a 
-		symbol, rather than binding a global variable.
-	"""
+        `path` must refer to a text file which contains valid GameLisp source code, relative
+        to the current working directory. (For a Rust program, the working directory is usually
+        the directory which contains your `Cargo.toml` file.)
 
-[[apis]]
-	filename = "del-macro-mut"
-	kinds = ["fn"]
-	args = ["name sym"]
-	returns = "nil"
-	text = """
-		Unbinds a global macro.
+        This function reads in that source file, [parses](parse-all) it, and 
+        [evaluates](eval-multi) each parsed form in the same toplevel scope. It returns the
+        result of evaluating the last form, or `#n` if no forms were present in the file.
 
-		This is comparable to [`del-global!`](del-global-mut), but it deletes a global macro
-		binding, rather than a global variable binding.
-	"""
+        In a [sandboxed `Runtime`](../reference/the-glsp-crate.html#sandboxing), this macro is 
+        not defined.
+    """
 
 [[apis]]
-	filename = "defmacro"
-	kinds = ["mac"]
-	args = ["name sym", "params arr", "body form *"]
-	returns = "nil"
-	see-also = ["bind-macro-mut", "fn"]
-	text = """
-		A shorthand for `bind-macro!`.
+    filename = "require"
+    kinds = ["fn"]
+    args = ["path str"]
+    returns = "val"
+    text = """
+        Evaluates the contents of a file, if it hasn't been seen before.
 
-		`(defmacro name () form0 form1)` is equivalent to:
+        This function is equivalent to [`(load path)`](load), except that if the specified file
+        has previously been passed to a `require` call in the current `Runtime`, it's a
+        silent no-op.
 
-			(bind-macro! 'name (fn &name name ()
-			  form0
-			  form1))
-	"""
+        When you have a complicated source hierarchy, this function can be useful to avoid 
+        accidentally loading the same source file twice.
+
+        Deduplication is based on the file which is being referred to, rather than the
+        literal text of the `path` argument. For example, these three `require` calls would
+        only load `example.glsp` once:
+
+            (require "src/example.glsp")
+            (require "./src/example.glsp")
+            (require "src/../src/example.glsp")
+
+        In a [sandboxed `Runtime`](../reference/the-glsp-crate.html#sandboxing), this macro is 
+        not defined.
+    """
+
+[[apis]]
+    filename = "eval"
+    kinds = ["fn"]
+    args = ["val val", "env-mode sym ?'fresh"]
+    returns = "val"
+    text = """
+        Evaluates a value as a form.
+
+        See the [Evaluation](../reference/evaluation.html) chapter of the Reference Manual for
+        the full details.
+
+        `env-mode` must be one of:
+
+        - `fresh`, which causes evaluation to occur in a new, empty lexical scope.
+
+        - `copied`, which causes evaluation to inherit the lexical scope of the macro which 
+          is currently being expanded, if any. This currently has no effect except for
+          preserving [local macro definitions](let-macro).
+    """
+
+[[apis]]
+    filename = "eval-multi"
+    kinds = ["fn"]
+    args = ["vals arr", "env-mode sym ?'fresh"]
+    returns = "val"
+    see-also = ["eval", "load"]
+    text = """
+        Evaluates multiple values as forms.
+
+        All of the forms are evaluated in the same [toplevel scope][0]. The result of evaluating
+        the final form is returned, or `#n` when `vals` is an empty array.
+
+        [0]: ../reference/macros.html#toplevel-scopes
+    """
+
+[[apis]]
+    filename = "load-str"
+    starts-subcategory = "Evaluation"
+    kinds = ["fn"]
+    args = ["text str"]
+    returns = "val"
+    see-also = ["load", "eval-multi", "parse-all"]
+    text = """
+        Parses and evaluates a string.
+
+        This API only exists for convenience. It's equivalent to:
+
+            (eval-multi (parse-all text))
+    """
+
+[[apis]]
+    filename = "expand"
+    starts-subcategory = "Macros"
+    kinds = ["fn"]
+    args = ["val val", "env-mode sym ?'fresh"]
+    returns = "val"
+    see-also = ["expand-multi", "expand-1"]
+    text = """
+        Completely expands a form.
+
+        Recursively performs the [expansion algorithm][0] for a form and all of its children,
+        returning a fully-expanded form.
+
+        [0]: ../reference/macros.html#the-expansion-algorithm
+
+        For the meaning of the `env-mode` parameter, see [`eval`](eval).
+    """
+
+[[apis]]
+    filename = "expand-multi"
+    kinds = ["fn"]
+    args = ["vals arr", "env-mode sym ?'fresh"]
+    returns = "arr"
+    text = """
+        Completely expands multiple forms.
+
+        Equivalent to [`expand`](expand), except that all of the values in `vals` are expanded
+        in the same [toplevel scope][0].
+
+        [0]: ../reference/evaluation.html#toplevel-scopes
+
+        Note that the resulting array may not have the same length as the input array, due to
+        the possibility of a [`splice`](splice) form appearing at the toplevel.
+    """
+
+[[apis]]
+    filename = "expand-1"
+    kinds = ["fn"]
+    args = ["arg val", "expander expander|nil ?", "env-mode sym ?'fresh"]
+    returns = "arr"
+    text = """
+        Partially expands a form.
+
+        *Non-recursively* invokes the [expansion algorithm][0] for a form, returning after
+        having invoked no more than one macro-expander.
+
+        [0]: ../reference/macros.html#the-expansion-algorithm
+
+        The result is a two-element array which starts with a symbol, one of:
+
+        - `(not-a-macro arg)` if no expander was invoked.
+        - `(expanded-to result)` if an expander was invoked.
+            - `(macro-no-op arg)` if that expander called [`macro-no-op`](macro-no-op).
+
+        The function will normally attempt to look up the current [global](bind-macro-mut) or
+        [local](let-macro) macro binding for an array's first element. This can be overridden by 
+        passing a `fn` or `rfn` as the `expander` argument, which forces that particular expander 
+        to be invoked.
+
+        For the meaning of the `env-mode` parameter, see [`eval`](eval).
+    """
+
+[[apis]]
+    filename = "macro"
+    kinds = ["fn", "mac"]
+    args = ["name sym"]
+    returns = "expander"
+    text = """
+        Accesses a global macro.
+
+        This is comparable to [`global`](global), but it accesses a symbol's global macro binding,
+        rather than its global variable binding.
+    """
+
+[[apis]]
+    filename = "set-macro"
+    name = "macro="
+    kinds = ["fn", "mac"]
+    args = ["name sym", "expander expander"]
+    returns = "nil"
+    text = """
+        Assigns a new global macro to a symbol.
+
+        This is comparable to [`global=`](set-global), but it mutates a symbol's macro binding,
+        rather than its global variable binding.
+    """
+
+[[apis]]
+    filename = "has-macro-p"
+    kinds = ["fn"]
+    args = ["name sym"]
+    returns = "bool"
+    see-also = ["bind-macro-mut"]
+    text = """
+        Returns `#t` if the given symbol has a global macro binding.
+    """
+
+[[apis]]
+    filename = "bind-macro-mut"
+    kinds = ["fn"]
+    args = ["name sym", "init expander"]
+    returns = "nil"
+    text = """
+        Binds a global macro.
+
+        This is comparable to [`bind-global!`](bind-global-mut), but it binds a global macro to a 
+        symbol, rather than binding a global variable.
+    """
+
+[[apis]]
+    filename = "del-macro-mut"
+    kinds = ["fn"]
+    args = ["name sym"]
+    returns = "nil"
+    text = """
+        Unbinds a global macro.
+
+        This is comparable to [`del-global!`](del-global-mut), but it deletes a global macro
+        binding, rather than a global variable binding.
+    """
+
+[[apis]]
+    filename = "defmacro"
+    kinds = ["mac"]
+    args = ["name sym", "params arr", "body form *"]
+    returns = "nil"
+    see-also = ["bind-macro-mut", "fn"]
+    text = """
+        A shorthand for `bind-macro!`.
+
+        `(defmacro name () form0 form1)` is equivalent to:
+
+            (bind-macro! 'name (fn &name name ()
+              form0
+              form1))
+    """

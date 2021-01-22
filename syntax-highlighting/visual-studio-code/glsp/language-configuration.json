@@ -1,17 +1,17 @@
 {
-	"comments": {
-		"lineComment": ";",
-		"blockComment": ["#|", "|#"]
-	},
-	"brackets": [
-		["{", "}"],
-		["[", "]"],
-		["(", ")"]
-	],
-	"autoClosingPairs": [
-		["{", "}"],
-		["[", "]"],
-		["(", ")"],
-		{ "open": "\"", "close": "\"", "notIn": ["string"] }
-	]
+    "comments": {
+        "lineComment": ";",
+        "blockComment": ["#|", "|#"]
+    },
+    "brackets": [
+        ["{", "}"],
+        ["[", "]"],
+        ["(", ")"]
+    ],
+    "autoClosingPairs": [
+        ["{", "}"],
+        ["[", "]"],
+        ["(", ")"],
+        { "open": "\"", "close": "\"", "notIn": ["string"] }
+    ]
 }

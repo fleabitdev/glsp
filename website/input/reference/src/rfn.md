@@ -44,8 +44,8 @@ glsp::rfn(&|a: i32, b: i32| a.saturating_mul(b + 1));
 //to update its captured variable
 let captured = Cell::new(0_i32);
 let print_and_inc = move || {
-	println!("{}", captured.get());
-	captured.set(captured.get() + 1);
+    println!("{}", captured.get());
+    captured.set(captured.get() + 1);
 };
 
 glsp::bind_rfn("print-and-inc", Box::new(print_and_inc))?;
@@ -125,12 +125,12 @@ string slices, and paths - will construct a new GameLisp array, string or table.
 
 ```rust
 fn count_chars(src: &str) -> HashMap<char, usize> {
-	let mut char_counts = HashMap::<char, usize>::new();
-	for ch in src.chars() {
-		*char_counts.entry(ch).or_insert(0) += 1;
-	}
+    let mut char_counts = HashMap::<char, usize>::new();
+    for ch in src.chars() {
+        *char_counts.entry(ch).or_insert(0) += 1;
+    }
 
-	char_counts
+    char_counts
 }
 
 glsp::bind_rfn("count-chars", &count_chars)?;
@@ -158,7 +158,7 @@ which implements `FromVal`.
 
 ```rust
 fn example(integer: u64, string: String, tuple: (i8, i8)) {
-	println!("{:?} {:?} {:?}", integer, string, tuple);
+    println!("{:?} {:?} {:?}", integer, string, tuple);
 }
 
 glsp::bind_rfn("example", &example)?;
@@ -173,7 +173,7 @@ In addition, automatic argument conversions are provided for a handful of refere
 
 ```rust
 fn example(string: &str, array: &[Sym]) {
-	println!("{:?} {:?}", string, array);
+    println!("{:?} {:?}", string, array);
 }
 
 glsp::bind_rfn("example", &example)?;
@@ -200,7 +200,7 @@ trailing arguments.
 
 ```rust
 fn example(non_opt: u8, opt: Option<u8>, rest: Rest<u8>) {
-	prn!("{:?} {:?} {:?}", non_opt, opt, &*rest);
+    prn!("{:?} {:?} {:?}", non_opt, opt, &*rest);
 }
 
 glsp::bind_rfn("example", &example)?;
@@ -230,42 +230,42 @@ For example, it often makes sense to represent a Rust enum as a GameLisp symbol:
 ```rust
 #[derive(Copy, Clone)]
 enum Activity {
-	Rest,
-	Walk,
-	Fight
+    Rest,
+    Walk,
+    Fight
 }
 
 impl IntoVal for Activity {
-	fn into_val(self) -> GResult<Val> {
-		let sym = match self {
-			Activity::Rest => sym!("rest"),
-			Activity::Walk => sym!("walk"),
-			Activity::Fight => sym!("fight")
-		};
+    fn into_val(self) -> GResult<Val> {
+        let sym = match self {
+            Activity::Rest => sym!("rest"),
+            Activity::Walk => sym!("walk"),
+            Activity::Fight => sym!("fight")
+        };
 
-		sym.into_val()
-	}
+        sym.into_val()
+    }
 }
 
 impl FromVal for Activity {
-	fn from_val(val: &Val) -> GResult<Self> {
-		Ok(match *val {
-			Val::Sym(s) if s == sym!("rest") => Activity::Rest,
-			Val::Sym(s) if s == sym!("walk") => Activity::Walk,
-			Val::Sym(s) if s == sym!("fight") => Activity::Fight,
-			ref val => bail!("expected an Activity, received {}", val)
-		})
-	}
+    fn from_val(val: &Val) -> GResult<Self> {
+        Ok(match *val {
+            Val::Sym(s) if s == sym!("rest") => Activity::Rest,
+            Val::Sym(s) if s == sym!("walk") => Activity::Walk,
+            Val::Sym(s) if s == sym!("fight") => Activity::Fight,
+            ref val => bail!("expected an Activity, received {}", val)
+        })
+    }
 }
 
 impl Activity {
-	fn energy_cost(self) -> i32 {
-		match self {
-			Activity::Rest => 1,
-			Activity::Walk => 5,
-			Activity::Fight => 25
-		}
-	}
+    fn energy_cost(self) -> i32 {
+        match self {
+            Activity::Rest => 1,
+            Activity::Walk => 5,
+            Activity::Fight => 25
+        }
+    }
 }
 
 glsp::bind_rfn("energy-cost", &Activity::energy_cost)?;
@@ -300,16 +300,16 @@ an error using the [`with_source`] method.
 
 ```rust
 fn file_to_nonempty_string(path: &Path) -> GResult<String> {
-	match std::fs::read_to_string(path) {
-		Ok(st) => {
-			ensure!(st.len() > 0, "empty string in file {}", path);
-			Ok(st)
-		}
-		Err(io_error) => {
-			let glsp_error = error!("failed to open the file {}", path);
-			Err(glsp_error.with_source(io_error))
-		}
-	}
+    match std::fs::read_to_string(path) {
+        Ok(st) => {
+            ensure!(st.len() > 0, "empty string in file {}", path);
+            Ok(st)
+        }
+        Err(io_error) => {
+            let glsp_error = error!("failed to open the file {}", path);
+            Err(glsp_error.with_source(io_error))
+        }
+    }
 }
 ```
 
@@ -367,25 +367,25 @@ those arguments manually:
 
 ```rust
 fn process_ten_integers(
-	arg0: i32,
-	arg1: i32,
-	arg2: i32,
-	arg3: i32,
-	arg4: i32,
-	arg5: i32,
-	arg6: i32,
-	rest: Rest<i32>
+    arg0: i32,
+    arg1: i32,
+    arg2: i32,
+    arg3: i32,
+    arg4: i32,
+    arg5: i32,
+    arg6: i32,
+    rest: Rest<i32>
 ) -> GResult<()> {
 
-	ensure!(
-		rest.len() == 3,
-		"expected exactly 10 arguments, but received {}",
-		7 + rest.len()
-	);
+    ensure!(
+        rest.len() == 3,
+        "expected exactly 10 arguments, but received {}",
+        7 + rest.len()
+    );
 
-	let [arg7, arg8, arg9] = [rest[0], rest[1], rest[2]];
+    let [arg7, arg8, arg9] = [rest[0], rest[1], rest[2]];
 
-	//...
+    //...
 }
 ```
 

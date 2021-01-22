@@ -27,18 +27,18 @@
     - There is no longer any restriction on variables captured or returned by `Runtime::run`
     - `Root`, `RGlobalRef`, `RGlobalRefMut`, `RRef` and `RRefMut` can now be stored in an `RData`
 - `RFn`, `RData`, Rust globals, and the function-wrapping code have been overhauled
-	- The `min_specialization`, `rustc_attrs` and `unboxed_closures` nightly features are 
-	  now required
-	- The `RStore` trait and `rdata!` macro have been removed. `RData` may now store any
-	  `'static` Rust type
-	- Associating an `RClass` with a Rust type is now a dynamic operation, using `RClassBuilder`
-	- The `Lib` trait has been renamed to `RGlobal`, and the `lib!` macro has been removed
-	- `RFn`s are now stored on the garbage-collected heap, as `Root<RFn>`
-	- The `rfn!` macro has been removed. Function pointers and closures can now be passed directly
-	  to `glsp::rfn` and similar functions
-	- Capturing closures can now be passed to `glsp::rfn`, as long as they're `'static`
-	- Rest parameters are now captured using a wrapper type `Rest<T>`, rather than a slice `&[T]`
-	- Optional parameters will now be set to `None` when their argument is `#n`
+    - The `min_specialization`, `rustc_attrs` and `unboxed_closures` nightly features are 
+      now required
+    - The `RStore` trait and `rdata!` macro have been removed. `RData` may now store any
+      `'static` Rust type
+    - Associating an `RClass` with a Rust type is now a dynamic operation, using `RClassBuilder`
+    - The `Lib` trait has been renamed to `RGlobal`, and the `lib!` macro has been removed
+    - `RFn`s are now stored on the garbage-collected heap, as `Root<RFn>`
+    - The `rfn!` macro has been removed. Function pointers and closures can now be passed directly
+      to `glsp::rfn` and similar functions
+    - Capturing closures can now be passed to `glsp::rfn`, as long as they're `'static`
+    - Rest parameters are now captured using a wrapper type `Rest<T>`, rather than a slice `&[T]`
+    - Optional parameters will now be set to `None` when their argument is `#n`
 - `meth`, `has-meth?`, `meth-name` and `call-meth` have been renamed to `met`, `has-met?`,
   `met-name` and `call-met` respectively
 - Improved error message when glsp functions are called with no active `Runtime`

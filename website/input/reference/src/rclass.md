@@ -17,9 +17,9 @@ for our `Texture` struct:
 
 ```rust
 RClassBuilder::<Texture>::new()
-	.met("width", &Texture::width)
-	.met("height", &Texture::height)
-	.build();
+    .met("width", &Texture::width)
+    .met("height", &Texture::height)
+    .build();
 ````
 
 You can register an `RClass` for any `'static` Rust type, including types defined by external 
@@ -30,11 +30,11 @@ types, one named `audio::Clip` and one named `video::Clip`, they can't both be n
 glsp::bind_rfn("Command", &Command::new::<String>)?;
 
 RClassBuilder::<Command>::new()
-	.met("args", &|command: &mut Command, rest: Rest<String>| {
-		command.args(rest);
-	})
-	.met("status", &Command::status)
-	.build();
+    .met("args", &|command: &mut Command, rest: Rest<String>| {
+        command.args(rest);
+    })
+    .met("status", &Command::status)
+    .build();
 ```
 
 ```
@@ -78,56 +78,56 @@ time! To prevent this from happening, you'll need to:
 ```rust
 //don't do this! 
 struct Colliders {
-	array: Root<Arr>
+    array: Root<Arr>
 }
 
 impl Colliders {
-	fn get(&self) -> Root<Arr> {
-		Root::clone(&self.array)
-	}
+    fn get(&self) -> Root<Arr> {
+        Root::clone(&self.array)
+    }
 
-	fn replace(&mut self, new_array: Root<Arr>) {
-		self.array = new_array;
-	}
+    fn replace(&mut self, new_array: Root<Arr>) {
+        self.array = new_array;
+    }
 }
 
 RClassBuilder::<Colliders>::new()
-	.met("get", &Colliders::get)
-	.met("replace!", &Colliders::replace)
-	.build();
+    .met("get", &Colliders::get)
+    .met("replace!", &Colliders::replace)
+    .build();
 ```
 
 ```rust
 //instead, do this...
 struct Colliders {
-	array: Gc<Arr>
+    array: Gc<Arr>
 }
 
 impl Colliders {
-	fn get(&self) -> Root<Arr> {
-		self.array.upgrade().unwrap()
-	}
+    fn get(&self) -> Root<Arr> {
+        self.array.upgrade().unwrap()
+    }
 
-	fn replace(&mut self, new_array: Root<Arr>) {
-		self.array = new_array.downgrade();
-	}
+    fn replace(&mut self, new_array: Root<Arr>) {
+        self.array = new_array.downgrade();
+    }
 
-	fn trace(&self, visitor: &mut GcVisitor) {
-		visitor.visit(&self.array);
-	}
+    fn trace(&self, visitor: &mut GcVisitor) {
+        visitor.visit(&self.array);
+    }
 }
 
 RClassBuilder::<Colliders>::new()
-	.met("get", &Colliders::get)
-	.met(
-		"replace!",
-		&|colliders: RRoot<Colliders>, new_array: Root<Arr>| {
-			colliders.borrow_mut().replace(new_array);
-			glsp::write_barrier(&colliders.into_root());
-		}
-	)
-	.trace(Colliders::trace)
-	.build();
+    .met("get", &Colliders::get)
+    .met(
+        "replace!",
+        &|colliders: RRoot<Colliders>, new_array: Root<Arr>| {
+            colliders.borrow_mut().replace(new_array);
+            glsp::write_barrier(&colliders.into_root());
+        }
+    )
+    .trace(Colliders::trace)
+    .build();
 ```
 
 We also provide [`GcVal`] as a weakly-rooted alternative to `Val`, and [`RGc`] as a

@@ -6,11 +6,11 @@ Let's take another look at the skeleton project from the [Overview](overview.md)
 use glsp::prelude::*;
 
 fn main() {
-	let runtime = Runtime::new();
-	runtime.run(|| {
-		glsp::load("main.glsp")?;
-		Ok(())
-	});
+    let runtime = Runtime::new();
+    runtime.run(|| {
+        glsp::load("main.glsp")?;
+        Ok(())
+    });
 }
 ```
 
@@ -59,13 +59,13 @@ create a single `Runtime` at program start, and immediately make it active by ca
 use glsp::prelude::*;
 
 fn main() {
-	let runtime = Runtime::new();
-	runtime.run(|| {
-		
-		//...your entire program executes within this scope...
+    let runtime = Runtime::new();
+    runtime.run(|| {
+        
+        //...your entire program executes within this scope...
 
-		Ok(())
-	});
+        Ok(())
+    });
 }
 ```
 
@@ -162,7 +162,7 @@ In particular, for functions like [`glsp::call`] which have a generic return val
 the return value must be specified explicitly, even when it's discarded.
 
 [`glsp::call`]: https://docs.rs/glsp/*/glsp/fn.call.html
-	
+    
 ```rust
 //an error
 glsp::call(&my_gfn, &(1, 2, 3))?;
@@ -177,15 +177,15 @@ let _: Val = glsp::call(&my_gfn, &(1, 2, 3))?;
 The `glsp` crate aims to be comprehensive: if it's possible to achieve something in GameLisp code,
 it should also be possible to achieve it in Rust. It's usually possible for any GameLisp code to be
 translated into (much uglier) Rust code line-by-line.
-	
-	(for plant in plants
-	  (when (< [plant 'height] 100)
-	    (.grow plant 10)))
+    
+    (for plant in plants
+      (when (< [plant 'height] 100)
+        (.grow plant 10)))
 
 ```rust
 let plants: Root<Arr> = glsp::global("plants")?;
 for val in plants.iter() {
-	let plant = Root::<Obj>::from_val(&val)?;
+    let plant = Root::<Obj>::from_val(&val)?;
     let height: i32 = plant.get("height")?;
     if height < 100 {
         let _: Val = plant.call("grow", &(10,))?;
@@ -204,7 +204,7 @@ from the `glsp` crate, except for the free functions: `glsp::bind_global()` does
 
 I can't overstate how much more convenient this is, compared to manually adding and removing 
 dozens of imports to every file. If name collisions occur, they can be disambiguated via renaming:
-	
+    
 ```rust
 use glsp::prelude::*;
 use num::Num as NumTrait;
@@ -262,14 +262,14 @@ use std::io::{self, stdout, stderr, Write};
 struct Tee<A: Write, B: Write>(A, B);
 
 impl<A: Write, B: Write> Write for Tee<A, B> {
-	fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-		self.0.write_all(buf).and_then(|_| self.1.write_all(buf))?;
-		Ok(buf.len())
-	}
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.0.write_all(buf).and_then(|_| self.1.write_all(buf))?;
+        Ok(buf.len())
+    }
 
-	fn flush(&mut self) -> io::Result<()> {
-		self.0.flush().and_then(|_| self.1.flush())
-	}
+    fn flush(&mut self) -> io::Result<()> {
+        self.0.flush().and_then(|_| self.1.flush())
+    }
 }
 
 //defining a cloneable file handle is left as an exercise for the reader
