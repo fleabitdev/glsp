@@ -7,7 +7,7 @@
 		<string>glsp</string>
 	</array>
 	<key>name</key>
-	<string>GameLisp Test</string>
+	<string>GameLisp</string>
 	<key>patterns</key>
 	<array>
 		<dict>
@@ -97,28 +97,52 @@
 			<string>constant.language.glsp</string>
 		</dict>
 		<dict>
+			<key>captures</key>
+			<dict>
+				<key>2</key>
+				<dict>
+					<key>name</key>
+					<string>storage.type.glsp</string>
+				</dict>
+			</dict>
 			<key>match</key>
-			<string>(?&lt;!-)\b(def|defn|defmacro|defclass|defmixin|defstruct|state\*|state|fsm|load|require)\b(?!-)</string>
-			<key>name</key>
-			<string>storage.type.glsp</string>
+			<string>(\()(def|defn|defmacro|defclass|defmixin|defstruct|state\*|state|fsm|load|require)\b(?!-)</string>
 		</dict>
 		<dict>
+			<key>captures</key>
+			<dict>
+				<key>2</key>
+				<dict>
+					<key>name</key>
+					<string>storage.type.glsp keyword.declaration.other.glsp</string>
+				</dict>
+			</dict>
 			<key>match</key>
-			<string>(?&lt;!-)\b(let|let-tab|let-fn|let-macro|let-class|let-mixin|fn0|fn1|fn|field|const|prop|wrap-prop)\b(?!-)</string>
-			<key>name</key>
-			<string>storage.type.glsp keyword.declaration.other.glsp</string>
+			<string>(\()(let|let-tab|let-fn|let-macro|let-class|let-mixin|fn0|fn1|fn|field|const|prop|wrap-prop)\b(?!-)</string>
 		</dict>
 		<dict>
+			<key>captures</key>
+			<dict>
+				<key>2</key>
+				<dict>
+					<key>name</key>
+					<string>keyword.control.glsp</string>
+				</dict>
+			</dict>
 			<key>match</key>
-			<string>(?&lt;!-)\b(if|when|unless|while|until|cond==|cond-eq\?|cond-same\?|cond|return|yield|else|any-of|forni|forn|for|block|restart-block|finish-block|in|do|break|continue|\@base|\@enab!|\@enab\?|\@disab!|enab!|enab\?|disab!|match|matches\?|when-let)\b(?!-)</string>
-			<key>name</key>
-			<string>keyword.control.glsp</string>
+			<string>(\()(if|when|unless|while|until|cond==|cond-eq\?|cond-same\?|cond|return|yield|else|any-of|forni|forn|for|block|restart-block|finish-block|in|do|break|continue|\@base|\@enab!|\@enab\?|\@disab!|enab!|enab\?|disab!|match|matches\?|when-let)\b(?!-)</string>
 		</dict>
 		<dict>
+			<key>captures</key>
+			<dict>
+				<key>2</key>
+				<dict>
+					<key>name</key>
+					<string>keyword.other.glsp</string>
+				</dict>
+			</dict>
 			<key>match</key>
-			<string>(?&lt;!-)\b(met|wrap|init-state|init-mixin|init|fini-state|fini-mixin|fini|mixin)\b(?!-)</string>
-			<key>name</key>
-			<string>keyword.other.glsp</string>
+			<string>(\()(met|wrap|init-state|init-mixin|init|fini-state|fini-mixin|fini|mixin)\b(?!-)</string>
 		</dict>
 		<dict>
 			<key>match</key>

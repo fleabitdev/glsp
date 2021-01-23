@@ -65,20 +65,28 @@
         },
 
         {
-            "match": "(?<!-)\\b(def|defn|defmacro|defclass|defmixin|defstruct|state\\*|state|fsm|load|require)\\b(?!-)",
-            "name": "storage.type.glsp"
+            "match": "(\\()(def|defn|defmacro|defclass|defmixin|defstruct|state\\*|state|fsm|load|require)\\b(?!-)",
+            "captures": {
+                "2": { "name": "storage.type.glsp" }
+            }
         },
         {
-            "match": "(?<!-)\\b(let|let-tab|let-fn|let-macro|let-class|let-mixin|fn0|fn1|fn|field|const|prop|wrap-prop)\\b(?!-)",
-            "name": "storage.type.glsp keyword.declaration.other.glsp"
+            "match": "(\\()(let|let-tab|let-fn|let-macro|let-class|let-mixin|fn0|fn1|fn|field|const|prop|wrap-prop)\\b(?!-)",
+            "captures": {
+                "2": { "name": "storage.type.glsp keyword.declaration.other.glsp" }
+            }
         },
         {
-            "match": "(?<!-)\\b(if|when|unless|while|until|cond==|cond-eq\\?|cond-same\\?|cond|return|yield|else|any-of|forni|forn|for|block|restart-block|finish-block|in|do|break|continue|\\@base|\\@enab!|\\@enab\\?|\\@disab!|enab!|enab\\?|disab!|match|matches\\?|when-let)\\b(?!-)",
-            "name": "keyword.control.glsp"
+            "match": "(\\()(if|when|unless|while|until|cond==|cond-eq\\?|cond-same\\?|cond|return|yield|else|any-of|forni|forn|for|block|restart-block|finish-block|in|do|break|continue|\\@base|\\@enab!|\\@enab\\?|\\@disab!|enab!|enab\\?|disab!|match|matches\\?|when-let)\\b(?!-)",
+            "captures": {
+                "2": { "name": "keyword.control.glsp" }
+            }
         },
         {
-            "match": "(?<!-)\\b(met|wrap|init-state|init-mixin|init|fini-state|fini-mixin|fini|mixin)\\b(?!-)",
-            "name": "keyword.other.glsp"
+            "match": "(\\()(met|wrap|init-state|init-mixin|init|fini-state|fini-mixin|fini|mixin)\\b(?!-)",
+            "captures": {
+                "2": { "name": "keyword.other.glsp" }
+            }
         },
 
         {
