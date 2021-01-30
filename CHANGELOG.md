@@ -10,6 +10,7 @@
 
 - `cargo clippy` triggered many warnings
 - Most doctests failed when running `cargo test`
+- The `arr!` macro did not support trailing commas
 
 ## Version 0.2 (2nd January 2021)
 
