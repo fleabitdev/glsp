@@ -53,7 +53,7 @@ pub fn compile(input: TokenStream) -> TokenStream {
     //generate a series of (load) forms: (load "a.glsp") (load "b.glsp")...
     let mut load_forms = String::new();
     for path in &paths {
-        write!(&mut load_forms, "(load {:?})\n", path).unwrap();
+        writeln!(&mut load_forms, "(load {:?})", path).unwrap();
     }
 
     //spin up a glsp Runtime and use it to compile those (load) forms into a Vec<u8>
@@ -183,7 +183,7 @@ pub fn eval(input: TokenStream) -> TokenStream {
                         let sym = arr.get::<Sym>(0).unwrap();
 
                         if sym == QUOTE_SYM {
-                            ()
+                            //no-op
                         } else if sym == UNQUOTE_SYM {
                             assert!(arr.len() == 2, "invalid unquote form: {}", arr);
                             let identifier = arr.get::<Sym>(1).expect("invalid unquote form");
@@ -317,7 +317,7 @@ pub fn eval(input: TokenStream) -> TokenStream {
 }
 
 fn is_valid_identifier(st: &str) -> bool {
-    if st.len() == 0 {
+    if st.is_empty() {
         false
     } else {
         let first = st.chars().next().unwrap();

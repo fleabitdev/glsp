@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Added
+
+### Changed
+
+### Fixed
+
+- `cargo clippy` triggered many warnings
+
 ## Version 0.2 (2nd January 2021)
 
 ### Added

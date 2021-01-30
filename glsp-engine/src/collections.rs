@@ -674,7 +674,7 @@ pub trait DequeOps: Sized + deque_ops_private::Sealed {
     The iterator's item type will be [`Val`](enum.Val.html) for [`Arr`](struct.Arr.html) and
     [`Deque`](enum.Deque.html), or `char` for [`Str`](struct.Str.html).
     */
-    fn iter<'a>(&'a self) -> IterDeque<'a, Self>
+    fn iter(&self) -> IterDeque<Self>
     where
         Self: DequeAccess<usize>,
     {
@@ -688,7 +688,7 @@ pub trait DequeOps: Sized + deque_ops_private::Sealed {
     but each item will be wrapped in a [`GResult<T>`](type.GResult.html), so it will need
     to be unwrapped using `?` before it can be used.
     */
-    fn iter_to<'a, R: FromElement<Self::Element>>(&'a self) -> IterDequeTo<'a, Self, R>
+    fn iter_to<R: FromElement<Self::Element>>(&self) -> IterDequeTo<Self, R>
     where
         Self: DequeAccess<usize>,
     {
@@ -1102,7 +1102,7 @@ impl DequeOps for Arr {
         F: FnMut(&Val, &Val) -> GResult<Ordering>,
     {
         //rust's built-in sort_by() can only sort a slice
-        let mut vec = SmallVec::<[Val; 64]>::from_iter(self.iter());
+        let mut vec: SmallVec<[Val; 64]> = self.iter().collect();
 
         //this is an ugly hack to provide error-propagation from within sort_by's callback. when an
         //error occurs, we store it on the stack, repeatedly return Ordering::Equal until sort_by
@@ -1639,9 +1639,9 @@ impl StrStorage {
         use StrStorage::*;
 
         let new_self = match (self as &StrStorage, new_width) {
-            (&Str1(ref vec), 2) => Str2(VecDeque::from_iter(vec.iter().map(|ch| ch.widen()))),
-            (&Str1(ref vec), 4) => Str4(VecDeque::from_iter(vec.iter().map(|ch| ch.widen()))),
-            (&Str2(ref vec), 4) => Str4(VecDeque::from_iter(vec.iter().map(|ch| ch.widen()))),
+            (&Str1(ref vec), 2) => Str2(vec.iter().map(|ch| ch.widen()).collect()),
+            (&Str1(ref vec), 4) => Str4(vec.iter().map(|ch| ch.widen()).collect()),
+            (&Str2(ref vec), 4) => Str4(vec.iter().map(|ch| ch.widen()).collect()),
             _ => panic!(),
         };
 
@@ -1786,14 +1786,14 @@ macro_rules! with_str_storage_mut {
 }
 
 #[doc(hidden)]
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Eq, PartialOrd, Ord)]
 pub struct CharStorage<T: CoerceFromChar + Into<u32> + Copy + Eq + Ord>(T);
 
 impl<T: CoerceFromChar + Into<u32> + Copy + Eq + Ord> CharStorage<T> {
     //there's a potential performance cost here, but there's no way to perform it as a "free"
     //coercion, because not all values of u16 or u32 are valid values for char. once we have
     //specialisation (todo), we will be able to specialise for the "free" u8-to-char coercion.
-    pub(crate) fn into_char(&self) -> char {
+    pub(crate) fn into_char(self) -> char {
         let u: u32 = self.0.into();
         char::try_from(u).unwrap()
     }
@@ -1802,6 +1802,12 @@ impl<T: CoerceFromChar + Into<u32> + Copy + Eq + Ord> CharStorage<T> {
     //responsibility to make sure the StrStorage is wide enough for any incoming data!
     pub(crate) fn from_char(ch: char) -> Self {
         CharStorage(T::coerce_from_char(ch))
+    }
+}
+
+impl<T: Copy + CoerceFromChar + Into<u32> + Eq + Ord> PartialEq for CharStorage<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
     }
 }
 
@@ -1932,15 +1938,11 @@ impl Str {
     pub(crate) fn from_rust_str(st: &str) -> Str {
         let max_char = st.chars().max().unwrap_or(0 as char);
         let storage = match max_char as u32 {
-            0..=0xff => StrStorage::Str1(VecDeque::from_iter(
-                st.chars().map(|ch| CharStorage::<u8>::from_char(ch)),
-            )),
-            0x100..=0xffff => StrStorage::Str2(VecDeque::from_iter(
-                st.chars().map(|ch| CharStorage::<u16>::from_char(ch)),
-            )),
-            _ => StrStorage::Str4(VecDeque::from_iter(
-                st.chars().map(|ch| CharStorage::<char>::from_char(ch)),
-            )),
+            0..=0xff => StrStorage::Str1(st.chars().map(CharStorage::<u8>::from_char).collect()),
+            0x100..=0xffff => {
+                StrStorage::Str2(st.chars().map(CharStorage::<u16>::from_char).collect())
+            }
+            _ => StrStorage::Str4(st.chars().map(CharStorage::<char>::from_char).collect()),
         };
 
         Str {
@@ -2176,7 +2178,7 @@ impl DequeOps for Str {
         F: FnMut(&char, &char) -> GResult<Ordering>,
     {
         //we don't want to borrow the Str while executing an arbitrary user callback
-        let mut vec = SmallVec::<[char; 128]>::from_iter(self.iter());
+        let mut vec: SmallVec<[char; 128]> = self.iter().collect();
 
         //this is an ugly hack to provide error-propagation from within sort_by's callback. when an
         //error occurs, we store it on the stack, repeatedly return Ordering::Equal until sort_by
@@ -3494,6 +3496,13 @@ impl Tab {
     }
 
     /**
+    Returns `true` if the table contains no elements.
+    */
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /**
     Returns the table's storage capacity.
 
     Equivalent to [`HashMap::capacity`][0].
@@ -3552,7 +3561,7 @@ impl Tab {
     //&Tab into an Iterator. therefore, we can't implement IntoIterator for &Tab, nor can we
     //provide an iter() method. instead, we require the user to call entries(), which has methods
     //iter(), keys() and values().
-    pub fn entries<'a>(&'a self) -> TabEntries<'a> {
+    pub fn entries(&self) -> TabEntries {
         TabEntries(self.borrow())
     }
 

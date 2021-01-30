@@ -90,7 +90,7 @@ pub(crate) enum StrStatus {
 }
 
 fn lex<'a>(lexer: &mut Lexer, text: &mut &'a str) -> GResult<Tok<'a>> {
-    assert!(text.len() > 0, "empty string passed to lex()");
+    assert!(!text.is_empty(), "empty string passed to lex()");
 
     let mut chars = text.chars();
     let first = chars.next().unwrap();
@@ -116,7 +116,7 @@ fn lex<'a>(lexer: &mut Lexer, text: &mut &'a str) -> GResult<Tok<'a>> {
                 _ => {
                     let mut len = 0;
                     let mut input = &text[..];
-                    while input.len() > 0 {
+                    while !input.is_empty() {
                         //skip any relevant escape sequences as they're encountered
                         if input.starts_with("\\\\")
                             || input.starts_with("\\\"")
@@ -147,7 +147,7 @@ fn lex<'a>(lexer: &mut Lexer, text: &mut &'a str) -> GResult<Tok<'a>> {
             //process it. otherwise, consume any and all characters until we do see a delimiter
 
             fn starts_with_delimiter(st: &str, num_hashes: usize) -> bool {
-                assert!(st.len() > 0);
+                assert!(!st.is_empty());
                 let mut chars = st.chars();
                 let first = chars.next().unwrap();
 
@@ -190,7 +190,7 @@ fn lex<'a>(lexer: &mut Lexer, text: &mut &'a str) -> GResult<Tok<'a>> {
             //comments so that we don't end the comment too early.
             let mut len = 0;
             let mut input = *text;
-            while input.len() > 0 {
+            while !input.is_empty() {
                 if input.starts_with("#|") {
                     len += 2;
                     input = &input[2..];
@@ -276,18 +276,16 @@ fn lex<'a>(lexer: &mut Lexer, text: &mut &'a str) -> GResult<Tok<'a>> {
                         }
 
                         (TokType::UnicodeChar, digits + 4)
-                    } else {
-                        if let Some(second) = second {
-                            chars.next().unwrap();
-                            match (second, chars.next(), chars.next()) {
-                                ('x', Some(hi), Some(lo)) if hi.is_digit(8) && lo.is_digit(16) => {
-                                    (TokType::AsciiChar, 4)
-                                }
-                                _ => (TokType::Char, 1 + second.len_utf8()),
+                    } else if let Some(second) = second {
+                        chars.next().unwrap();
+                        match (second, chars.next(), chars.next()) {
+                            ('x', Some(hi), Some(lo)) if hi.is_digit(8) && lo.is_digit(16) => {
+                                (TokType::AsciiChar, 4)
                             }
-                        } else {
-                            bail!("input ends with \\ character")
+                            _ => (TokType::Char, 1 + second.len_utf8()),
                         }
+                    } else {
+                        bail!("input ends with \\ character")
                     }
                 }
 
@@ -346,7 +344,7 @@ fn lex<'a>(lexer: &mut Lexer, text: &mut &'a str) -> GResult<Tok<'a>> {
                     //as a num, then we automatically parse it as a sym instead. to avoid
                     //duplication of effort, we don't try to differentiate nums from syms here.
                     let mut len = first.len_utf8();
-                    while let Some(ch) = chars.next() {
+                    for ch in chars {
                         if ch == '#' {
                             len += 1;
                             break;
@@ -383,8 +381,7 @@ fn lex<'a>(lexer: &mut Lexer, text: &mut &'a str) -> GResult<Tok<'a>> {
 }
 
 pub(crate) fn is_valid_sym_char(ch: char) -> bool {
-    match ch {
-        'A'..='Z'
+    matches!(ch, 'A'..='Z'
         | 'a'..='z'
         | '0'..='9'
         | '!'
@@ -403,16 +400,23 @@ pub(crate) fn is_valid_sym_char(ch: char) -> bool {
         | '?'
         | '^'
         | '_'
-        | '~' => true,
-        _ => false,
-    }
+        | '~')
 }
 
 //we use the same definition of whitespace as the rust reference, with the addition of ','
 pub(crate) fn char_is_whitespace(ch: char) -> bool {
-    match ch {
-        '\t' | '\n' | '\u{0B}' | '\u{0C}' | '\r' | ' ' | ',' | '\u{85}' | '\u{200E}'
-        | '\u{200F}' | '\u{2028}' | '\u{2029}' => true,
-        _ => false,
-    }
+    matches!(
+        ch,
+        '\t' | '\n'
+            | '\u{0B}'
+            | '\u{0C}'
+            | '\r'
+            | ' '
+            | ','
+            | '\u{85}'
+            | '\u{200E}'
+            | '\u{200F}'
+            | '\u{2028}'
+            | '\u{2029}'
+    )
 }

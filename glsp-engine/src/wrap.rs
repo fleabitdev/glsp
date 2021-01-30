@@ -1,3 +1,6 @@
+#![allow(clippy::needless_lifetimes)]
+#![allow(clippy::type_complexity)]
+
 use super::class::{Class, Obj};
 use super::code::{Coro, GFn};
 use super::collections::{Arr, Deque, DequeAccess, DequeOps, Str, Tab};
@@ -19,7 +22,7 @@ use std::error::Error;
 use std::ffi::{CStr, CString, OsStr, OsString};
 use std::hash::{BuildHasher, Hash};
 use std::io::Write;
-use std::iter::{Extend, FromIterator, IntoIterator};
+use std::iter::{Extend, IntoIterator};
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::path::{Path, PathBuf};
@@ -2087,7 +2090,7 @@ impl<T: FromVal> FromArg for T {
     }
 
     #[inline]
-    fn from_arg<'a>(temp: &'a mut Slot) -> GResult<T> {
+    fn from_arg(temp: &mut Slot) -> GResult<T> {
         T::from_slot(temp)
     }
 }
@@ -2111,8 +2114,8 @@ impl<T: FromArg> FromArg for Option<T> {
     }
 
     #[inline]
-    fn from_arg<'a>(
-        temp: &'a mut Option<T::Temp>,
+    fn from_arg(
+        temp: &mut Option<T::Temp>,
     ) -> GResult<<<Self as FromArg>::OutputCtor as Ctor>::Ty> {
         match temp {
             None => Ok(None),
@@ -2177,7 +2180,7 @@ impl<'a, T> Rest<'a, T> {
         S: IntoIterator<Item = T>,
         F: FnOnce(Rest<T>) -> R,
     {
-        f(Rest(&mut Some(SmallVec::from_iter(src))))
+        f(Rest(&mut Some(src.into_iter().collect())))
     }
 }
 
@@ -2264,7 +2267,7 @@ impl<'r, T: FromVal> FromArg for Rest<'r, T> {
         */
 
         Ok((
-            SmallVec::from_iter(args[min(i, args.len())..].iter().cloned()),
+            args[min(i, args.len())..].iter().cloned().collect(),
             Some(SmallVec::with_capacity(args.len().saturating_sub(i))),
         ))
     }
@@ -2304,7 +2307,7 @@ impl<'r, T: FromVal> FromArg for &'r [T] {
     #[inline]
     fn from_arg<'a>(temp: &'a mut (Slot, SmallVec<[T; 8]>)) -> GResult<&'a [T]> {
         temp.1 = SmallVec::from_slot(&temp.0)?;
-        Ok(&mut temp.1)
+        Ok(&temp.1)
     }
 }
 

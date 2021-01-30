@@ -46,11 +46,18 @@ pub(crate) enum Payload {
     MacroNoOp,
 }
 
+impl Default for GError {
+    fn default() -> Self {
+        GError::new()
+    }
+}
+
 impl GError {
     pub fn new() -> GError {
         GError::from_str("explicit call to bail!, error!, or GError::new")
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(st: &str) -> GError {
         GError::from_val(st)
     }
@@ -176,7 +183,7 @@ impl GError {
     #[doc(hidden)]
     pub fn new_at(span: Span) -> GError {
         glsp::push_frame(Frame::ErrorAt(span));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
         GError::new()
     }
@@ -184,7 +191,7 @@ impl GError {
     #[doc(hidden)]
     pub fn from_str_at(span: Span, st: &str) -> GError {
         glsp::push_frame(Frame::ErrorAt(span));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
         GError::from_str(st)
     }
@@ -192,7 +199,7 @@ impl GError {
     #[doc(hidden)]
     pub fn from_val_at<T: IntoVal>(span: Span, t: T) -> GError {
         glsp::push_frame(Frame::ErrorAt(span));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
         GError::from_val(t)
     }
@@ -237,9 +244,9 @@ impl Display for GError {
                         write!(f, "{}: {:?}", file_location, val)
                     }
                     (_, &Some(ref stack_trace)) => {
-                        write!(f, "stack trace:\n")?;
+                        writeln!(f, "stack trace:")?;
                         for line in stack_trace.lines() {
-                            write!(f, "    {}\n", line)?;
+                            writeln!(f, "    {}", line)?;
                         }
 
                         //we print error values using {} rather than {:?}. this is because most

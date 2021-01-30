@@ -5,7 +5,7 @@ use super::gc::Root;
 use super::transform::{OpId, Predicate};
 use super::val::Val;
 use smallvec::SmallVec;
-use std::iter::{DoubleEndedIterator, ExactSizeIterator, FromIterator, FusedIterator};
+use std::iter::{DoubleEndedIterator, ExactSizeIterator, FusedIterator};
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
 use std::ops::{Index, IndexMut};
@@ -501,7 +501,7 @@ fn val_to_node(ast: &mut Ast, val: &Val, span: Span) -> GResult<Node> {
 
 fn arr_to_node(ast: &mut Ast, arr: &Root<Arr>) -> GResult<Node> {
     let root = arr.get::<Val>(0)?;
-    let mut args = SmallVec::<[Val; 8]>::from_iter(arr.iter().skip(1));
+    let mut args: SmallVec<[Val; 8]> = arr.iter().skip(1).collect();
     let span = arr.span();
 
     match root {
@@ -778,7 +778,7 @@ fn fn_to_node(ast: &mut Ast, args: &[Val], span: Span) -> GResult<Node> {
         match args[i] {
             Val::Arr(ref arr) => break ParamList::from_arr(ast, arr)?,
             Val::Sym(FLAG_NAME_SYM) => {
-                ensure_at!(span, args.len() >= i + 1, "invalid &name flag in (fn)");
+                ensure_at!(span, args.len() > i, "invalid &name flag in (fn)");
                 ensure_at!(span, name.is_none(), "duplicate &name flag in (fn)");
 
                 name = match args[i + 1] {
@@ -929,7 +929,7 @@ impl ParamList {
                     );
                     ensure_at!(
                         span,
-                        rest_param.is_none() && opt_params.len() == 0,
+                        rest_param.is_none() && opt_params.is_empty(),
                         "malpositioned basic parameter passed to (fn) special form"
                     );
 

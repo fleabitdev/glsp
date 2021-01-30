@@ -15,7 +15,6 @@ use std::collections::{
     hash_map::Entry::{Occupied, Vacant},
     HashMap,
 };
-use std::iter::FromIterator;
 use std::rc::Rc;
 use std::usize;
 
@@ -34,7 +33,7 @@ pub(crate) fn eval(forms: &[Val], env_mode: Option<EnvMode>, to_record: bool) ->
 
     //once fully-expanded, these forms all require special handling: (splice), (let-macro), (let),
     //(defer), (defer-yield). to facilitate (splice), we need an input stack.
-    let mut input = Vec::from_iter(forms.iter().rev().cloned());
+    let mut input: Vec<_> = forms.iter().rev().cloned().collect();
     let mut result = Ok(Val::Nil);
 
     while let Some(form) = input.pop() {
@@ -95,7 +94,7 @@ pub(crate) fn expand(
 
     //we need to detect and handle toplevel (splice) and toplevel (let-macro). to facilitate
     //(splice), we need separate input and output stacks.
-    let mut input = Vec::from_iter(forms.iter().rev().cloned());
+    let mut input: Vec<_> = forms.iter().rev().cloned().collect();
     let mut output = Vec::<Val>::new();
 
     while let Some(form) = input.pop() {
@@ -332,7 +331,7 @@ impl Context {
 
         //we don't actually bind the name until after its initializer has been evaluated,
         //for consistency with non-toplevel lets
-        self.toplevel_lets.insert(name, stay.clone());
+        self.toplevel_lets.insert(name, stay);
 
         Ok(())
     }
@@ -695,14 +694,14 @@ fn maybe_call_expander(
         let prev_expanding = glsp::enter_expander(arr, Rc::clone(&context.env));
         let _guard = Guard::new(|| glsp::leave_expander(prev_expanding));
 
-        let args = SmallVec::<[Val; 16]>::from_iter(arr.iter().skip(1));
+        let args: SmallVec<[Val; 16]> = arr.iter().skip(1).collect();
 
         let result = match expander {
             Expander::RFn(ref rfn) => {
                 let override_name = if overridden { Some(rfn.name()) } else { None };
 
                 glsp::push_frame(Frame::Expand(arr.to_raw(), override_name));
-                let _guard = Guard::new(|| glsp::pop_frame());
+                let _guard = Guard::new(glsp::pop_frame);
 
                 glsp::call(rfn, &args[..])
             }
@@ -710,7 +709,7 @@ fn maybe_call_expander(
                 let override_name = if overridden { Some(gfn.name()) } else { None };
 
                 glsp::push_frame(Frame::Expand(arr.to_raw(), override_name));
-                let _guard = Guard::new(|| glsp::pop_frame());
+                let _guard = Guard::new(glsp::pop_frame);
 
                 glsp::call(gfn, &args[..])
             }
@@ -757,7 +756,7 @@ fn maybe_call_expander(
 
                     //local macro bindings
                     if let Some(expander_gfn) = context.lookup_let_macro(sym) {
-                        let expander = Expander::GFn(expander_gfn.clone());
+                        let expander = Expander::GFn(expander_gfn);
                         return invoke_macro_expander(&arr, false, &expander, context);
                     }
 

@@ -1,4 +1,7 @@
 #![cfg_attr(not(feature = "unsafe-internals"), forbid(unsafe_code))]
+#![allow(clippy::comparison_chain)]
+#![allow(clippy::float_cmp)]
+#![allow(clippy::useless_format)]
 #![feature(min_specialization)]
 #![feature(rustc_attrs)]
 #![feature(unboxed_closures)]

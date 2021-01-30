@@ -138,9 +138,7 @@ fn sign(num: Num) -> i32 {
     match num {
         Num::Int(i) => i.signum(),
         Num::Flo(f) => {
-            if f == 0.0f32 {
-                0
-            } else if f.is_nan() {
+            if f == 0.0f32 || f.is_nan() {
                 0
             } else {
                 f.signum() as i32
@@ -210,24 +208,15 @@ fn oddp(i: i32) -> bool {
 }
 
 fn nat_intp(val: Val) -> bool {
-    match val {
-        Val::Int(i) if i >= 0 => true,
-        _ => false,
-    }
+    matches!(val, Val::Int(i) if i >= 0)
 }
 
 fn pos_intp(val: Val) -> bool {
-    match val {
-        Val::Int(i) if i > 0 => true,
-        _ => false,
-    }
+    matches!(val, Val::Int(i) if i > 0)
 }
 
 fn neg_intp(val: Val) -> bool {
-    match val {
-        Val::Int(i) if i < 0 => true,
-        _ => false,
-    }
+    matches!(val, Val::Int(i) if i < 0)
 }
 
 //we arbitrarily divide our mathematical functions into "non-converting" ones like (pow) and (/),

@@ -415,6 +415,7 @@ impl DenseStaySource {
 }
 
 #[derive(Deserialize, Serialize)]
+#[allow(clippy::vec_box)]
 struct DenseBytecode {
     instrs: Vec<Instr>,
     spans: Vec<DenseSpan>,
@@ -502,7 +503,7 @@ impl DenseLambda {
         DenseLambda {
             bytecode: Box::new(DenseBytecode::from_bytecode(&src.bytecode, conv)),
             param_map: src.param_map.clone(),
-            name: src.name.clone(),
+            name: src.name,
             captures: src.captures.clone(),
             yields: src.yields,
         }

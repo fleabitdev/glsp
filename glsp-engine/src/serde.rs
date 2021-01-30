@@ -285,7 +285,7 @@ impl<'de> Visitor<'de> for SymVisitor {
     fn visit_str<E: DeError>(self, st: &str) -> Result<Self::Value, E> {
         match glsp::sym(st) {
             Ok(sym) => Ok(sym),
-            Err(_) => return Err(E::custom(format!("invalid sym {}", st))),
+            Err(_) => Err(E::custom(format!("invalid sym {}", st))),
         }
     }
 }

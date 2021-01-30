@@ -27,7 +27,6 @@ use std::collections::{
 use std::convert::TryFrom;
 use std::fmt::{Debug, Display, Formatter, Pointer};
 use std::io::{self, stderr, stdout, Write};
-use std::iter::FromIterator;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
 use std::ops::{Deref, DerefMut};
@@ -62,6 +61,7 @@ thread_local! {
     ];
 }
 
+#[allow(clippy::needless_range_loop)]
 fn alloc_engine_id() -> Option<u8> {
     ID_BITSET.with(|bitset| {
         for i in 0..8 {
@@ -279,6 +279,7 @@ macro_rules! eprn {
 #[doc(hidden)]
 pub struct EngineBuilder;
 
+#[allow(clippy::new_without_default)]
 impl EngineBuilder {
     pub fn new() -> EngineBuilder {
         EngineBuilder
@@ -369,6 +370,7 @@ impl Drop for Engine {
     }
 }
 
+#[allow(clippy::type_complexity)]
 struct EngineStorage {
     heap: Heap,
     vm: Vm,
@@ -420,20 +422,24 @@ struct GlobalEntry {
 }
 
 impl Engine {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Engine {
         //build the initial syms database
-        let syms = Vec::from_iter(STOCK_SYMS.iter().map(|&(name, kind)| SymEntry {
-            name: name.into(),
-            kind,
-            bound_global: None,
-            bound_macro: None,
-        }));
+        let syms: Vec<_> = STOCK_SYMS
+            .iter()
+            .map(|&(name, kind)| SymEntry {
+                name: name.into(),
+                kind,
+                bound_global: None,
+                bound_macro: None,
+            })
+            .collect();
 
-        let syms_map = HashMap::from_iter(
-            syms.iter()
-                .enumerate()
-                .map(|(i, sym_entry)| (Rc::clone(&sym_entry.name), Sym(i as u32, PhantomData))),
-        );
+        let syms_map: HashMap<_, _> = syms
+            .iter()
+            .enumerate()
+            .map(|(i, sym_entry)| (Rc::clone(&sym_entry.name), Sym(i as u32, PhantomData)))
+            .collect();
 
         //the initial spans database just contains "Generated", so that it's always Span(0)
         let spans = vec![SpanStorage::Generated];
@@ -444,7 +450,7 @@ impl Engine {
         //we need to insert a dummy entry for Filename(0)
         let filenames = vec!["".into()];
 
-        let engine = Engine(Rc::new(EngineStorage {
+        Engine(Rc::new(EngineStorage {
             heap: Heap::new(alloc_engine_id().expect("more than 256 simultaneous Runtimes")),
             vm: Vm::new(),
 
@@ -480,9 +486,7 @@ impl Engine {
             lazy_storage: RefCell::new(HashMap::new()),
 
             known_ops: known_ops(),
-        }));
-
-        engine
+        }))
     }
 
     //once we have specialisation, we could permit the closure to return any value, and only
@@ -982,6 +986,7 @@ GameLisp bindings for a particular Rust type.
 See [`RClassBuilder`](struct.RClassBuilder.html) for more details.
 */
 
+#[allow(clippy::type_complexity)]
 pub struct RClass {
     name: Sym,
     bindings: FnvHashMap<Sym, RBinding>,
@@ -1033,6 +1038,7 @@ they can't be cloned, and they can't be compared for equality.
 */
 
 #[must_use]
+#[allow(clippy::type_complexity)]
 pub struct RClassBuilder<T> {
     name: Option<Sym>,
     bindings: FnvHashMap<Sym, RBinding>,
@@ -1041,6 +1047,7 @@ pub struct RClassBuilder<T> {
     phantom: PhantomData<T>,
 }
 
+#[allow(clippy::new_without_default)]
 impl<T: 'static> RClassBuilder<T> {
     pub fn new() -> RClassBuilder<T> {
         let raw_name = type_name::<T>();
@@ -1525,7 +1532,6 @@ impl RData {
         match self.storage.try_borrow_mut() {
             Ok(mut borrow_mut) => match *borrow_mut {
                 Some(ref rc) if Rc::strong_count(rc) == 1 => {
-                    drop(rc);
                     let rc_any = (*borrow_mut).take().unwrap();
                     drop(borrow_mut);
 
@@ -1564,7 +1570,6 @@ impl RData {
         match self.storage.try_borrow_mut() {
             Ok(mut borrow_mut) => match *borrow_mut {
                 Some(ref rc) if Rc::strong_count(rc) == 1 => {
-                    drop(rc);
                     *borrow_mut = None;
                     drop(borrow_mut);
 
@@ -2072,9 +2077,9 @@ pub mod glsp {
         let mut rev_iter = st.chars().rev();
         match rev_iter.next() {
             None => false,
-            Some('#') => st.len() > 1 && rev_iter.all(|ch| lex::is_valid_sym_char(ch)),
+            Some('#') => st.len() > 1 && rev_iter.all(lex::is_valid_sym_char),
             Some(last_char) => {
-                lex::is_valid_sym_char(last_char) && rev_iter.all(|ch| lex::is_valid_sym_char(ch))
+                lex::is_valid_sym_char(last_char) && rev_iter.all(lex::is_valid_sym_char)
             }
         }
     }
@@ -2108,7 +2113,7 @@ pub mod glsp {
 
     pub fn gensym_with_tag(tag: &str) -> GResult<Sym> {
         ensure!(
-            glsp::is_valid_sym(tag) && !tag.ends_with("#"),
+            glsp::is_valid_sym(tag) && !tag.ends_with('#'),
             "invalid gensym tag '{}': tags should be a valid sym without a trailing '#'",
             tag
         );
@@ -2216,7 +2221,7 @@ pub mod glsp {
         with_engine(|engine| {
             let sym = s.to_sym()?;
             match engine.syms.borrow()[sym.0 as usize].bound_global {
-                Some(ref global) => T::from_val(&global.val).map(|t| Some(t)),
+                Some(ref global) => T::from_val(&global.val).map(Some),
                 None => Ok(None),
             }
         })
@@ -2240,8 +2245,6 @@ pub mod glsp {
                 Some(ref mut global) => {
                     if global.frozen {
                         let name = entry.name.clone();
-                        drop(global);
-                        drop(entry);
                         drop(syms);
                         bail!("attempted to mutate frozen global {}", name);
                     }
@@ -2251,7 +2254,6 @@ pub mod glsp {
                 }
                 None => {
                     let name = entry.name.clone();
-                    drop(entry);
                     drop(syms);
                     bail!("symbol {} is not bound to a global", name)
                 }
@@ -2310,7 +2312,6 @@ pub mod glsp {
                 }
                 None => {
                     let name = entry.name.clone();
-                    drop(entry);
                     drop(syms);
                     bail!("attempted to freeze the unbound global {}", name)
                 }
@@ -2376,7 +2377,6 @@ pub mod glsp {
                 Ok(())
             } else {
                 let name = entry.name.clone();
-                drop(entry);
                 drop(syms);
                 bail!(
                     "attempted to bind the global '{}', which is already bound",
@@ -2409,7 +2409,6 @@ pub mod glsp {
                 Ok(())
             } else {
                 let name = entry.name.clone();
-                drop(entry);
                 drop(syms);
                 bail!(
                     "attempted to unbind '{}', which is not bound to a global",
@@ -2933,9 +2932,9 @@ pub mod glsp {
         let mut parser = Parser::new(file_id);
 
         glsp::push_frame(Frame::GlspApi(GlspApiName::Parse, file_id));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
-        while text.len() > 0 {
+        while !text.is_empty() {
             if let Some(form) = parser.parse(text)? {
                 return Ok(Some(form));
             }
@@ -2951,11 +2950,11 @@ pub mod glsp {
         let file_id = filename.map(|path| glsp::filename(path));
 
         glsp::push_frame(Frame::GlspApi(GlspApiName::ParseAll, file_id));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
         let mut parser = Parser::new(file_id);
         let mut results = Vec::new();
-        while text.len() > 0 {
+        while !text.is_empty() {
             if let Some(form) = parser.parse(&mut text)? {
                 results.push(form);
             }
@@ -2971,13 +2970,13 @@ pub mod glsp {
         let file_id = filename.map(|path| glsp::filename(path));
 
         glsp::push_frame(Frame::GlspApi(GlspApiName::Parse1, file_id));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
         let mut parser = Parser::new(file_id);
-        while text.len() > 0 {
+        while !text.is_empty() {
             if let Some(form) = parser.parse(&mut text)? {
-                while text.len() > 0 {
-                    if let Some(_) = parser.parse(&mut text)? {
+                while !text.is_empty() {
+                    if parser.parse(&mut text)?.is_some() {
                         bail!("parse-1 produced multiple forms")
                     }
                 }
@@ -3273,23 +3272,21 @@ pub mod glsp {
                 } else {
                     Span::default()
                 }
+            } else if engine.vm.in_expander() {
+                //when `callsite` is None, that means the arr is being allocated by a call
+                //to glsp::arr(), glsp::call(), etc., rather than an OpArr instr or something
+                //else which can pass in an explicit "current span". under those circumstances,
+                //the innermost available Span will be the callsite of the innermost active
+                //gfn/rfn call, if any, within the innermost expander - or the callsite of
+                //the expander itself, otherwise.
+
+                //possible future extension (todo) would be to add a type of Span which refers
+                //to a line of rust code, rather than a line of glsp code. couldn't use this
+                //for glsp::call, but we could use it for macros like arr![] and backquote!().
+
+                engine.vm.expander_cur_span()
             } else {
-                if engine.vm.in_expander() {
-                    //when `callsite` is None, that means the arr is being allocated by a call
-                    //to glsp::arr(), glsp::call(), etc., rather than an OpArr instr or something
-                    //else which can pass in an explicit "current span". under those circumstances,
-                    //the innermost available Span will be the callsite of the innermost active
-                    //gfn/rfn call, if any, within the innermost expander - or the callsite of
-                    //the expander itself, otherwise.
-
-                    //possible future extension (todo) would be to add a type of Span which refers
-                    //to a line of rust code, rather than a line of glsp code. couldn't use this
-                    //for glsp::call, but we could use it for macros like arr![] and backquote!().
-
-                    engine.vm.expander_cur_span()
-                } else {
-                    Span::default()
-                }
+                Span::default()
             }
         })
     }
@@ -3795,7 +3792,7 @@ pub mod glsp {
 
     pub fn eval(val: &Val, env_mode: Option<EnvMode>) -> GResult<Val> {
         glsp::push_frame(Frame::GlspApi(GlspApiName::Eval, None));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
         eval::eval(&[val.clone()], env_mode, false)
     }
@@ -3804,7 +3801,7 @@ pub mod glsp {
 
     pub fn eval_multi(vals: &[Val], env_mode: Option<EnvMode>) -> GResult<Val> {
         glsp::push_frame(Frame::GlspApi(GlspApiName::EvalMulti, None));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
         eval::eval(vals, env_mode, false)
     }
@@ -3815,7 +3812,7 @@ pub mod glsp {
         let file_id = glsp::filename(filename);
 
         glsp::push_frame(Frame::GlspApi(GlspApiName::Load, Some(file_id)));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
         #[cfg(feature = "compiler")]
         {
@@ -3844,7 +3841,7 @@ pub mod glsp {
     pub fn require(filename: &str) -> GResult<Val> {
         let file_id = glsp::filename(filename);
         glsp::push_frame(Frame::GlspApi(GlspApiName::Require, Some(file_id)));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
         let path = match PathBuf::from(filename).canonicalize() {
             Ok(path) => path,
@@ -3857,10 +3854,10 @@ pub mod glsp {
         let already_seen = with_engine(|engine| {
             let mut required = engine.required.borrow_mut();
             if required.contains(&path) {
-                return true;
+                true
             } else {
                 required.insert(path);
-                return false;
+                false
             }
         });
 
@@ -3875,7 +3872,7 @@ pub mod glsp {
 
     pub fn load_str(text: &str) -> GResult<Val> {
         glsp::push_frame(Frame::GlspApi(GlspApiName::LoadStr, None));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
         let vals = glsp::parse_all(&text, None)?;
         eval::eval(&vals, None, false)
@@ -3892,7 +3889,7 @@ pub mod glsp {
     pub fn load_and_compile(filename: &str) -> GResult<(Val, Vec<u8>)> {
         let file_id = glsp::filename(filename);
         glsp::push_frame(Frame::GlspApi(GlspApiName::LoadAndCompile, Some(file_id)));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
         let text = match fs::read_to_string(&filename) {
             Ok(text) => text,
@@ -3910,7 +3907,7 @@ pub mod glsp {
             GlspApiName::LoadAndCompileStr,
             Some(file_id),
         ));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
         let vals = glsp::parse_all(content, Some(filename))?;
         glsp::load_and_compile_vals(&vals[..], filename)
@@ -3924,7 +3921,7 @@ pub mod glsp {
             GlspApiName::LoadAndCompileVals,
             Some(file_id),
         ));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
         with_engine(|engine| {
             ensure!(
@@ -3994,12 +3991,12 @@ pub mod glsp {
     #[cfg(feature = "compiler")]
     pub fn load_compiled(bytes: &[u8]) -> GResult<Val> {
         glsp::push_frame(Frame::GlspApi(GlspApiName::LoadCompiled, None));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
         let recording = Recording::from_bytes(bytes)?;
 
-        let root_filename = match recording.peek()? {
-            &Action::StartLoad(filename) => filename,
+        let root_filename = match *recording.peek()? {
+            Action::StartLoad(filename) => filename,
             _ => bail!("invalid Recording: first Action must be StartLoad"),
         };
 
@@ -4045,10 +4042,7 @@ pub mod glsp {
 
         match glsp::pop_action()? {
             Action::StartLoad(recorded_filename)
-                if expected_filename == &*glsp::filename_str(recorded_filename) =>
-            {
-                ()
-            }
+                if expected_filename == &*glsp::filename_str(recorded_filename) => {}
             _ => bail!(
                 "invalid Recording: unexpected call to (load {:?})",
                 expected_filename
@@ -4111,7 +4105,7 @@ pub mod glsp {
         R: FromVal,
     {
         glsp::push_frame(Frame::GlspCall(receiver.name()));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
         with_engine(|engine| {
             let mut stacks = engine.vm.stacks.borrow_mut();
@@ -4134,7 +4128,7 @@ pub mod glsp {
 
     pub fn coro_run(coro: &Root<Coro>, resume_arg: Option<Val>) -> GResult<Val> {
         glsp::push_frame(Frame::GlspCoroRun(coro.to_raw()));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
         with_engine(|engine| Ok(engine.vm.coro_run(coro, resume_arg)?))
     }
@@ -4143,7 +4137,7 @@ pub mod glsp {
 
     pub fn coro_finish(coro: &Root<Coro>) -> GResult<()> {
         glsp::push_frame(Frame::GlspApi(GlspApiName::CoroFinish, None));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
         with_engine(|engine| Ok(engine.vm.coro_finish(coro)?))
     }
@@ -4152,7 +4146,7 @@ pub mod glsp {
 
     pub fn expand(val: &Val, env_mode: Option<EnvMode>) -> GResult<Val> {
         glsp::push_frame(Frame::GlspApi(GlspApiName::Expand, None));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
         let mut expanded = eval::expand(&[val.clone()], env_mode, true)?;
         assert!(expanded.len() == 1);
@@ -4163,7 +4157,7 @@ pub mod glsp {
 
     pub fn expand_multi(vals: &[Val], env_mode: Option<EnvMode>) -> GResult<Vec<Val>> {
         glsp::push_frame(Frame::GlspApi(GlspApiName::ExpandMulti, None));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
         eval::expand(vals, env_mode, false)
     }
@@ -4176,7 +4170,7 @@ pub mod glsp {
         env_mode: Option<EnvMode>,
     ) -> GResult<Expansion> {
         glsp::push_frame(Frame::GlspApi(GlspApiName::Expand1, None));
-        let _guard = Guard::new(|| glsp::pop_frame());
+        let _guard = Guard::new(glsp::pop_frame);
 
         eval::expand_1(form, expander, env_mode)
     }

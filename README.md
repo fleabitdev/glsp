@@ -19,7 +19,7 @@ will be dual-licensed as described below, with no additional terms or conditions
 Short-term goals for the language, in descending order of priority:
 
 - A test suite
-- Making the crate Clippy-friendly
+- ~~Making the crate Clippy-friendly~~
 - Syntax-highlighting for more text editors
 - Reporting the location of mismatched parentheses when parsing
 - Working off some recent technical debt

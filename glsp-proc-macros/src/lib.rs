@@ -337,8 +337,8 @@ fn emit_val_for_backquote<T: Write>(
                 match second {
                     Val::Sym(sym) => {
                         let full_name = sym.name();
-                        let name = if full_name.starts_with("&") {
-                            &full_name[1..]
+                        let name = if let Some(stripped) = full_name.strip_prefix('&') {
+                            stripped
                         } else {
                             &full_name[..]
                         };
@@ -346,7 +346,7 @@ fn emit_val_for_backquote<T: Write>(
                         assert!(is_valid_identifier(name), "invalid identifier {}", name);
                         assert!(!name.starts_with(GENSYM_PREFIX), "unquoted an auto-gensym");
 
-                        if full_name.starts_with("&") {
+                        if full_name.starts_with('&') {
                             write!(dst, "::glsp::IntoVal::into_val(&{})?", name).unwrap();
                         } else {
                             write!(dst, "::glsp::IntoVal::into_val({})?", sym).unwrap();
@@ -395,7 +395,7 @@ fn emit_val_for_backquote<T: Write>(
             }
             write!(dst, " ] )").unwrap();
         }
-        Val::Sym(sym) if nesting == 0 && sym.name().ends_with("#") => {
+        Val::Sym(sym) if nesting == 0 && sym.name().ends_with('#') => {
             if let Entry::Vacant(entry) = gensyms.entry(sym.name().to_string()) {
                 //it's safe for us to fudge a "unique" rust identifier by just incrementing a
                 //counter, since the backquote!() macro only unquotes variables rather
@@ -415,7 +415,7 @@ fn emit_val_for_backquote<T: Write>(
 }
 
 fn is_valid_identifier(st: &str) -> bool {
-    if st.len() == 0 {
+    if st.is_empty() {
         false
     } else {
         let first = st.chars().next().unwrap();

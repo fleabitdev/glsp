@@ -6,7 +6,6 @@ use glsp_proc_macros::backquote;
 use smallvec::SmallVec;
 use std::collections::HashSet;
 use std::fmt;
-use std::iter::FromIterator;
 
 //-------------------------------------------------------------------------------------------------
 // ast for patterns
@@ -120,7 +119,7 @@ fn matcher_from_form(form: Val, atsign_params: bool, span: Span) -> GResult<Matc
         Val::Sym(UNDERSCORE_SYM) => return Ok(Matcher::Underscore),
         Val::Sym(name) => {
             ensure!(
-                !name.name().ends_with(":"),
+                !name.name().ends_with(':'),
                 "in patterns, : is whitespace-sensitive"
             );
             return Ok(Matcher::Sym(name));
@@ -142,11 +141,11 @@ fn matcher_from_form(form: Val, atsign_params: bool, span: Span) -> GResult<Matc
                     return Ok(Matcher::AtsignSym(Sym::from_val(&second)?));
                 }
                 Val::Sym(OR_SYM) => {
-                    let elements = SmallVec::<[Val; 8]>::from_iter(arr.iter().skip(1));
+                    let elements: SmallVec<[Val; 8]> = arr.iter().skip(1).collect();
                     let mut remaining = &elements[..];
 
                     let mut pats = Vec::<Pat>::new();
-                    while remaining.len() > 0 {
+                    while !remaining.is_empty() {
                         let (pat, forms_consumed) =
                             pat_from_forms(remaining, atsign_params, arr.span())?;
 
@@ -181,11 +180,11 @@ fn matcher_from_form(form: Val, atsign_params: bool, span: Span) -> GResult<Matc
                     //each child of the [] form happens to also be a valid pattern. parse the list
                     //of patterns and then perform post-processing/validation on it. we temporarily
                     //set each key to Val::Nil at this stage.
-                    let elements = SmallVec::<[Val; 8]>::from_iter(arr.iter().skip(1));
+                    let elements: SmallVec<[Val; 8]> = arr.iter().skip(1).collect();
                     let mut remaining = &elements[..];
 
                     let mut pairs = Vec::<(Val, Pat)>::new();
-                    while remaining.len() > 0 {
+                    while !remaining.is_empty() {
                         let (pat, forms_consumed) =
                             pat_from_forms(remaining, atsign_params, arr.span())?;
 
@@ -232,7 +231,6 @@ fn matcher_from_form(form: Val, atsign_params: bool, span: Span) -> GResult<Matc
                                 );
 
                                 let second = pats[1].clone();
-                                drop(pats);
                                 *pat = second;
                             }
                             _ => bail_at!(
@@ -250,11 +248,11 @@ fn matcher_from_form(form: Val, atsign_params: bool, span: Span) -> GResult<Matc
                     arr.get(1)?
                 }
                 _ => {
-                    let elements = SmallVec::<[Val; 8]>::from_iter(arr.iter());
+                    let elements: SmallVec<[Val; 8]> = arr.iter().collect();
                     let mut remaining = &elements[..];
 
                     let mut pats = Vec::<Pat>::new();
-                    while remaining.len() > 0 {
+                    while !remaining.is_empty() {
                         let (pat, forms_consumed) =
                             pat_from_forms(remaining, atsign_params, arr.span())?;
 
@@ -802,25 +800,22 @@ impl Pat {
                 //check for a Rest sub-pattern, and if so, validate it.
                 let mut rest_pat = None;
                 for (i, &(_, ref pat)) in pairs.iter().enumerate() {
-                    match &pat.matcher {
-                        Matcher::Rest(rest_matcher) => {
-                            ensure_at!(
-                                pat.span,
-                                i == pairs.len() - 1,
-                                "in [] patterns, .. sub-patterns must appear last"
-                            );
-                            ensure_at!(
-                                pat.span,
-                                pat.at.is_none(),
-                                ".. patterns cannot be \
-                                       combined with `at`"
-                            );
-                            rest_pat = Some(Pat {
-                                matcher: (**rest_matcher).clone(),
-                                ..pat.clone()
-                            });
-                        }
-                        _ => (),
+                    if let Matcher::Rest(rest_matcher) = &pat.matcher {
+                        ensure_at!(
+                            pat.span,
+                            i == pairs.len() - 1,
+                            "in [] patterns, .. sub-patterns must appear last"
+                        );
+                        ensure_at!(
+                            pat.span,
+                            pat.at.is_none(),
+                            ".. patterns cannot be \
+                                   combined with `at`"
+                        );
+                        rest_pat = Some(Pat {
+                            matcher: (**rest_matcher).clone(),
+                            ..pat.clone()
+                        });
                     }
                 }
 

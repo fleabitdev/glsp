@@ -419,7 +419,6 @@ impl RootStorage {
         entry.next_entry = self.first_strong;
 
         entry.strong_count = 1;
-        drop(entry);
 
         self.entries[self.first_strong as usize].prev_entry = entry_index;
         self.first_strong = entry_index;
@@ -442,7 +441,6 @@ impl RootStorage {
             //remove this entry from the strong list
             let prev_entry = entry.prev_entry;
             let next_entry = entry.next_entry;
-            drop(entry); //end of borrow
 
             self.entries[prev_entry as usize].next_entry = next_entry;
             self.entries[next_entry as usize].prev_entry = prev_entry;
@@ -1243,11 +1241,9 @@ impl<'a, 'b> Visitor for MarkingVisitor<'a, 'b> {
                 header.mark();
                 self.marking_stack.push(T::erase_raw(raw.clone()));
             }
-        } else {
-            if header.color_index() == self.heap.white_index.get() {
-                self.heap
-                    .change_color(raw, self.heap.gray_index.get(), self.old_objects);
-            }
+        } else if header.color_index() == self.heap.white_index.get() {
+            self.heap
+                .change_color(raw, self.heap.gray_index.get(), self.old_objects);
         }
     }
 
@@ -1772,17 +1768,15 @@ impl Heap {
                     .push(T::erase_raw(dst.clone()));
                 header.mark();
             }
-        } else {
-            if header.color_index() == self.white_index.get() {
-                let mut old_objects = [
-                    self.old_objects[0].borrow_mut(),
-                    self.old_objects[1].borrow_mut(),
-                    self.old_objects[2].borrow_mut(),
-                    self.old_objects[3].borrow_mut(),
-                ];
+        } else if header.color_index() == self.white_index.get() {
+            let mut old_objects = [
+                self.old_objects[0].borrow_mut(),
+                self.old_objects[1].borrow_mut(),
+                self.old_objects[2].borrow_mut(),
+                self.old_objects[3].borrow_mut(),
+            ];
 
-                self.change_color(dst, self.gray_index.get(), &mut old_objects);
-            }
+            self.change_color(dst, self.gray_index.get(), &mut old_objects);
         }
     }
 
@@ -1858,19 +1852,17 @@ impl Heap {
                         .push(U::erase_raw(dst.clone()));
                     dst_header.mark();
                 }
-            } else {
-                if dst_header.color_index() == self.white_index.get()
-                    && src_header.color_index() == self.black_index.get()
-                {
-                    let mut old_objects = [
-                        self.old_objects[0].borrow_mut(),
-                        self.old_objects[1].borrow_mut(),
-                        self.old_objects[2].borrow_mut(),
-                        self.old_objects[3].borrow_mut(),
-                    ];
+            } else if dst_header.color_index() == self.white_index.get()
+                && src_header.color_index() == self.black_index.get()
+            {
+                let mut old_objects = [
+                    self.old_objects[0].borrow_mut(),
+                    self.old_objects[1].borrow_mut(),
+                    self.old_objects[2].borrow_mut(),
+                    self.old_objects[3].borrow_mut(),
+                ];
 
-                    self.change_color(dst, self.gray_index.get(), &mut old_objects);
-                }
+                self.change_color(dst, self.gray_index.get(), &mut old_objects);
             }
         }
     }
@@ -1890,17 +1882,15 @@ impl Heap {
         next call to (gc).
         */
 
-        if !rdata.header().young() {
-            if rdata.header().color_index() == self.black_index.get() {
-                let mut old_objects = [
-                    self.old_objects[0].borrow_mut(),
-                    self.old_objects[1].borrow_mut(),
-                    self.old_objects[2].borrow_mut(),
-                    self.old_objects[3].borrow_mut(),
-                ];
+        if !rdata.header().young() && rdata.header().color_index() == self.black_index.get() {
+            let mut old_objects = [
+                self.old_objects[0].borrow_mut(),
+                self.old_objects[1].borrow_mut(),
+                self.old_objects[2].borrow_mut(),
+                self.old_objects[3].borrow_mut(),
+            ];
 
-                self.change_color(rdata.as_raw(), self.gray_index.get(), &mut old_objects);
-            }
+            self.change_color(rdata.as_raw(), self.gray_index.get(), &mut old_objects);
         }
     }
 

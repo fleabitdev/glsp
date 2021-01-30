@@ -157,6 +157,7 @@ impl DoubleEndedIterator for Root<GIter> {
     }
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl GIter {
     pub(crate) fn new(state: GIterState) -> GIter {
         GIter {
@@ -201,12 +202,10 @@ impl GIter {
                     } else {
                         Exact(0)
                     }
+                } else if start > end {
+                    Exact(((start - end + (-step_by - 1)) / -step_by) as usize)
                 } else {
-                    if start > end {
-                        Exact(((start - end + (-step_by - 1)) / -step_by) as usize)
-                    } else {
-                        Exact(0)
-                    }
+                    Exact(0)
                 }
             }
             RnInclusive(start, end, step_by) => {
@@ -216,12 +215,10 @@ impl GIter {
                     } else {
                         Exact(0)
                     }
+                } else if start >= end {
+                    Exact(((start + 1 - end + (-step_by - 1)) / -step_by) as usize)
                 } else {
-                    if start >= end {
-                        Exact(((start + 1 - end + (-step_by - 1)) / -step_by) as usize)
-                    } else {
-                        Exact(0)
-                    }
+                    Exact(0)
                 }
             }
             RnOpen(..) => Infinite,

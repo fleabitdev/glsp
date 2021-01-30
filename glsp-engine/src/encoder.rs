@@ -11,8 +11,8 @@ use smallvec::SmallVec;
 use std::cmp::max;
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::iter::{repeat, FromIterator};
-use std::u8;
+use std::iter::repeat;
+use std::{ptr, u8};
 
 //the borrow checker doesn't yet support e.emit(CopyRegister(e.nr(dst), e.nr(src)), span); it
 //complains about simultaneous mutable borrows. so until nll gets smarter, we provide this macro
@@ -91,7 +91,7 @@ impl PartialEq for BindingLoc {
             (BindingLoc::Literal(v0), BindingLoc::Literal(v1)) if v0 == v1 => true,
             (BindingLoc::Stay(i), BindingLoc::Stay(j)) if i == j => true,
             (BindingLoc::Toplevel(ref stay0), BindingLoc::Toplevel(ref stay1)) => {
-                &**stay0 as *const Stay == &**stay1 as *const Stay
+                ptr::eq(&**stay0, &**stay1)
             }
             _ => false,
         }
@@ -178,8 +178,8 @@ impl Encoder {
         let not_alias = src.alias_of.is_none();
         let not_stay = (!src.requires_stay) || is_param;
         let is_fresh = self.frame().next_local_is_fresh();
-        let no_enclosing_block = self.frame().active_blocks.len() == 0;
-        let not_encoding_defer = !self.frame().encoding_defer.is_some();
+        let no_enclosing_block = self.frame().active_blocks.is_empty();
+        let not_encoding_defer = self.frame().encoding_defer.is_none();
 
         let skipping_init = literal_init.is_some()
             && not_alias
@@ -208,7 +208,7 @@ impl Encoder {
 
         //encode the initializer node
         if !skipping_init {
-            let init_node = src.init.unwrap_or(ast.nil_node());
+            let init_node = src.init.unwrap_or_else(|| ast.nil_node());
 
             match loc {
                 BindingLoc::Local(local_id) => {
@@ -247,9 +247,11 @@ impl Encoder {
         assert!(src.name == popped.name);
 
         if let BindingLoc::Local(local_i) = popped.loc {
-            if self.bindings.iter().all(|binding| {
-                (binding.frame, binding.loc.clone()) != (popped.frame, BindingLoc::Local(local_i))
-            }) {
+            let is_duplicate = self.bindings.iter().any(|binding| {
+                (binding.frame, binding.loc.clone()) == (popped.frame, BindingLoc::Local(local_i))
+            });
+
+            if !is_duplicate {
                 assert!(local_i == (self.frame().active_locals - 1) as u8);
                 self.frame_mut().free_local();
             }
@@ -346,7 +348,7 @@ impl Encoder {
     //guarantees that the given stay is made available in the current frame (creating a chain
     //of captures, if necessary) and returns its local stay id.
     fn guarantee_stay(&mut self, frame_id: usize, remote_id: u8, span: Span) -> GResult<u8> {
-        assert!(frame_id <= self.frames.len() - 1);
+        assert!(frame_id < self.frames.len());
         if frame_id == self.frames.len() - 1 {
             return Ok(remote_id);
         }
@@ -367,13 +369,10 @@ impl Encoder {
         //this is O(n) but unlikely to have much performance impact
         let frame = self.frame_mut();
         for (i, stay_source) in frame.stay_sources.iter().enumerate() {
-            match stay_source {
-                StaySource::PreExisting(ref pre_existing) => {
-                    if &**pre_existing as *const Stay == &**stay as *const Stay {
-                        return Ok(i as u8);
-                    }
+            if let StaySource::PreExisting(ref pre_existing) = stay_source {
+                if ptr::eq(&**pre_existing, &**stay) {
+                    return Ok(i as u8);
                 }
-                _ => (),
             }
         }
 
@@ -385,7 +384,8 @@ impl Encoder {
         frame
             .stay_sources
             .push(StaySource::PreExisting(stay.to_raw()));
-        return Ok((frame.stay_sources.len() - 1) as u8);
+
+        Ok((frame.stay_sources.len() - 1) as u8)
     }
 
     fn frame(&self) -> &Frame {
@@ -500,13 +500,13 @@ impl Frame {
         self.instrs.pop().unwrap();
         self.spans.pop().unwrap();
 
-        while self.scratch_placeholders.len() > 0
+        while !self.scratch_placeholders.is_empty()
             && self.scratch_placeholders.last().unwrap().instr == self.instrs.len()
         {
             self.scratch_placeholders.pop().unwrap();
         }
 
-        while self.literal_placeholders.len() > 0
+        while !self.literal_placeholders.is_empty()
             && self.literal_placeholders.last().unwrap().instr == self.instrs.len()
         {
             self.literal_placeholders.pop().unwrap();
@@ -640,7 +640,7 @@ impl Frame {
     fn notify_scratch_placeholder(&mut self, arg_id: usize) {
         self.scratch_placeholders.push(Placeholder {
             instr: self.instrs.len() - 1,
-            arg_id: arg_id,
+            arg_id,
         });
     }
 
@@ -655,7 +655,7 @@ impl Frame {
     fn notify_literal_placeholder(&mut self, arg_id: usize) {
         self.literal_placeholders.push(Placeholder {
             instr: self.instrs.len() - 1,
-            arg_id: arg_id,
+            arg_id,
         });
     }
 
@@ -681,9 +681,9 @@ impl Frame {
 
     fn enter_block(&mut self, name: Sym, dst_reg: Reg) {
         self.active_blocks.push(BlockInfo {
-            name: name,
+            name,
             first_instr: self.instrs.len(),
-            dst_reg: dst_reg,
+            dst_reg,
             finish_placeholders: Vec::new(),
         });
     }
@@ -743,7 +743,7 @@ impl Frame {
 
             let mut defer_count = 0;
             for defer in self.active_defers.iter().rev() {
-                if let &DeferInfo::Defer { outer_blocks, .. } = defer {
+                if let DeferInfo::Defer { outer_blocks, .. } = *defer {
                     if new_active_blocks < outer_blocks {
                         defer_count += 1;
                     }
@@ -781,7 +781,7 @@ impl Frame {
             if block.name == name {
                 block.finish_placeholders.push(Placeholder {
                     instr: self.instrs.len() - 1,
-                    arg_id: arg_id,
+                    arg_id,
                 });
                 return Ok(());
             }
@@ -791,7 +791,7 @@ impl Frame {
     }
 
     fn finalize(&mut self, return_reg: Reg) -> GResult<Vec<Slot>> {
-        let span = self.spans.last().copied().unwrap_or(Span::default());
+        let span = self.spans.last().copied().unwrap_or_default();
 
         emit!(self, Return(return_reg), span);
 
@@ -1240,13 +1240,11 @@ fn encode_node(enc: &mut Encoder, ast: &Ast, node: Id<Node>, dst: Reg) -> GResul
             let else_instrs = enc.frame().instrs_emitted() - mid_len;
             if then_instrs == 0 {
                 enc.frame_mut().jump_from(start_len - 1, node_span)?; //reify JumpIfTrue
+            } else if else_instrs == 0 {
+                enc.frame_mut().unemit(); //delete Jump
+                enc.frame_mut().jump_from(start_len - 1, node_span)?; //tweak JumpIfFalse
             } else {
-                if else_instrs == 0 {
-                    enc.frame_mut().unemit(); //delete Jump
-                    enc.frame_mut().jump_from(start_len - 1, node_span)?; //tweak JumpIfFalse
-                } else {
-                    enc.frame_mut().jump_from(mid_len - 1, node_span)?; //reify Jump
-                }
+                enc.frame_mut().jump_from(mid_len - 1, node_span)?; //reify Jump
             }
 
             dst_reg
@@ -1443,11 +1441,11 @@ fn encode_node(enc: &mut Encoder, ast: &Ast, node: Id<Node>, dst: Reg) -> GResul
             //the only effect of a DeferInfo::DeferYield is to emit RunDefer instrs before and
             //after each Yield instr.
             let frame = enc.frame_mut();
-            let active_defers =
-                SmallVec::<[DeferInfo; 8]>::from_iter(frame.active_defers.iter().copied());
+            let active_defers: SmallVec<[DeferInfo; 8]> =
+                frame.active_defers.iter().copied().collect();
 
             for defer in active_defers.iter().rev() {
-                if let &DeferInfo::DeferYield { pause_id, .. } = defer {
+                if let DeferInfo::DeferYield { pause_id, .. } = *defer {
                     emit!(frame, RunDefer(; pause_id), node_span);
                 }
             }
@@ -1455,7 +1453,7 @@ fn encode_node(enc: &mut Encoder, ast: &Ast, node: Id<Node>, dst: Reg) -> GResul
             emit!(frame, Yield(dst_reg, result_reg), node_span);
 
             for defer in active_defers.iter() {
-                if let &DeferInfo::DeferYield { resume_id, .. } = defer {
+                if let DeferInfo::DeferYield { resume_id, .. } = *defer {
                     emit!(frame, RunDefer(; resume_id), node_span);
                 }
             }
@@ -1553,7 +1551,7 @@ fn encode_do(
                 //open with a PushDefer instr followed by a placeholder Jump instr
                 ensure_at!(
                     node_span,
-                    frame.defers.len() + 1 <= 256,
+                    frame.defers.len() < 256,
                     "frame requires more than 256 (defer) forms"
                 );
                 let defer_id = frame.defers.len() as u8;
@@ -1568,8 +1566,6 @@ fn encode_do(
                 emit!(frame, Jump(; jump_placeholder), node_span);
 
                 //encode the (defer) form's body
-                drop(frame);
-
                 let reserved_regs = encode_defer(enc, ast, body, node_span)?;
                 defer_reserved_regs.push(reserved_regs);
 
@@ -1619,8 +1615,6 @@ fn encode_do(
                     emit!(frame, Jump(; jump_placeholder), node_span);
 
                     //encode the two nodes
-                    drop(frame);
-
                     let reserved = encode_defer(enc, ast, Range::from_id(pause_node), node_span)?;
                     defer_reserved_regs.push(reserved);
 
@@ -1721,8 +1715,6 @@ fn encode_defer(
         local_peak: frame.active_locals,
     };
     frame.peaks.push(peaks);
-
-    drop(frame);
 
     //encode the (defer) form, followed by an EndDefer instr
     encode_do(enc, ast, body, Reg::Discarded, span)?;

@@ -1,4 +1,6 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::comparison_chain)]
+#![allow(clippy::float_cmp)]
 
 use glsp::{bail, Engine, EngineBuilder, Expander, GResult, RFn, RGlobal, Root, Sym};
 use std::collections::{hash_map::DefaultHasher, HashMap};
@@ -31,8 +33,8 @@ pub(crate) struct Std {
 impl RGlobal for Std {}
 
 impl Std {
-    fn new() -> GResult<Std> {
-        Ok(Std {
+    fn new() -> Std {
+        Std {
             setters: HashMap::new(),
             opt_setters: HashMap::new(),
             classmacros: HashMap::new(),
@@ -41,7 +43,7 @@ impl Std {
 
             #[cfg(not(target_arch = "wasm32"))]
             start_time: std::time::Instant::now(),
-        })
+        }
     }
 }
 
@@ -61,7 +63,7 @@ pub fn time() -> f32 {
 
 pub fn sleep(secs: f32) -> GResult<()> {
     //the Duration constructor will panic if secs is "not finite, negative, or overflows Duration"
-    if secs.is_infinite() || secs.is_nan() || secs < 0.0 || secs as i32 > i32::MAX {
+    if secs.is_infinite() || secs.is_nan() || secs < 0.0 || secs >= i32::MAX as f32 {
         bail!("{} is not an appropriate duration", secs);
     }
 
@@ -172,6 +174,7 @@ pub fn rand_reseed(seed: i32) {
     Std::borrow_mut().rng.reseed(seed)
 }
 
+#[allow(clippy::needless_doctest_main)]
 /**
 The GameLisp interpreter.
 
@@ -219,6 +222,12 @@ fn main() {
 //separate Runtime from Engine so that procedural macros like backquote!(), which require a parser,
 //can create an Engine while still being usable in the stdlib's implementation.
 pub struct Runtime(Engine);
+
+impl Default for Runtime {
+    fn default() -> Self {
+        Runtime::new()
+    }
+}
 
 impl Runtime {
     /**
@@ -284,6 +293,12 @@ pub struct RuntimeBuilder {
     engine_builder: EngineBuilder,
 }
 
+impl Default for RuntimeBuilder {
+    fn default() -> Self {
+        RuntimeBuilder::new()
+    }
+}
+
 impl RuntimeBuilder {
     pub fn new() -> RuntimeBuilder {
         RuntimeBuilder {
@@ -311,7 +326,7 @@ impl RuntimeBuilder {
 }
 
 fn init_stdlib(sandboxed: bool) -> GResult<()> {
-    glsp::add_rglobal(Std::new()?);
+    glsp::add_rglobal(Std::new());
 
     class::init(sandboxed)?;
     collections::init(sandboxed)?;

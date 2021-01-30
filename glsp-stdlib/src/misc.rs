@@ -234,7 +234,7 @@ fn sym(rest: Rest<Val>) -> GResult<Sym> {
         write!(&mut bytes, "{}", arg).unwrap();
     }
 
-    if bytes.len() == 0 {
+    if bytes.is_empty() {
         bail!("cannot construct a sym from an empty str")
     }
 
@@ -246,7 +246,7 @@ fn sym(rest: Rest<Val>) -> GResult<Sym> {
 
 fn int_to_str(arg: i32, opt_radix: Option<usize>) -> GResult<Root<Str>> {
     let radix = opt_radix.unwrap_or(10);
-    ensure!(radix >= 2 && radix <= 36, "invalid radix {}", radix);
+    ensure!((2..=36).contains(&radix), "invalid radix {}", radix);
 
     let chars = [
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
@@ -506,13 +506,15 @@ fn gc_value(name: Sym) -> GResult<Val> {
 }
 
 fn set_gc_value(name: Sym, to_set: Val) -> GResult<()> {
-    Ok(match name {
+    match name {
         RATIO_SYM => match to_set {
             Val::Flo(ratio) => glsp::gc_set_ratio(ratio),
             to_set => bail!("invalid ratio {}", to_set),
         },
         name => bail!("unrecognized gc-value {}", name),
-    })
+    }
+
+    Ok(())
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -554,19 +556,17 @@ fn try_call(mode: Val, callee: Val, args: Rest<Val>) -> GResult<Root<Arr>> {
 
     let callable = if callee.is_callable() {
         Callable::from_val(&callee).unwrap()
+    } else if is_verbose {
+        return Ok(arr![
+            ERR_SYM,
+            str!("expected a Callable, received {}", callee),
+            glsp::stack_trace()
+        ]);
     } else {
-        if is_verbose {
-            return Ok(arr![
-                ERR_SYM,
-                str!("expected a Callable, received {}", callee),
-                glsp::stack_trace()
-            ]);
-        } else {
-            return Ok(arr![
-                ERR_SYM,
-                str!("expected a Callable, received {}", callee)
-            ]);
-        }
+        return Ok(arr![
+            ERR_SYM,
+            str!("expected a Callable, received {}", callee)
+        ]);
     };
 
     match glsp::try_call(is_verbose, &callable, &args) {
@@ -575,12 +575,10 @@ fn try_call(mode: Val, callee: Val, args: Rest<Val>) -> GResult<Root<Arr>> {
             //we allow (macro-no-op) errors to bubble through (try) and (try-verbose)
             if err.is_macro_no_op() {
                 Err(err)
+            } else if is_verbose {
+                Ok(arr![ERR_SYM, err.val(), err.stack_trace().unwrap()])
             } else {
-                if is_verbose {
-                    Ok(arr![ERR_SYM, err.val(), err.stack_trace().unwrap()])
-                } else {
-                    Ok(arr![ERR_SYM, err.val()])
-                }
+                Ok(arr![ERR_SYM, err.val()])
             }
         }
     }
@@ -699,7 +697,7 @@ fn require(filename: String) -> GResult<Val> {
 }
 
 fn no_op(_: Rest<Val>) {
-    ()
+    //deliberate no-op
 }
 
 fn identity(arg: Val) -> Val {

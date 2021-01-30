@@ -14,7 +14,6 @@ use std::collections::{
 };
 use std::default::Default;
 use std::fs;
-use std::iter::FromIterator;
 
 pub fn init(sandboxed: bool) -> GResult<()> {
     if !sandboxed {
@@ -408,11 +407,11 @@ fn unwrap_question_mark(val: Val) -> GResult<Option<Val>> {
 }
 
 fn unwrap_slice_args(rest: &[Val]) -> GResult<Option<(Val, Val)>> {
-    let to_from = match &*rest {
-        &[Val::Sym(COLON_SYM)] => Some((Val::Nil, Val::Nil)),
-        &[ref from, Val::Sym(COLON_SYM)] => Some((from.clone(), Val::Nil)),
-        &[Val::Sym(COLON_SYM), ref to] => Some((Val::Nil, to.clone())),
-        &[ref from, Val::Sym(COLON_SYM), ref to] => Some((from.clone(), to.clone())),
+    let to_from = match *rest {
+        [Val::Sym(COLON_SYM)] => Some((Val::Nil, Val::Nil)),
+        [ref from, Val::Sym(COLON_SYM)] => Some((from.clone(), Val::Nil)),
+        [Val::Sym(COLON_SYM), ref to] => Some((Val::Nil, to.clone())),
+        [ref from, Val::Sym(COLON_SYM), ref to] => Some((from.clone(), to.clone())),
         _ => {
             ensure!(
                 !rest.contains(&Val::Sym(COLON_SYM)),
@@ -491,7 +490,7 @@ fn set_access(coll: Val, rest: Rest<Val>) -> GResult<Val> {
         return Ok(backquote!("(access-slice= ~coll ~from ~to ~new_val)"));
     }
 
-    if args.len() >= 1 {
+    if !args.is_empty() {
         if let Some(opt_index) = unwrap_question_mark(args[0].clone())? {
             ensure!(
                 args.len() == 1,
@@ -663,20 +662,18 @@ fn cond(clauses: Rest<Root<Arr>>) -> GResult<Val> {
                 "`else` must be the last clause in the `cond` form"
             );
             result = backquote!("(do ~..body)");
+        } else if body.len() == 0 {
+            //clauses which are just (predicate) with no body should evaluate to the result of
+            //the predicate when it's non-nil and non-false, for consistency with other lisps.
+            result = backquote!(
+                r#"
+                (do
+                  (let predicate-name# ~predicate)
+                  (if predicate-name# predicate-name# ~result))
+            "#
+            );
         } else {
-            if body.len() == 0 {
-                //clauses which are just (predicate) with no body should evaluate to the result of
-                //the predicate when it's non-nil and non-false, for consistency with other lisps.
-                result = backquote!(
-                    r#"
-                    (do
-                      (let predicate-name# ~predicate)
-                      (if predicate-name# predicate-name# ~result))
-                "#
-                );
-            } else {
-                result = backquote!("(if ~predicate (do ~..body) ~result)");
-            }
+            result = backquote!("(if ~predicate (do ~..body) ~result)");
         }
     }
 
@@ -697,9 +694,9 @@ fn and(forms: Rest<Val>) -> Val {
     }
 }
 
-fn or(forms: Rest<Val>) -> GResult<Val> {
+fn or(forms: Rest<Val>) -> Val {
     if forms.len() == 0 {
-        Ok(Val::Bool(false))
+        Val::Bool(false)
     } else {
         let mut result = forms.last().unwrap().clone();
 
@@ -713,7 +710,7 @@ fn or(forms: Rest<Val>) -> GResult<Val> {
             );
         }
 
-        Ok(result)
+        result
     }
 }
 
@@ -789,7 +786,7 @@ fn backquote(arg: Val) -> GResult<Val> {
     let mut auto_gensyms = HashMap::new();
     let val = backquote_impl(arg, &mut auto_gensyms)?;
 
-    if auto_gensyms.len() == 0 {
+    if auto_gensyms.is_empty() {
         Ok(val)
     } else {
         let result = arr![DO_SYM];
@@ -833,7 +830,7 @@ fn backquote_impl(arg: Val, auto_gensyms: &mut HashMap<Sym, Sym>) -> GResult<Val
             Ok(Val::Arr(result))
         }
 
-        Val::Sym(sym) if sym.name().ends_with("#") => {
+        Val::Sym(sym) if sym.name().ends_with('#') => {
             let local_name = match auto_gensyms.entry(sym) {
                 Occupied(entry) => *entry.get(),
                 Vacant(entry) => *entry.insert(glsp::gensym_with_tag("auto-gensym")?),
@@ -855,7 +852,7 @@ fn expand_let_like(
     args: &[Val],
 ) -> GResult<Option<Val>> {
     //parse the leading pattern, if any
-    if args.len() == 0 {
+    if args.is_empty() {
         return Ok(None);
     }
 
@@ -864,15 +861,15 @@ fn expand_let_like(
 
     //check for trivial cases
     if forms_consumed == 1 && pat.at.is_none() && pat.pred.is_none() {
-        match args {
-            &[] => unreachable!(),
-            &[Val::Sym(UNDERSCORE_SYM)] => return Ok(Some(backquote!("(~let_name)"))),
-            &[Val::Sym(UNDERSCORE_SYM), ref init_val] => {
+        match *args {
+            [] => unreachable!(),
+            [Val::Sym(UNDERSCORE_SYM)] => return Ok(Some(backquote!("(~let_name)"))),
+            [Val::Sym(UNDERSCORE_SYM), ref init_val] => {
                 return Ok(Some(backquote!("(do ~init_val #n)")))
             }
-            &[Val::Sym(name)] => return Ok(Some(backquote!("(~let_name ~name #n)"))),
-            &[Val::Sym(_name), ref _init_val] => return Ok(None),
-            &[Val::Sym(name), ref init_val, ref rest @ ..] => {
+            [Val::Sym(name)] => return Ok(Some(backquote!("(~let_name ~name #n)"))),
+            [Val::Sym(_name), ref _init_val] => return Ok(None),
+            [Val::Sym(name), ref init_val, ref rest @ ..] => {
                 return Ok(Some(backquote!(
                     "
                     (splice
@@ -886,7 +883,7 @@ fn expand_let_like(
     }
 
     //emit (splice {pattern-handling code} (let ..rest))
-    let init_form: Option<Val> = if rest_args.len() > 0 {
+    let init_form: Option<Val> = if !rest_args.is_empty() {
         let init_form = rest_args[0].clone();
         rest_args = &rest_args[1..];
         Some(init_form)
@@ -920,7 +917,7 @@ fn expand_let_like(
         splice_form.push(do_form)?;
     }
 
-    if rest_args.len() > 0 {
+    if !rest_args.is_empty() {
         let to_push: Val = backquote!("(~let_name ~..rest_args)");
         splice_form.push(to_push)?;
     }
@@ -963,7 +960,7 @@ fn match_(input_form: Val, clauses: Rest<Root<Arr>>) -> GResult<Val> {
     );
 
     for clause in clauses {
-        let clause_forms = SmallVec::<[Val; 16]>::from_iter(clause.iter());
+        let clause_forms: SmallVec<[Val; 16]> = clause.iter().collect();
 
         let (_, forms_consumed) = pat_from_forms(&clause_forms[..], false, clause.span())?;
         let clause_pat = &clause_forms[..forms_consumed];
@@ -1018,7 +1015,7 @@ fn when_let(args: Rest<Val>) -> GResult<Val> {
     //mismatches with (finish-block name #n).
     let (pat, forms_consumed) = pat_from_forms(&args, false, Span::default())?;
     ensure!(
-        args.len() >= forms_consumed + 1,
+        args.len() > forms_consumed,
         "(when-let) is missing an initializer"
     );
 
@@ -1048,7 +1045,7 @@ fn when_let(args: Rest<Val>) -> GResult<Val> {
         MismatchStrategy::FinishBlock(block_name),
     )?;
 
-    if body.len() == 0 {
+    if body.is_empty() {
         block_form.push(Val::Nil)?;
     } else {
         for body_form in body {
@@ -1134,7 +1131,7 @@ fn fn_common(args: &[Val], atsign_params: bool) -> GResult<Val> {
 
     //parse the params array as a collection of patterns
     if params_arr.len() == 0 {
-        if atsign_params == false {
+        if !atsign_params {
             macro_no_op!()
         } else {
             //convert %met-fn into fn
@@ -1163,10 +1160,12 @@ fn fn_common(args: &[Val], atsign_params: bool) -> GResult<Val> {
     fn matcher_is_trivial(matcher: &Matcher) -> bool {
         match matcher {
             Matcher::Underscore | Matcher::Sym(_) | Matcher::AtsignSym(_) => true,
-            Matcher::Opt(sub_matcher, _) | Matcher::Rest(sub_matcher) => match &**sub_matcher {
-                Matcher::Underscore | Matcher::Sym(_) | Matcher::AtsignSym(_) => true,
-                _ => false,
-            },
+            Matcher::Opt(sub_matcher, _) | Matcher::Rest(sub_matcher) => {
+                matches!(
+                    &**sub_matcher,
+                    Matcher::Underscore | Matcher::Sym(_) | Matcher::AtsignSym(_)
+                )
+            }
             _ => false,
         }
     }
@@ -1427,7 +1426,7 @@ enum ArrowPos {
 }
 
 fn arrow(pos: ArrowPos, first: Val, rest: &[Val]) -> GResult<Val> {
-    if rest.len() == 0 {
+    if rest.is_empty() {
         return Ok(first);
     }
 
@@ -1454,7 +1453,7 @@ fn arrow(pos: ArrowPos, first: Val, rest: &[Val]) -> GResult<Val> {
             Val::Sym(callee_name) => backquote!("(~callee_name ~result_form)"),
             Val::Arr(call_arr) if call_arr.len() >= 1 => {
                 let callee: Val = call_arr.get(0)?;
-                let args: Vec<Val> = Vec::from_iter(call_arr.iter().skip(1));
+                let args: Vec<Val> = call_arr.iter().skip(1).collect();
 
                 let out_call_arr: Root<Arr> = match callee {
                     Val::Sym(MET_NAME_SYM) | Val::Sym(QUESTION_MARK_SYM) | Val::Sym(ATSIGN_SYM) => {
@@ -1689,14 +1688,12 @@ fn set(std: &Std, args: Rest<Val>) -> GResult<Val> {
             } else {
                 bail!("invalid place {:?} passed to =", place);
             }
-        } else {
-            if let Some((setter, _)) = std.setters.get(&callee) {
-                let args = glsp::arr_from_iter(place.iter().skip(1))?;
+        } else if let Some((setter, _)) = std.setters.get(&callee) {
+            let args = glsp::arr_from_iter(place.iter().skip(1))?;
 
-                Ok(backquote!("(~setter ~..args ~new_val_form)"))
-            } else {
-                bail!("invalid place {:?} passed to =", place);
-            }
+            Ok(backquote!("(~setter ~..args ~new_val_form)"))
+        } else {
+            bail!("invalid place {:?} passed to =", place);
         }
     }
 

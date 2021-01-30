@@ -10,7 +10,6 @@ use std::convert::TryFrom;
 use std::str::{self, FromStr};
 
 /*
-
 a streaming parser.
 
 when a str is passed to Parser::parse(), but it ends partway through a form, the last character
@@ -19,7 +18,6 @@ between one str and the next.)
 
 in practice, this means that you can either incrementally parse input from a REPL line-by-line,
 or batch-parse the entire contents of a (load) or (eval) call.
-
 */
 
 #[doc(hidden)]
@@ -43,7 +41,7 @@ impl Parser {
     pub fn parse_all(&mut self, mut text: &str, dst: &mut Vec<Val>) -> GResult<usize> {
         let starting_len = dst.len();
 
-        while text.len() > 0 {
+        while !text.is_empty() {
             if let Some(form) = self.parse(&mut text)? {
                 dst.push(form);
             }
@@ -107,7 +105,7 @@ enum StrEscape {
 }
 
 fn parse(parser: &mut Parser, text: &mut &str) -> GResult<Option<Val>> {
-    assert!(text.len() > 0, "empty string passed to parse()");
+    assert!(!text.is_empty(), "empty string passed to parse()");
 
     //we create a span for this token lazily, to minimize the number of spans generated
     let span_storage: Cell<Option<Span>> = Cell::new(None);
@@ -173,12 +171,10 @@ fn parse(parser: &mut Parser, text: &mut &str) -> GResult<Option<Val>> {
     if delimited {
         match tok.tok_type {
             TokType::Whitespace | TokType::ArrClose | TokType::AccessClose | TokType::StrResume => {
-                ()
             }
             _ => bail_at!(
                 span(),
-                "the token {:?} must be followed by ), ], }}, or whitespace, \
-                          rather than {:?}",
+                "the token {:?} must be followed by ), ], }}, or whitespace, rather than {:?}",
                 parser.prev_tok_type,
                 tok.tok_type
             ),
@@ -465,21 +461,17 @@ fn parse_int(mut text: &str) -> Option<i32> {
         if let Some(digit) = ch.to_digit(radix as u32) {
             val = val.overflowing_mul(radix).0.overflowing_add(digit as i32).0;
             digit_count += 1;
-        } else if ch == '_' {
-            ()
-        } else {
+        } else if ch != '_' {
             return None;
         }
     }
 
     if digit_count == 0 {
         None
+    } else if sign == -1 {
+        Some(val.overflowing_neg().0)
     } else {
-        if sign == -1 {
-            Some(val.overflowing_neg().0)
-        } else {
-            Some(val)
-        }
+        Some(val)
     }
 }
 
@@ -571,7 +563,7 @@ fn parse_str_chars(
 ) -> GResult<()> {
     if *escape == StrEscape::NewlineEscape {
         text = text.trim_start_matches(char_is_whitespace);
-        if text.len() == 0 {
+        if text.is_empty() {
             return Ok(());
         }
 
@@ -579,14 +571,14 @@ fn parse_str_chars(
     }
 
     //we iterate through the input, processing one character or escape sequence at a time
-    while text.len() > 0 {
+    while !text.is_empty() {
         if text == "\\" {
             bail_at!(span, "unexpected \\ character at end of str")
         }
 
         if text.starts_with("\\\n") || text.starts_with("\\\r\n") {
             text = (&text[1..]).trim_start_matches(char_is_whitespace);
-            if text.len() == 0 {
+            if text.is_empty() {
                 *escape = StrEscape::NewlineEscape;
                 return Ok(());
             }

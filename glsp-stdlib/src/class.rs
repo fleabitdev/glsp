@@ -13,7 +13,6 @@ use std::collections::{
     HashMap, HashSet, VecDeque,
 };
 use std::io::Write;
-use std::iter::FromIterator;
 use std::str;
 
 pub fn init(_sandboxed: bool) -> GResult<()> {
@@ -176,7 +175,7 @@ fn class_impl(std: &Std, clauses: &[Val], is_mixin: bool) -> GResult<Val> {
     let mut class_name: Option<Sym> = None;
     let mut seen_mixins = false;
 
-    while expanded.len() > 0 && (class_name.is_none() || !seen_mixins) {
+    while !expanded.is_empty() && (class_name.is_none() || !seen_mixins) {
         let clause = expanded.front().unwrap().clone();
         if let Val::Arr(ref arr) = clause {
             if arr.len() > 0 && arr.get::<Val>(0)?.is_sym() {
@@ -207,7 +206,7 @@ fn class_impl(std: &Std, clauses: &[Val], is_mixin: bool) -> GResult<Val> {
                         ensure_at!(arr.span(), !seen_mixins, "duplicate mixins clause");
                         seen_mixins = true;
 
-                        let mixins = SmallVec::<[Val; 16]>::from_iter(arr.iter().skip(1));
+                        let mixins: SmallVec<[Val; 16]> = arr.iter().skip(1).collect();
 
                         let to_push: Val = backquote!("('mixin (arr ~..mixins))");
                         output.push(to_push)?;
@@ -318,7 +317,7 @@ fn class_impl(std: &Std, clauses: &[Val], is_mixin: bool) -> GResult<Val> {
                 Ok(Val::Arr(result))
             }
 
-            Val::Sym(sym) if sym.name().ends_with("#") => {
+            Val::Sym(sym) if sym.name().ends_with('#') => {
                 let replaced_name = match auto_gensyms.entry(sym) {
                     Occupied(entry) => *entry.get(),
                     Vacant(entry) => {
@@ -384,6 +383,7 @@ fn check_name(name: Sym, permits_hash: bool) -> GResult<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn process_class_state(
     std: &Std,
     is_mixin: bool,
@@ -452,20 +452,20 @@ fn process_class_state(
             ),
 
             FIELD_SYM => {
-                let args = SmallVec::<[Val; 8]>::from_iter(clause.iter().skip(1));
-                ensure_at!(clause.span(), args.len() > 0, "empty field clause");
+                let args: SmallVec<[Val; 8]> = clause.iter().skip(1).collect();
+                ensure_at!(clause.span(), !args.is_empty(), "empty field clause");
 
                 let mut rest = &args[..];
-                while rest.len() > 0 {
+                while !rest.is_empty() {
                     let (pat, forms_consumed) = pat_from_forms(&rest[..], false, clause.span())?;
 
                     let mut names_set = HashSet::new();
                     pat.names(&mut names_set, false);
-                    let names = Vec::from_iter(names_set.into_iter());
+                    let names: Vec<_> = names_set.into_iter().collect();
 
                     ensure_at!(
                         clause.span(),
-                        names.len() > 0,
+                        !names.is_empty(),
                         "field clauses must introduce \
                                at least one new binding"
                     );
@@ -499,15 +499,15 @@ fn process_class_state(
             }
 
             CONST_SYM => {
-                let args = SmallVec::<[Val; 8]>::from_iter(clause.iter().skip(1));
-                ensure_at!(clause.span(), args.len() > 0, "empty const clause");
+                let args: SmallVec<[Val; 8]> = clause.iter().skip(1).collect();
+                ensure_at!(clause.span(), !args.is_empty(), "empty const clause");
 
                 let mut rest = &args[..];
-                while rest.len() > 0 {
+                while !rest.is_empty() {
                     let (pat, forms_consumed) = pat_from_forms(&rest[..], false, clause.span())?;
                     ensure_at!(
                         clause.span(),
-                        rest.len() >= forms_consumed + 1,
+                        rest.len() > forms_consumed,
                         "const clauses must always have an initializer"
                     );
 
@@ -515,13 +515,12 @@ fn process_class_state(
 
                     let mut names_set = HashSet::new();
                     pat.names(&mut names_set, false);
-                    let names = Vec::from_iter(names_set.into_iter());
+                    let names: Vec<_> = names_set.into_iter().collect();
 
                     ensure_at!(
                         clause.span(),
-                        names.len() > 0,
-                        "const clauses must introduce \
-                               at least one new binding"
+                        !names.is_empty(),
+                        "const clauses must introduce at least one new binding"
                     );
 
                     for (i, const_name) in names.iter().enumerate() {
@@ -947,7 +946,7 @@ fn process_class_state(
                 let child_name = clause.get::<Sym>(1)?;
                 children_names.push(child_name);
 
-                let state_clauses = SmallVec::<[Val; 16]>::from_iter(clause.iter().skip(2));
+                let state_clauses: SmallVec<[Val; 16]> = clause.iter().skip(2).collect();
                 let state_expanded = expand_class_clauses(std, &state_clauses[..])?;
 
                 process_class_state(
@@ -969,7 +968,7 @@ fn process_class_state(
 
             FSM_SYM => {
                 //first pass: macro-expand any immediate children
-                let fsm_clauses = SmallVec::<[Val; 8]>::from_iter(clause.iter().skip(1));
+                let fsm_clauses: SmallVec<[Val; 8]> = clause.iter().skip(1).collect();
                 let fsm_expanded = expand_class_clauses(std, &fsm_clauses[..])?;
 
                 //second pass: collect fsm-sibling names and validate the immediate children
@@ -1031,15 +1030,14 @@ fn process_class_state(
                     let fsm_tag = fsm_clause.get::<Sym>(0)?;
                     let fsm_child_name = fsm_clause.get::<Sym>(1)?;
 
-                    let fsm_sibling_names = SmallVec::<[Sym; 8]>::from_iter(
-                        fsm_child_names
-                            .iter()
-                            .copied()
-                            .filter(|name| *name != fsm_child_name),
-                    );
+                    let fsm_sibling_names: SmallVec<[Sym; 8]> = fsm_child_names
+                        .iter()
+                        .copied()
+                        .filter(|name| *name != fsm_child_name)
+                        .collect();
 
-                    let fsm_child_clauses =
-                        SmallVec::<[Val; 16]>::from_iter(fsm_clause.iter().skip(2));
+                    let fsm_child_clauses: SmallVec<[Val; 16]> =
+                        fsm_clause.iter().skip(2).collect();
                     let fsm_child_expanded = expand_class_clauses(std, &fsm_child_clauses[..])?;
 
                     process_class_state(
@@ -1067,17 +1065,15 @@ fn process_class_state(
 
     //if there was no init clause, but at least one field-initializer, then we need to
     //synthesise an empty (init), (init-state) or (init-mixin)
-    if init_clause.is_none() {
-        if field_initializers.iter().any(|fi| fi.1.is_some()) {
-            if state_name == MAIN_SYM {
-                if is_mixin {
-                    init_clause = Some(backquote!("(init-mixin (..args) (@base ..args))"));
-                } else {
-                    init_clause = Some(backquote!("(init ())"));
-                }
+    if init_clause.is_none() && field_initializers.iter().any(|fi| fi.1.is_some()) {
+        if state_name == MAIN_SYM {
+            if is_mixin {
+                init_clause = Some(backquote!("(init-mixin (..args) (@base ..args))"));
             } else {
-                init_clause = Some(backquote!("(init-state ())"));
+                init_clause = Some(backquote!("(init ())"));
             }
+        } else {
+            init_clause = Some(backquote!("(init-state ())"));
         }
     }
 
@@ -1248,7 +1244,7 @@ fn method_clause_to_form(
         //names are present in at_params, assert that it has no initializer, and emit (= @Y:x x)
         //for each such name. otherwise, emit pattern-matching code for its initializer, storing
         //the result of each pattern using (= @Y:x result).
-        let mut init_at_params = at_params.clone();
+        let mut init_at_params = at_params;
 
         for &(ref pat, ref initializer) in field_initializers {
             let mut pat_names = HashSet::new();
@@ -1509,15 +1505,14 @@ fn method_clause_to_form(
         }?;
 
         //if the input was an arr and the output is an arr, make sure they have the same Span
-        match (&form, &result) {
-            (&Val::Arr(ref form), &Val::Arr(ref result)) => result.set_span(form.span()),
-            _ => (),
+        if let (&Val::Arr(ref form), &Val::Arr(ref result)) = (&form, &result) {
+            result.set_span(form.span())
         }
 
         Ok(result)
     }
 
-    let transformed_params_arr = expanded_params_arr.clone();
+    let transformed_params_arr = expanded_params_arr;
 
     /*let transformed_params_arr = span_map(&expanded_params_arr, |form| {
         recursively_transform(
@@ -1563,14 +1558,14 @@ fn split_wrap_target(span: Span, target_name: Sym) -> GResult<(Sym, Sym)> {
     );
 
     let name_str = target_name.name();
-    let mut splitter = name_str.split(":");
+    let mut splitter = name_str.split(':');
     let state_name = splitter.next().unwrap();
     let unqualified_name = splitter.next().unwrap();
     assert!(splitter.next().is_none());
 
     ensure_at!(
         span,
-        state_name.len() > 0 && unqualified_name.len() > 0,
+        !(state_name.is_empty() || unqualified_name.is_empty()),
         "invalid wrap target {}",
         target_name
     );
@@ -1580,6 +1575,7 @@ fn split_wrap_target(span: Span, target_name: Sym) -> GResult<(Sym, Sym)> {
 
 //takes a (prop ...) or (wrap-prop ...) clause, validates its syntax, and decomposes it
 //into (prop_name, initializer_form, getter_form, setter_form)
+#[allow(clippy::type_complexity)]
 fn process_prop_clause(
     clause: &Root<Arr>,
 ) -> GResult<(Sym, Option<Val>, Option<Root<Arr>>, Option<Root<Arr>>)> {
@@ -1734,7 +1730,7 @@ fn defstruct(name: Sym, clauses: Rest<Val>) -> GResult<Val> {
     //clauses, and (const) clauses. we emit a (field) for each sym; an (init); and implementations
     //for (met op-eq? ...) and (met op-clone ...) if they're not already present. we also
     //bind Name:new to the class, and bind a constructor macro to the Name.
-    let mut clause_stack = Vec::from_iter(clauses.iter().rev().cloned());
+    let mut clause_stack: Vec<_> = clauses.iter().rev().cloned().collect();
 
     let mut field_names = Vec::<Sym>::new();
     let mut field_clauses = Vec::<Val>::new();
@@ -1845,8 +1841,11 @@ fn struct_constructor_macro(
     field_names: Vec<Sym>,
     args: Rest<Val>,
 ) -> GResult<Val> {
-    let mut remaining_names: HashMap<Sym, usize> =
-        HashMap::from_iter(field_names.iter().enumerate().map(|(i, name)| (*name, i)));
+    let mut remaining_names: HashMap<Sym, usize> = field_names
+        .iter()
+        .enumerate()
+        .map(|(i, name)| (*name, i))
+        .collect();
     let mut local_bindings = Vec::<Val>::with_capacity(field_names.len());
     let mut constructor_args = vec![Val::Nil; field_names.len()];
 

@@ -2,7 +2,6 @@ use super::ast::{Alias, Ast, Binding, Expr, Id, Node, Range};
 use super::code::Instr;
 use super::engine::{stock_syms::*, with_known_ops, Sym};
 use std::collections::HashMap;
-use std::iter::FromIterator;
 
 #[cfg(feature = "compiler")]
 use serde::{Deserialize, Serialize};
@@ -39,7 +38,7 @@ where
 
     recurse(ast, node, &mut bindings, f);
 
-    assert!(bindings.bindings.len() == 0);
+    assert!(bindings.bindings.is_empty());
 }
 
 fn recurse_do<F>(ast: &mut Ast, nodes: Range<Node>, bindings: &mut Bindings, f: &mut F)
@@ -268,28 +267,25 @@ impl Bindings {
 //do the same for any bindings which are currently aliasing the mutated variable.
 
 fn unalias_node(ast: &mut Ast, node: Id<Node>, bindings: &mut Bindings) {
-    match ast[node].1 {
-        Expr::Set { target: name, .. } => {
-            let bindings = &mut bindings.bindings;
+    if let Expr::Set { target: name, .. } = ast[node].1 {
+        let bindings = &mut bindings.bindings;
 
-            let mut search_i = bindings.len();
-            while search_i > 0 {
-                search_i -= 1;
+        let mut search_i = bindings.len();
+        while search_i > 0 {
+            search_i -= 1;
 
-                if bindings[search_i].name == name {
-                    bindings[search_i].alias_of = None;
+            if bindings[search_i].name == name {
+                bindings[search_i].alias_of = None;
 
-                    for wipe_i in search_i + 1..bindings.len() {
-                        if bindings[wipe_i].alias_of == Some(Alias::Var(name)) {
-                            bindings[wipe_i].alias_of = None
-                        }
+                for to_wipe in bindings.iter_mut().skip(search_i + 1) {
+                    if to_wipe.alias_of == Some(Alias::Var(name)) {
+                        to_wipe.alias_of = None
                     }
-
-                    break;
                 }
+
+                break;
             }
         }
-        _ => (),
     }
 }
 
@@ -315,13 +311,10 @@ fn stays_node(ast: &mut Ast, node: Id<Node>, bindings: &mut Bindings) {
 //parent Expr::Fn to true.
 
 fn yields_node(ast: &mut Ast, node: Id<Node>, bindings: &mut Bindings) {
-    match ast[node].1 {
-        Expr::Yield(..) => {
-            if let Some(fn_info) = bindings.innermost_fn() {
-                fn_info.yields = true;
-            }
+    if let Expr::Yield(..) = ast[node].1 {
+        if let Some(fn_info) = bindings.innermost_fn() {
+            fn_info.yields = true;
         }
-        _ => (),
     }
 }
 
@@ -375,6 +368,7 @@ pub(crate) enum OpId {
     SetGlobal,
 }
 
+#[allow(clippy::match_single_binding)]
 pub(crate) fn op_instr_0_args(op_id: OpId, _dst: u8) -> Instr {
     match op_id {
         _ => panic!(),
@@ -537,7 +531,7 @@ const KNOWN_OPS: [(Sym, KnownOp); 54] = {
 };
 
 pub(crate) fn known_ops() -> HashMap<Sym, KnownOp> {
-    HashMap::from_iter(KNOWN_OPS.iter().map(|&(sym, known_op)| (sym, known_op)))
+    KNOWN_OPS.iter().copied().collect()
 }
 
 fn op_calls_node(
@@ -571,7 +565,7 @@ fn op_calls_node(
                         Some(&KnownOp::Fixed(op_id, arg_count)) => {
                             if args.len() == arg_count {
                                 ast[node].1 = Expr::Op {
-                                    op_id: op_id,
+                                    op_id,
                                     variadic: false,
                                     args,
                                     splay_bits,
@@ -580,7 +574,7 @@ fn op_calls_node(
                         }
                         Some(&KnownOp::Variadic(op_id)) => {
                             ast[node].1 = Expr::Op {
-                                op_id: op_id,
+                                op_id,
                                 variadic: true,
                                 args,
                                 splay_bits,

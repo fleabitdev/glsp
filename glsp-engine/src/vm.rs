@@ -14,7 +14,6 @@ use smallvec::SmallVec;
 use std::cell::{Cell, RefCell, RefMut};
 use std::cmp::Ordering;
 use std::convert::From;
-use std::iter::FromIterator;
 use std::mem::{forget, replace};
 use std::{f32, fmt, i32};
 
@@ -354,7 +353,7 @@ impl Vm {
             }
 
             if iter.peek().is_some() {
-                write!(f, "\n")?;
+                writeln!(f)?;
             }
         }
 
@@ -713,8 +712,6 @@ fn call<'a>(
                 ..
             } = *stacks;
             wrangle_args_and_stays(regs, stays, arg_count, &gfn, callsite)?;
-            drop(regs);
-            drop(stays);
 
             //recurse into the interpreter. if an error bubbles through, run any pending (defer)s.
             drop(stacks);
@@ -773,7 +770,7 @@ fn wrangle_args_and_stays(
     );
 
     //allocate this frame's stays, if any, and push them onto the stay stack
-    if bytecode.start_stays.len() > 0 {
+    if !bytecode.start_stays.is_empty() {
         stays.reserve(bytecode.start_stays.len());
 
         for source in &bytecode.start_stays {
@@ -978,12 +975,11 @@ fn interpret(
             }
             Instr::MakeGFn(dst_reg, lambda_id) => {
                 let lambda = &bytecode.lambdas[lambda_id as usize];
-                let captures = Vec::from_iter(
-                    lambda
-                        .captures
-                        .iter()
-                        .map(|&stay_id| stay!(stay_id).clone().unwrap()),
-                );
+                let captures: Vec<_> = lambda
+                    .captures
+                    .iter()
+                    .map(|&stay_id| stay!(stay_id).clone().unwrap())
+                    .collect();
 
                 reg!(dst_reg) = Slot::GFn(glsp::alloc_raw(GFn::new(lambda, captures)));
             }
@@ -1256,9 +1252,7 @@ fn interpret(
             Instr::OpSign(dst_reg, arg_reg) => match reg!(arg_reg) {
                 Slot::Int(i) => reg!(dst_reg) = Slot::Int(i.signum()),
                 Slot::Flo(f) => {
-                    let sign = if f == 0.0f32 {
-                        0
-                    } else if f.is_nan() {
+                    let sign = if f == 0.0f32 || f.is_nan() {
                         0
                     } else {
                         f.signum() as i32

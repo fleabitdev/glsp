@@ -11,7 +11,6 @@ use smallvec::SmallVec;
 use std::cell::{RefCell, RefMut};
 use std::cmp::Ord;
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::iter::FromIterator;
 use std::mem::{forget, size_of};
 use std::{str, u16};
 
@@ -1627,6 +1626,7 @@ enum RawBindee {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[allow(clippy::enum_variant_names)]
 enum Category {
     FieldLike,
     MetLike,
@@ -1694,12 +1694,11 @@ impl RawClass {
         ensure!(states[0].fsm_siblings.is_empty());
         ensure!(states[0].parent.is_none());
 
-        let state_ids = HashMap::<Sym, u8>::from_iter(
-            states
-                .iter()
-                .enumerate()
-                .map(|(i, state)| (state.name, i as u8)),
-        );
+        let state_ids: HashMap<Sym, u8> = states
+            .iter()
+            .enumerate()
+            .map(|(i, state)| (state.name, i as u8))
+            .collect();
 
         let mut bindings = Vec::<RawBinding>::new();
         let bindings_arr: Raw<Arr> = tab.get(BINDINGS_SYM)?;
@@ -1804,7 +1803,7 @@ impl RawClass {
 
     //apply all mixins
     fn mix(&mut self) -> GResult<()> {
-        if !self.is_mixin && self.mixins.len() > 0 {
+        if !self.is_mixin && !self.mixins.is_empty() {
             //check that there are no duplicate names between all of the mixins and all of
             //the class' own states. also check that each mixin is actually a mixin!
             let mut names = HashSet::<Sym>::new();
@@ -1965,7 +1964,7 @@ struct ClassBuilder {
 
 impl ClassBuilder {
     fn new(raw_class: RawClass) -> GResult<ClassBuilder> {
-        let is = FnvHashSet::from_iter(raw_class.mixins.iter().cloned());
+        let is: FnvHashSet<_> = raw_class.mixins.iter().cloned().collect();
 
         let mut states =
             FnvHashMap::with_capacity_and_hasher(raw_class.states.len(), Default::default());
@@ -2075,7 +2074,7 @@ impl ClassBuilder {
         grouped.sort_by(|a, b| a.unqualified.0.cmp(&b.unqualified.0));
 
         let mut group = VecDeque::<RawBinding>::with_capacity(16);
-        while grouped.len() > 0 {
+        while !grouped.is_empty() {
             //collect all RawBindings which share the same unqualified name
             group.clear();
             group.push_front(grouped.pop().unwrap());
@@ -2083,16 +2082,15 @@ impl ClassBuilder {
             let unqualified = group[0].unqualified;
             let category = group[0].bindee.category();
 
-            while grouped.len() > 0 && grouped.last().unwrap().unqualified == unqualified {
+            while !grouped.is_empty() && grouped.last().unwrap().unqualified == unqualified {
                 group.push_front(grouped.pop().unwrap());
             }
 
             //check that all of the RawBindings belong to the same category
-            for i in 0..group.len() - 1 {
+            for raw_binding in &group {
                 ensure!(
-                    group[i].bindee.category() == category,
-                    "the name {} is bound to class \
-                        clauses of different types",
+                    raw_binding.bindee.category() == category,
+                    "the name {} is bound to class clauses of different types",
                     unqualified
                 );
             }
@@ -2212,12 +2210,11 @@ impl ClassBuilder {
                     let stacked = self.stack_mets(&group)?;
 
                     if stacked.len() > 1 {
-                        let bindings = SmallVec::<[Binding; 8]>::from_iter(
-                            stacked
-                                .iter()
-                                .rev()
-                                .map(|raw_binding| self.bind_prop_like(raw_binding)),
-                        );
+                        let bindings: SmallVec<[Binding; 8]> = stacked
+                            .iter()
+                            .rev()
+                            .map(|raw_binding| self.bind_prop_like(raw_binding))
+                            .collect();
 
                         let (has_getter, has_setter) = match &bindings[0] {
                             Binding::Prop(ref get, ref set) => (get.is_some(), set.is_some()),
@@ -2364,13 +2361,13 @@ impl ClassBuilder {
         let state_i = raw_binding.state_i;
 
         let (gfn, rni) = match raw_binding.bindee {
-            RawBindee::Met(ref gfn) => (gfn.clone(), false),
-            RawBindee::Wrap(_, ref gfn) => (gfn.clone(), true),
-            RawBindee::WildcardWrap(ref gfn) => (gfn.clone(), true),
+            RawBindee::Met(ref gfn) => (gfn, false),
+            RawBindee::Wrap(_, ref gfn) => (gfn, true),
+            RawBindee::WildcardWrap(ref gfn) => (gfn, true),
             _ => unreachable!(),
         };
 
-        Binding::Met(MetBinding::Simple(state_i, gfn.clone(), rni))
+        Binding::Met(MetBinding::Simple(state_i, Raw::clone(gfn), rni))
     }
 
     fn bind_prop_like(&mut self, raw_binding: &RawBinding) -> Binding {
@@ -2415,8 +2412,8 @@ impl ClassBuilder {
         mutating their `requires`, `required_by` and `excludes` bitflags.
         */
 
-        let mut src = Vec::from_iter(raw_bindings.iter().cloned());
-        let mut dst = Vec::<RawBinding>::with_capacity(src.len());
+        let mut src: Vec<RawBinding> = raw_bindings.iter().cloned().collect();
+        let mut dst: Vec<RawBinding> = Vec::with_capacity(src.len());
 
         //drain all of the mets from src and put them at the start of dst. set the `excludes`
         //flag for any two states which both share a met. (todo: switch back to drain_filter)

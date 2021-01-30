@@ -15,7 +15,7 @@ use std::cmp::max;
 use std::collections::HashMap;
 use std::convert::From;
 use std::fmt::{self, Debug, Display, Formatter, Pointer};
-use std::iter::{repeat, FromIterator};
+use std::iter::repeat;
 use std::{char, str};
 
 /*
@@ -751,11 +751,10 @@ struct PrettyPrinter {
 
 impl PrettyPrinter {
     fn new() -> PrettyPrinter {
-        let breaking_syms = HashMap::from_iter(
-            BREAKING_SYMS
-                .iter()
-                .map(|&(st, n)| (glsp::sym(st).unwrap(), n)),
-        );
+        let breaking_syms: HashMap<_, _> = BREAKING_SYMS
+            .iter()
+            .map(|&(st, n)| (glsp::sym(st).unwrap(), n))
+            .collect();
 
         PrettyPrinter {
             breaking_syms,
@@ -819,7 +818,7 @@ impl PrettyPrinter {
         self.parents.push(address);
 
         self.push_str(if is_access { "[" } else { "(" });
-        let sequence = SmallVec::<[Val; 8]>::from_iter(arr.iter());
+        let sequence: SmallVec<[Val; 8]> = arr.iter().collect();
         let elems = if is_access {
             &sequence[1..]
         } else {
@@ -959,7 +958,7 @@ impl PrettyPrinter {
     }
 
     fn push_newline(&mut self) {
-        self.builder.push_str("\n");
+        self.builder.push('\n');
         self.builder.extend(repeat(' ').take(self.indent));
         self.cursor_x = self.indent;
     }
@@ -1092,7 +1091,7 @@ pub(crate) fn bytecode_to_string(code: &Bytecode) -> String {
         let base_str = if i >= literal_start { "lit" } else { "loc" };
 
         if i == literal_start && code.local_count > 0 {
-            builder.push_str("\n");
+            builder.push('\n');
         }
 
         if val_str.len() > 60 {
@@ -1104,7 +1103,7 @@ pub(crate) fn bytecode_to_string(code: &Bytecode) -> String {
         }
     }
 
-    if code.start_stays.len() > 0 {
+    if !code.start_stays.is_empty() {
         builder.push_str("\n\n\tstays:\n");
 
         for (i, stay_source) in code.start_stays.iter().enumerate() {

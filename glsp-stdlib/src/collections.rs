@@ -8,7 +8,7 @@ use glsp_proc_macros::backquote;
 use smallvec::SmallVec;
 use std::cmp::Ordering;
 use std::io::Write;
-use std::iter::{repeat, FromIterator};
+use std::iter::repeat;
 use std::{fmt, io, str};
 
 pub fn init(_sandboxed: bool) -> GResult<()> {
@@ -449,7 +449,7 @@ fn pop_start(deq: Deque) -> GResult<Val> {
 }
 
 fn grow(deq: Deque, start_to_add: usize, end_to_add: usize, fill: Option<Val>) -> GResult<()> {
-    deq.grow(start_to_add, end_to_add, fill.unwrap_or(deq.fill()))
+    deq.grow(start_to_add, end_to_add, fill.unwrap_or_else(|| deq.fill()))
 }
 
 fn shrink(deq: Deque, start_to_remove: usize, end_to_remove: usize) -> GResult<()> {
@@ -582,7 +582,7 @@ fn map_syntax(callable: Callable, coll: Val) -> GResult<Val> {
             Ok(Val::Arr(output))
         }
         Val::Tab(tab) => {
-            let keys = SmallVec::<[Val; 8]>::from_iter(tab.entries().keys());
+            let keys: SmallVec<[Val; 8]> = tab.entries().keys().collect();
 
             let output = glsp::tab();
 
@@ -903,10 +903,7 @@ where
 {
     let mut prev_char_or_str = false;
     for (i, arg) in args.iter().enumerate() {
-        let char_or_str = match arg {
-            Val::Char(_) | Val::Str(_) => true,
-            _ => false,
-        };
+        let char_or_str = matches!(arg, Val::Char(_) | Val::Str(_));
 
         if insert_spaces && i > 0 && !char_or_str && !prev_char_or_str {
             write!(dst, " ")?;
@@ -957,7 +954,7 @@ fn parse(st: Root<Str>, filename: Option<&str>) -> GResult<Root<Arr>> {
         if ch == '\n' {
             let mut input = line_buffer.as_str();
             let mut prev_len = input.len();
-            while input.len() > 0 {
+            while !input.is_empty() {
                 let maybe_form = parser.parse(&mut input)?;
                 chars_read += prev_len - input.len();
 
@@ -969,7 +966,6 @@ fn parse(st: Root<Str>, filename: Option<&str>) -> GResult<Root<Arr>> {
                 prev_len = input.len();
             }
 
-            drop(input);
             line_buffer.clear();
         }
     }

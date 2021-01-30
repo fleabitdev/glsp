@@ -123,26 +123,17 @@ impl_val!(
 
 impl Val {
     pub fn is_nil(&self) -> bool {
-        match *self {
-            Val::Nil => true,
-            _ => false,
-        }
+        matches!(*self, Val::Nil)
     }
 
     ///Returns `true` if the value is anything other than `#n` or `#f`.
     pub fn is_truthy(&self) -> bool {
-        match *self {
-            Val::Nil | Val::Bool(false) => false,
-            _ => true,
-        }
+        !matches!(*self, Val::Nil | Val::Bool(false))
     }
 
     ///Returns `true` if the value is `#n` or `#f`.
     pub fn is_falsy(&self) -> bool {
-        match *self {
-            Val::Nil | Val::Bool(false) => true,
-            _ => false,
-        }
+        matches!(*self, Val::Nil | Val::Bool(false))
     }
 
     //if you change any of these, you also need to change the OpPredicate instruction in vm.rs...
@@ -378,19 +369,11 @@ pub enum Num {
 
 impl Num {
     pub fn is_int(self) -> bool {
-        if let Num::Int(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Num::Int(_))
     }
 
     pub fn is_flo(self) -> bool {
-        if let Num::Flo(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Num::Flo(_))
     }
 
     pub fn unwrap_int(self) -> i32 {
