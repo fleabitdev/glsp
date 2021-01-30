@@ -19,7 +19,9 @@ flag](https://gamelisp.rs/reference/feature-flags.html#compiler) is enabled.
 The input must be a comma-separated list of filepaths, which are looked up relative to the
 [`CARGO_MANIFEST_DIR`](https://doc.rust-lang.org/cargo/reference/environment-variables.html).
 
-    compile!["scripts/first.glsp", "scripts/second.glsp"]
+```ignore
+compile!["scripts/first.glsp", "scripts/second.glsp"]
+```
 
 When the `compile!` macro is expanded by rustc, it starts up a generic, empty
 [`Runtime`](struct.Runtime.html); loads the specified files using
@@ -83,10 +85,14 @@ a generic [`GResult<T>`](type.GResult.html) for any `T` which implements
 [`FromVal`](trait.FromVal.html) - you will usually need to bind it to a local variable with
 an explicit type.
 
-    let result: Root<Arr> = eval!(r#"
-        (let n (+ 1 2 3 4))
-        (arr n n n)
-    "#)?;
+```ignore
+# //this example can't be tested, due to intractable problems caused by
+# //the macros importing names from ::glsp
+let result: Root<Arr> = eval!(r#"
+    (let n (+ 1 2 3 4))
+    (arr n n n)
+"#)?;
+```
 
 Rust's local variables can be captured, and/or mutated, using the
 [`unquote`](https://gamelisp.rs/std/unquote) form (abbreviated as `~`).
@@ -95,31 +101,39 @@ If they're mutated using the [`=` form](https://gamelisp.rs/std/set), then
 the local variables' values are updated when `eval!()` returns, using the
 [`FromVal` trait](trait.FromVal.html).
 
-    let input = 100_i64;
-    let mut output = "hello".to_string();
-    let assigned_but_not_read: f32;
+```ignore
+# //this example can't be tested, due to intractable problems caused by
+# //the macros importing names from ::glsp
+let input = 100_i64;
+let mut output = "hello".to_string();
+let assigned_but_not_read: f32;
 
-    let result: Val = eval!(r#"
-        (= ~output (str ~input))
-        (= ~assigned_but_not_read 100.0)
-    "#)?;
+let result: Val = eval!(r#"
+    (= ~output (str ~input))
+    (= ~assigned_but_not_read 100.0)
+"#)?;
+```
 
 Some Rust collection types, such as tuples, slices, `Strings` and `HashMaps`, will allocate
 a new GameLisp array, string or table when captured as a local variable. This is potentially
 expensive, especially for large collections. Also, if the resulting collection is mutated,
 those changes are not usually copied back into the local variable when `eval!()` returns.
 
-    let rust_tuple = (60_u8, 120_u16, 240_u32);
-    let glsp_arr = arr![60_u8, 120_u16, 240_u32];
+```ignore
+# //this example can't be tested, due to intractable problems caused by
+# //the macros importing names from ::glsp
+let rust_tuple = (60_u8, 120_u16, 240_u32);
+let glsp_arr = arr![60_u8, 120_u16, 240_u32];
 
-    let _: Val = eval!(r#"
-        (= [~rust_tuple 2] 480)
-        (= [~glsp_arr 2] 480)
-    "#)?;
+let _: Val = eval!(r#"
+    (= [~rust_tuple 2] 480)
+    (= [~glsp_arr 2] 480)
+"#)?;
 
-    //rust collection types make a copy, but glsp collection types are passed in by reference
-    assert!(rust_tuple.2 == 240);
-    assert!(glsp_arr.get::<u32>(2)? == 480);
+//rust collection types make a copy, but glsp collection types are passed in by reference
+assert!(rust_tuple.2 == 240);
+assert!(glsp_arr.get::<u32>(2)? == 480);
+```
 
 `eval!()` is much faster than GameLisp's own [`(eval)`](https://gamelisp.rs/std/eval) function,
 because its body is compiled in advance. The first time each `eval!()` is executed, it has a

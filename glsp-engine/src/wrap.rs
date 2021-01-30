@@ -132,14 +132,34 @@ Many functions in the `glsp` crate receive a generic parameter `T: IntoVal`. Thi
 functions to accept various different Rust types, silently converting those types into a
 [`Val`](enum.Val.html).
 
-    glsp::set_global("numbers", (0, 1, 2, 3, 4))?;
-    arr.push("an example string")?;
+```
+# extern crate glsp_engine as glsp;
+# use glsp::*;
+# 
+# Engine::new().run(|| {
+# let arr = arr![];
+# glsp::bind_global("numbers", 1)?;
+# 
+glsp::set_global("numbers", (0, 1, 2, 3, 4))?;
+arr.push("an example string")?;
+# 
+# Ok(()) }).unwrap();
+```
 
 Invoking a type's [`into_val` method](#tymethod.into_val) is usually the most convenient way to
 produce a `Val`. `IntoVal` is part of the [prelude](prelude/index.html), so there's no need to
 import it into scope.
 
-    let thousand = 10.0_f64.pow(3.0).into_val()?;
+```
+# extern crate glsp_engine as glsp;
+# use glsp::*;
+# 
+# Engine::new().run(|| {
+# 
+let thousand = 10.0_f64.powf(3.0).into_val()?;
+# 
+# Ok(()) }).unwrap();
+```
 
 We provide `IntoVal` implementations for many common types, including all of Rust's primitive
 integer and floating-point types; primitive Rust types like `()` and `bool`; most standard
@@ -149,11 +169,11 @@ to primitive GameLisp types like `&Arr` and `&GFn`.
 
 `Option` and `Result` have special handling, which can be useful for return values:
 
-    - `Option` will produce a nil value if it's `None`, or otherwise call `into_val()`
-      for its `Some` value.
+- `Option` will produce a nil value if it's `None`, or otherwise call `into_val()`
+  for its `Some` value.
 
-    - `Result` will trigger an error if it's `Err`, or otherwise call `into_val()`
-      for its `Ok` value. Non-GameLisp errors are fully supported.
+- `Result` will trigger an error if it's `Err`, or otherwise call `into_val()`
+  for its `Ok` value. Non-GameLisp errors are fully supported.
 
 There is a default `IntoVal` implementation for all `'static` types. This implementation moves
 the Rust value onto the garbage-collected heap, wrapping it in an [`RData`](struct.RData.html).
@@ -163,7 +183,16 @@ Because this default implementation applies to all `'static` types, including th
 external crates, it's possible to move most foreign types onto the GameLisp heap. For example,
 to construct a standard Rust `File` and transfer its ownership to GameLisp, you can simply call:
 
-    File::open("my_file.png").into_val()?
+```no_run
+# use glsp_engine::*;
+# use std::fs::File;
+# 
+# Engine::new().run(|| {
+# 
+File::open("my_file.png").into_val()?;
+# 
+# Ok(()) }).unwrap();
+```
 
 If you'd like one of your own types to be represented in GameLisp by something other than an
 `rdata` (for example, converting an enum to a GameLisp symbol, or a tuple struct to a GameLisp
@@ -175,47 +204,70 @@ also automatically convert your type into GameLisp data when it's used as an `RF
 feature. Enable it by writing `#![feature(min_specialization)]` at the top of your crate's
 `main.rs` or `lib.rs` file.**
 
-    struct Rgb(u8, u8, u8);
+```
+# #![feature(min_specialization)]
+# extern crate glsp_engine as glsp;
+# use glsp::*;
+# 
+# Engine::new().run(|| {
+# 
+struct Rgb(u8, u8, u8);
 
-    impl IntoVal for Rgb {
-        fn into_val(self) -> GResult<Val> {
-            let Rgb(r, g, b) = self;
-            arr![r, g, b].into_val()
-        }
+impl IntoVal for Rgb {
+    fn into_val(self) -> GResult<Val> {
+        let Rgb(r, g, b) = self;
+        arr![r, g, b].into_val()
     }
+}
 
-    fn light_sea_green() -> Rgb {
-        Rgb(32, 178, 170)
-    }
+fn light_sea_green() -> Rgb {
+    Rgb(32, 178, 170)
+}
 
-    glsp::bind_rfn("light-sea-green", &light_sea_green)?;
+glsp::bind_rfn("light-sea-green", &light_sea_green)?;
 
-    //calling (light-sea-green) from a GameLisp script will
-    //automatically call Rgb::into_val(), converting the function's
-    //Rgb return value into an array of three integers, (32 178 178)
+//calling (light-sea-green) from a GameLisp script will
+//automatically call Rgb::into_val(), converting the function's
+//Rgb return value into an array of three integers, (32 178 178)
+# 
+# Ok(()) }).unwrap();
+```
 
 When implementing `IntoVal` for your own types, it's generally a good idea to also provide
 implementations for shared and mutable references to your type. It makes the borrow checker
 easier to deal with, and it enables you to bind Rust functions which return references. It's
 usually straightforward:
 
-    impl<'a> IntoVal for &'a MyType {
-        fn into_val(self) -> GResult<Val> {
-            //...the actual conversion...
-        }
+```
+# #![feature(min_specialization)]
+# extern crate glsp_engine as glsp;
+# use glsp::*;
+# 
+# Engine::new().run(|| {
+# 
+# struct MyType;
+# 
+impl<'a> IntoVal for &'a MyType {
+    fn into_val(self) -> GResult<Val> {
+        //...the actual conversion...
+        # bail!()
     }
+}
 
-    impl<'a> IntoVal for &'a mut MyType {
-        fn into_val(self) -> GResult<Val> {
-            (self as &MyType).into_val()
-        }
+impl<'a> IntoVal for &'a mut MyType {
+    fn into_val(self) -> GResult<Val> {
+        (self as &MyType).into_val()
     }
+}
 
-    impl IntoVal for MyType {
-        fn into_val(self) -> GResult<Val> {
-            (&self).into_val()
-        }
+impl IntoVal for MyType {
+    fn into_val(self) -> GResult<Val> {
+        (&self).into_val()
     }
+}
+# 
+# Ok(()) }).unwrap();
+```
 */
 
 #[rustc_specialization_trait]
@@ -253,13 +305,35 @@ A type which can be converted from a GameLisp value.
 Many functions in the `glsp` crate have a generic return value `R: FromVal`. They can
 automatically convert their return value to many different Rust types.
 
-    let numbers: Vec<u8> = glsp::global("numbers")?;
-    let text: Root<Str> = arr.pop()?;
+```
+# extern crate glsp_engine as glsp;
+# use glsp::*;
+# 
+# Engine::new().run(|| {
+# 
+# let arr = arr!["doctest"];
+# glsp::bind_global("numbers", (1_i32, 2_i32, 3_i32))?;
+# 
+let numbers: Vec<u8> = glsp::global("numbers")?;
+let text: Root<Str> = arr.pop()?;
+# 
+# Ok(()) }).unwrap();
+```
 
 Writing `T::from_val(v)?` is usually the most convenient way to destructure a `Val`. `FromVal`
 is part of the [prelude](prelude/index.html), so there's usually no need to import it into scope.
 
-    let f = f64::from_val(val)?;
+```
+# extern crate glsp_engine as glsp;
+# use glsp::*;
+# 
+# Engine::new().run(|| {
+# let val = Val::Flo(100.0);
+# 
+let f = f64::from_val(&val)?;
+# 
+# Ok(()) }).unwrap();
+```
 
 We provide `FromVal` implementations for many common types, including all of Rust's primitive
 integer and floating-point types; primitive Rust types like `bool`; most standard collections,
@@ -273,25 +347,35 @@ automatic conversions when they're [bound as an `RFn` parameter](fn.rfn.html).
 feature. Enable it by writing `#![feature(min_specialization)]` at the top of your crate's
 `main.rs` or `lib.rs` file.**
 
-    struct Rgb(u8, u8, u8);
+```
+# #![feature(min_specialization)]
+# extern crate glsp_engine as glsp;
+# use glsp::*;
+# 
+# Engine::new().run(|| {
+# 
+struct Rgb(u8, u8, u8);
 
-    impl FromVal for Rgb {
-        fn from_val(val: &Val) -> GResult<Rgb> {
-            let (r, g, b) = <(u8, u8, u8)>::from_val(val)?;
-            Ok(Rgb(r, g, b))
-        }
+impl FromVal for Rgb {
+    fn from_val(val: &Val) -> GResult<Rgb> {
+        let (r, g, b) = <(u8, u8, u8)>::from_val(val)?;
+        Ok(Rgb(r, g, b))
     }
+}
 
-    fn describe_rgb(rgb: Rgb) {
-        let Rgb(r, g, b) = rgb;
-        println!("Red: {}\nGreen: {}\nBlue: {}", r, g, b);
-    }
+fn describe_rgb(rgb: Rgb) {
+    let Rgb(r, g, b) = rgb;
+    println!("Red: {}\nGreen: {}\nBlue: {}", r, g, b);
+}
 
-    glsp::bind_rfn("describe-rgb", &describe_rgb)?;
+glsp::bind_rfn("describe-rgb", &describe_rgb)?;
 
-    //calling (describe-rgb '(32 178 178)) from a GameLisp script will
-    //automatically invoke Rgb::from_val, converting the array of three
-    //integers into an Rgb struct
+//calling (describe-rgb '(32 178 178)) from a GameLisp script will
+//automatically invoke Rgb::from_val, converting the array of three
+//integers into an Rgb struct
+# 
+# Ok(()) }).unwrap();
+```
 */
 
 #[rustc_specialization_trait]
@@ -2134,42 +2218,58 @@ arguments, converting them into a temporary array of `T` which is usually stored
 `Rest<T>` can be dereferenced to a mutable slice, `[T]`. It's also iterable, yielding `T`, `&T`
 or `&mut T` as appropriate.
 
-    //a function which adds one or more integers together
-    fn add_integers(first: i32, rest: Rest<i32>) -> i32 {
-        let mut accumulator = first;
-        for integer in rest {
-            accumulator += integer;
-        }
-
-        accumulator
+```
+# extern crate glsp_engine as glsp;
+# use glsp::*;
+# 
+# Engine::new().run(|| {
+//a function which adds one or more integers together
+fn add_integers(first: i32, rest: Rest<i32>) -> i32 {
+    let mut accumulator = first;
+    for integer in rest {
+        accumulator += integer;
     }
 
-    //bind this function to a global variable
-    glsp::bind_rfn("add-integers", &add_integers)?;
+    accumulator
+}
 
-    //the function can now be called from GameLisp
-    eval!("
-        (add-integers 42)
-        (add-integers 10 20 30 40 50)
-    ")?;
+//bind this function to a global variable
+glsp::bind_rfn("add-integers", &add_integers)?;
 
-    //or from Rust
-    Rest::with([20, 30, 40, 50].iter().copied(), |rest| {
-        add_integers(10, rest);
-    });
+//the function can now be called from GameLisp
+glsp::load_str("
+    (add-integers 42)
+    (add-integers 10 20 30 40 50)
+")?;
+
+//or from Rust
+Rest::with([20, 30, 40, 50].iter().copied(), |rest| {
+    add_integers(10, rest);
+});
+# Ok(()) }).unwrap();
+```
 
 It's possible to construct a custom `Rest<T>` yourself by calling [`Rest::with`](#method.with),
 but it's usually not elegant. Instead, consider defining a Rust function which receives a slice
 or a generic `IntoIterator`, and a wrapper which receives a `Rest<T>` and forwards it to the
 original function.
 
-    fn add_integers(first: i32, rest: &[i32]) -> i32 {
-        rest.iter().fold(first, |a, b| a + *b)
-    }
+```
+# extern crate glsp_engine as glsp;
+# use glsp::*;
+# 
+# Engine::new().run(|| {
+# 
+fn add_integers(first: i32, rest: &[i32]) -> i32 {
+    rest.iter().fold(first, |a, b| a + *b)
+}
 
-    glsp::bind_rfn("add_integers", &|first: i32, rest: Rest<i32>| -> i32 {
-        add_integers(first, &*rest)
-    })?;
+glsp::bind_rfn("add_integers", &|first: i32, rest: Rest<i32>| -> i32 {
+    add_integers(first, &*rest)
+})?;
+# 
+# Ok(()) }).unwrap();
+```
 */
 pub struct Rest<'a, T>(&'a mut Option<SmallVec<[T; 8]>>);
 
@@ -2995,8 +3095,19 @@ slices, arrays, and references to the same, when their elements all implement
 Functions like [`glsp:call`](fn.call.html) and [`Obj::call`](struct.Obj.html#method.call) are
 generic over this trait:
 
-    let push_rfn: RFn = glsp::global("push!");
-    glsp::call(&push_rfn, (my_arr, 100i32))?;
+```
+# extern crate glsp_engine as glsp;
+# use glsp::*;
+# 
+# Engine::new().run(|| {
+# let my_arr = arr![];
+# glsp::bind_global("push!", glsp::rfn(&|_arr: Root<Arr>, _val: Val| { }))?;
+# 
+let push_rfn: Root<RFn> = glsp::global("push!")?;
+let _: Val = glsp::call(&push_rfn, (my_arr, 100i32))?;
+# 
+# Ok(()) }).unwrap();
+```
 
 Due to some limitations in Rust's type system, argument lists can be slightly awkward:
 

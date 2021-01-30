@@ -164,12 +164,18 @@ impl GError {
 
     [0]: https://doc.rust-lang.org/std/error/trait.Error.html
 
-        let words = match fs::read_to_string("words.txt") {
-            Ok(words) => words,
-            Err(fs_err) => {
-                return Err(error!("failed to open words.txt").with_source(fs_err))
-            }
-        };
+    ```no_run
+    # use glsp_engine::*;
+    # use std::fs;
+    # Engine::new().run(|| {
+    let words = match fs::read_to_string("words.txt") {
+        Ok(words) => words,
+        Err(fs_err) => {
+            return Err(error!("failed to open words.txt").with_source(fs_err))
+        }
+    };
+    # Ok(()) }).unwrap();
+    ```
     */
     pub fn with_source(mut self, source_to_add: impl Error + 'static) -> GError {
         match &mut *self.payload {
@@ -337,7 +343,13 @@ Constructs a [`GError`](struct.GError.html) and returns it.
 The arguments to `bail!` are the same as the arguments to [`error!`](macro.error.html).
 For example, `bail!(x)` is equivalent to:
 
-    return Err(GError::from_val(x))
+```should_panic
+# use glsp_engine::*;
+# Engine::new().run::<_, ()>(|| {
+# let x = Val::Int(1);
+return Err(GError::from_val(x))
+# }).unwrap();
+```
 */
 
 #[macro_export]
@@ -394,7 +406,12 @@ Constructs a [`GError`](struct.GError.html) which represents a macro-no-op, and 
 
 `macro_no_op!()` is equivalent to:
 
-    return Err(GError::macro_no_op())
+```should_panic
+# use glsp_engine::*;
+# Engine::new().run::<_, ()>(|| {
+return Err(GError::macro_no_op())
+# }).unwrap();
+```
 */
 
 #[macro_export]

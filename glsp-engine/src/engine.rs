@@ -638,8 +638,22 @@ This is mostly used to make APIs more ergonomic. For example, the argument to
 [`glsp::global`](fn.global.html) is a generic `S: ToSym`, which means that it can
 receive either a symbol or a string:
 
-    glsp::global(my_rglobalrary.my_sym)?;
-    glsp::global("sym-name")?;
+```
+# extern crate glsp_engine as glsp;
+# use glsp::*;
+# 
+# struct MyRGlobal {
+#     my_sym: Sym
+# }
+# 
+# fn example(my_rglobal: &MyRGlobal) -> Result<(), GError> {
+# 
+let first: i32 = glsp::global(my_rglobal.my_sym)?;
+let second: u32 = glsp::global("sym-name")?;
+# 
+# Ok(())
+# }
+```
 */
 
 pub trait ToSym {
@@ -774,14 +788,17 @@ The struct defines a constructor `fn new() -> Self`, which initializes each fiel
 the given string literal to [`glsp::sym`](fn.sym.html). If any of the string literals are invalid
 symbols, the constructor will panic.
 
-    syms! {
-        #[derive(Clone)]
-        pub struct Syms {
-            pub width: "width",
-            pub set_width: "width=",
-            rectp: "rect?"
-        }
+```
+# use glsp_engine::syms;
+syms! {
+    #[derive(Clone)]
+    pub struct Syms {
+        pub width: "width",
+        pub set_width: "width=",
+        rect_p: "rect?"
     }
+}
+```
 */
 
 #[macro_export]
@@ -849,7 +866,11 @@ A marker trait for global data.
 
 You can implement this type for any `'static + Sized` type, by writing:
 
-    impl RGlobal for MyType { }
+```
+# use glsp_engine::RGlobal;
+# struct MyType;
+impl RGlobal for MyType { }
+```
 
 This has three effects.
 
@@ -865,33 +886,43 @@ Finally, it means that when you [register a Rust function](fn.rfn.html), paramet
 the function. This makes it straightforward for you to define methods which can be called from
 both Rust and GameLisp.
 
-    struct Graphics {
-        //...
+```
+# #![feature(min_specialization)]
+# extern crate glsp_engine as glsp;
+# use glsp::*;
+# 
+struct Graphics {
+    //...
+}
+
+# impl Graphics { fn new() -> Graphics { Graphics { } } }
+
+impl RGlobal for Graphics { }
+
+impl Graphics {
+    fn draw_rect(&self, x: f32, y: f32, w: f32, h: f32, rgb: u32) -> GResult<()> {
+        /*
+        the type of the &self parameter is &Graphics, so when this function is invoked
+        from GameLisp, it will automatically call Graphics::borrow() to construct its
+        &self argument.
+        */
+
+        # Ok(())
     }
+}
 
-    impl RGlobal for Graphics { }
+fn at_startup() -> GResult<()> {
+    glsp::add_rglobal(Graphics::new());
 
-    impl Graphics {
-        fn draw_rect(&self, x: f32, y: f32, w: f32, h: f32, rgb: u32) -> GResult<()> {
-            /*
-            the type of the &self parameter is &Graphics, so when this function is invoked
-            from GameLisp, it will automatically call Graphics::borrow() to construct its
-            &self argument.
-            */
-        }
-    }
+    //there's no need for any manual conversions; we can just bind the method directly
+    glsp::bind_rfn("draw-rect", &Graphics::draw_rect)?;
 
-    fn at_startup() {
-        glsp::add_rglobal(Graphics::new())?;
-
-        //there's no need for any manual conversions; we can just bind the method directly
-        glsp::bind_rfn("draw-rect", &Graphics::draw_rect)?;
-
-        //the method can now be called globally from GameLisp code
-        eval!(
-            "(draw-rect 10.0 10.0 64.0 64.0 0xff0000)"
-        )?;
-    }
+    //the method can now be called globally from GameLisp code
+    glsp::load_str("(draw-rect 10.0 10.0 64.0 64.0 0xff0000)")?;
+    
+    Ok(())
+}
+```
 */
 
 pub trait RGlobal: 'static + Sized {
@@ -1018,23 +1049,25 @@ they can't be cloned, and they can't be compared for equality.
 
 `RClassBuilder` provides methods to override all of the above.
 
-    //provide some basic bindings for ggez::Image
-    RClassBuilder::<Image>::new()
-        .prop_get("width", &Image::width)
-        .prop_get("height", &Image::height)
-        .met("draw", &|image: &Image, ctx: &mut Context| {
-            image.draw(ctx, DrawParam::default())
-        })
-        .build();
+```ignore
+//provide some basic bindings for ggez::Image
+RClassBuilder::<Image>::new()
+    .prop_get("width", &Image::width)
+    .prop_get("height", &Image::height)
+    .met("draw", &|image: &Image, ctx: &mut Context| {
+        image.draw(ctx, DrawParam::default())
+    })
+    .build();
 
-    //now, whenever an rdata is constructed from a ggez::Image,
-    //it will have a GameLisp api
-    glsp::bind_global("boulder", Image::new(ctx, "boulder.png")?)?;
+//now, whenever an rdata is constructed from a ggez::Image,
+//it will have a GameLisp api
+glsp::bind_global("boulder", Image::new(ctx, "boulder.png")?)?;
 
-    eval!("
-        (prn [boulder 'width] [boulder 'height])
-        (.draw boulder)
-    ")?;
+glsp::load_str("
+    (prn [boulder 'width] [boulder 'height])
+    (.draw boulder)
+")?;
+```
 */
 
 #[must_use]
@@ -1222,26 +1255,37 @@ impl<T: 'static> RClassBuilder<T> {
 
     See also [`glsp::write_barrier`](fn.write_barrier.html).
 
-        struct UnitList {
-            units: Vec<RGc<Unit>>
+    ```
+    # extern crate glsp_engine as glsp;
+    # use glsp::*;
+    # 
+    # struct Unit;
+    # 
+    # Engine::new().run(|| {
+    # 
+    struct UnitList {
+        units: Vec<RGc<Unit>>
+    }
+
+    impl UnitList {
+        fn trace(&self, visitor: &mut GcVisitor) {
+            for unit in &self.units {
+                visitor.visit_rgc(unit);
+            }
         }
 
-        impl UnitList {
-            fn trace(&self, visitor: &mut GcVisitor) {
-                for unit in &self.units {
-                    visitor.visit_rgc(unit);
-                }
-            }
-
-            fn add_unit(&mut self, unit: RRoot<Unit>) {
-                self.units.push(unit.downgrade());
-                glsp::write_barrier(self);
-            }
+        fn add_unit(unit_list: RRoot<UnitList>, unit: RRoot<Unit>) {
+            unit_list.borrow_mut().units.push(unit.downgrade());
+            glsp::write_barrier(&unit_list.into_root());
         }
+    }
 
-        RClassBuilder::<UnitList>::new()
-            .trace(UnitList::trace)
-            .build();
+    RClassBuilder::<UnitList>::new()
+        .trace(UnitList::trace)
+        .build();
+    # 
+    # Ok(()) }).unwrap();
+    ```
     */
     pub fn trace(mut self, f: fn(&T, &mut GcVisitor)) -> RClassBuilder<T> {
         self.trace = Some(Box::new(move |any: &dyn Any, visitor: &mut GcVisitor| {
@@ -1840,13 +1884,15 @@ a value of type `T`.
 `RRoot` tends to be more self-documenting than `Root<RData>`, and it has a slightly more
 convenient API.
 
-    //using Root
-    let mesh = player_mesh.borrow::<Mesh>();
-    let mesh2 = enemy_mesh.take::<Mesh>();
+```ignore
+//using Root
+let mesh = player_mesh.borrow::<Mesh>();
+let mesh2 = enemy_mesh.take::<Mesh>();
 
-    //using RRoot
-    let mesh = player_mesh.borrow();
-    let mesh2 = enemy_mesh.take();
+//using RRoot
+let mesh = player_mesh.borrow();
+let mesh2 = enemy_mesh.take();
+```
 */
 
 pub struct RRoot<T>(Root<RData>, PhantomData<Rc<RefCell<T>>>);
@@ -2157,9 +2203,17 @@ pub mod glsp {
     default, because it makes gensyms' printed representation harder to read. However, it's
     automatically switched on within [`glsp::load_and_compile`](fn.load_and_compile.html).
 
-        prn!("{}", glsp::gensym()); //prints #<gs:0>
-        glsp::seed_gensym();
-        prn!("{}", glsp::gensym()); //prints #<gs:1:wTz8iriBJYB>
+    ```
+    # extern crate glsp_engine as glsp;
+    # use glsp::*;
+    # 
+    # Engine::new().run(|| {
+    # 
+    prn!("{}", glsp::gensym()); //prints #<gs:0>
+    glsp::seed_gensym();
+    prn!("{}", glsp::gensym()); //prints #<gs:1:wTz8iriBJYB>
+    # 
+    # Ok(()) }).unwrap();
     */
 
     pub fn seed_gensym() {
@@ -2772,17 +2826,25 @@ pub mod glsp {
     **Due to [a rustc bug](https://github.com/rust-lang/rust/issues/79207), the `f` parameter must
     be passed as a reference or a `Box`; it can't be directly passed by value.**
 
-        fn example(i: i32) -> i32 { i }
+    ```
+    # extern crate glsp_engine as glsp;
+    # use glsp::*;
+    # Engine::new().run(|| {
+    # 
+    fn example(i: i32) -> i32 { i }
 
-        glsp::rfn(example); //type inference error
-        glsp::rfn(&example); //success
+    //glsp::rfn(example); //type inference error
+    glsp::rfn(&example); //success
 
-        glsp::rfn(|i: i32| i); //type inference error
-        glsp::rfn(&|i: i32| i); //success
+    //glsp::rfn(|i: i32| i); //type inference error
+    glsp::rfn(&|i: i32| i); //success
 
-        let capture = arr![1, 2, 3];
-        glsp::rfn(move || capture.shallow_clone()); //type inference error
-        glsp::rfn(Box::new(move || capture.shallow_clone())); //success
+    let capture = arr![1, 2, 3];
+    //glsp::rfn(move || capture.shallow_clone()); //type inference error
+    glsp::rfn(Box::new(move || capture.shallow_clone())); //success
+    # 
+    # Ok(()) }).unwrap();
+    ```
 
     When binding a Rust function to a global variable, it's usually more convenient to call
     [`glsp::bind_rfn`](fn.bind_rfn.html).
@@ -2826,9 +2888,21 @@ pub mod glsp {
 
     `glsp::bind_rfn(name, &f)` is equivalent to:
 
-        let sym = name.to_sym()?
-        let rfn = glsp::named_rfn(sym, &f);
-        glsp::bind_global(sym, rfn)
+    ```
+    # extern crate glsp_engine as glsp;
+    # use glsp::*;
+    # 
+    # let name = "doctest";
+    # fn f() { }
+    # 
+    # Engine::new().run(|| {
+    # 
+    let sym = name.to_sym()?;
+    let rfn = glsp::named_rfn(sym, &f);
+    glsp::bind_global(sym, rfn)
+    # 
+    # }).unwrap();
+    ```
     */
 
     pub fn bind_rfn<S: ToSym, ArgsWithTag, Ret, F>(name: S, f: F) -> GResult<()>
@@ -2850,9 +2924,19 @@ pub mod glsp {
 
     `glsp::bind_rfn_macro(name, &f)` is equivalent to:
 
-        let sym = name.to_sym()?
-        let rfn = glsp::named_rfn(sym, &f);
-        glsp::bind_macro(sym, Expander::RFn(rfn))
+    ```
+    # extern crate glsp_engine as glsp;
+    # use glsp::*;
+    # 
+    # let name = "doctest";
+    # fn f() { }
+    # 
+    # Engine::new().run(|| {
+    let sym = name.to_sym()?;
+    let rfn = glsp::named_rfn(sym, &f);
+    glsp::bind_macro(sym, Expander::RFn(rfn))
+    # }).unwrap();
+    ```
     */
 
     pub fn bind_rfn_macro<S: ToSym, ArgsWithTag, Ret, F>(name: S, f: F) -> GResult<()>
@@ -2998,8 +3082,14 @@ pub mod glsp {
     [`println!`](https://doc.rust-lang.org/std/macro.println.html): for that, you would need
     to use the undocumented feature [`set_print`](https://github.com/rust-lang/rust/issues/31343).
 
-        //silences pr!(), prn!(), pr and prn
-        glsp::set_pr_writer(Box::new(std::io::sink()));
+    ```
+    # extern crate glsp_engine as glsp;
+    # use glsp::*;
+    # Engine::new().run(|| {
+    //silences pr!(), prn!(), pr and prn
+    glsp::set_pr_writer(Box::new(std::io::sink()));
+    # Ok(()) }).unwrap();
+    ```
     */
 
     pub fn set_pr_writer(pr_writer: Box<dyn Write>) {
@@ -3022,8 +3112,14 @@ pub mod glsp {
     [`eprintln!`](https://doc.rust-lang.org/std/macro.eprintln.html): for that, you would need
     to use the undocumented feature [`set_panic`](https://github.com/rust-lang/rust/issues/31343).
 
-        //silences error-reporting, epr!(), eprn!(), epr and eprn
-        glsp::set_pr_writer(Box::new(std::io::sink()));
+    ```
+    # extern crate glsp_engine as glsp;
+    # use glsp::*;
+    # Engine::new().run(|| {
+    //silences error-reporting, epr!(), eprn!(), epr and eprn
+    glsp::set_epr_writer(Box::new(std::io::sink()));
+    # Ok(()) }).unwrap();
+    ```
     */
 
     pub fn set_epr_writer(epr_writer: Box<dyn Write>) {
@@ -4095,7 +4191,14 @@ pub mod glsp {
     Note that both the `receiver` and the `args` are passed by reference. The `args` should be
     a reference to `()`, a tuple, a slice, or a fixed-size array.
 
-        let rect: Root<Obj> = glsp::call(&rect_class, &[10, 10, 50, 50])?;
+    ```
+    # extern crate glsp_engine as glsp;
+    # use glsp::*;
+    # 
+    # fn example(rect_class: Root<Class>) -> GResult<()> {
+    let rect: Root<Obj> = glsp::call(&rect_class, &[10, 10, 50, 50])?;
+    # Ok(()) }
+    ```
     */
 
     pub fn call<C, A, R>(receiver: &C, args: A) -> GResult<R>

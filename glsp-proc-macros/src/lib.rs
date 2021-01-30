@@ -24,7 +24,13 @@ The input must be a string literal which parses into a single value. The macro e
 which constructs that value, [deep&#8209;freezes](enum.Val.html#method.deep_freeze) it, and
 returns it. For example, `quote!("(a 1)")` will allocate a new array by calling:
 
-    arr![glsp::sym("a"), 1]
+```
+# use glsp::*;
+# Engine::new().run(|| {
+arr![glsp::sym("a"), 1]
+# ;
+# Ok(()) }).unwrap();
+```
 
 The first time that each `quote!()` is evaluated, the result is cached in the active
 [`Runtime`](struct.Runtime.html). Any subsequent evaluations in that same
@@ -34,9 +40,13 @@ any new allocations.
 The result has a generic return type - it can be any type which implements
 [`FromVal`](trait.FromVal.html). It should be bound to a local variable with a concrete type.
 
-    let arr: Root<Arr> = quote!("(a b c)");
-    let i: i64 = quote!("100");
-    let val: Val = quote!("#((key0 #t) (key1 #f))");
+```ignore
+# //this example can't be tested, due to intractable problems caused by
+# //the macros importing names from ::glsp
+let arr: Root<Arr> = quote!("(a b c)");
+let i: i64 = quote!("100");
+let val: Val = quote!("#((key0 #t) (key1 #f))");
+```
 
 In the unlikely event that conversion from [`Val`](enum.Val.html) to the destination type fails,
 a panic will occur.
@@ -92,16 +102,26 @@ The input must be a string literal which parses into a single value. The macro e
 which will construct that value and return it. For example, `backquote!("(a 1)")` could
 potentially expand to:
 
-    arr![glsp::sym("a"), 1]
+```
+# use glsp::*;
+# Engine::new().run(|| {
+arr![glsp::sym("a"), 1]
+# ;
+# Ok(()) }).unwrap();
+```
 
 Auto-gensyms, e.g. `name#`, are supported.
 
 The result has a generic return type - it can be any type which implements
 [`FromVal`](trait.FromVal.html). It should be bound to a local variable with a concrete type.
 
-    let arr: Root<Arr> = backquote!("(a b c)");
-    let i: i64 = backquote!("100");
-    let val: Val = backquote!("#((key0 #t) (key1 #f))");
+```ignore
+# //this example can't be tested, due to intractable problems caused by
+# //the macros importing names from ::glsp
+let arr: Root<Arr> = backquote!("(a b c)");
+let i: i64 = backquote!("100");
+let val: Val = backquote!("#((key0 #t) (key1 #f))");
+```
 
 If the input contains any unquoted forms (typically using the `~` abbreviation), each
 unquoted form must be a symbol which names a local variable in the same scope as the
@@ -119,13 +139,17 @@ form of the local variable must belong to a type which implements [`Splay`](trai
 If any of the [`IntoVal`](trait.IntoVal.html) conversions fail, the generated code will panic.
 For a non-panicking version of this macro, use [`try_backquote!()`](macro.try_backquote.html).
 
-    let c = 100_u64;
-    let d = [200_u16, 250];
-    let e = vec![275.0_f32, 287.5];
-    let val: Val = backquote!(r#"
-      (a "b" ~c ~..d ~&e)
-    "#);
-    println!("{}", val); //prints (a "b" 100 200 250 275.0 287.5)
+```ignore
+# //this example can't be tested, due to intractable problems caused by
+# //the macros importing names from ::glsp
+let c = 100_u64;
+let d = [200_u16, 250];
+let e = vec![275.0_f32, 287.5];
+let val: Val = backquote!(r#"
+  (a "b" ~c ~..d ~&e)
+"#);
+println!("{}", val); //prints (a "b" 100 200 250 275.0 287.5)
+```
 
 This macro can be more convenient than using [`arr![]`](macro.arr.html) to construct
 complicated nested forms. It's particularly useful when implementing GameLisp macros in Rust.

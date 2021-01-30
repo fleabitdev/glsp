@@ -199,7 +199,10 @@ immediately call `Runtime::run()`, and keep the same runtime active for the enti
 of the program.
 
 ```
+# use glsp::{Engine as Runtime, GFn, Root, Val};
+# /*
 use glsp::prelude::*;
+# */
 
 fn main() {
     let runtime = Runtime::new();

@@ -66,10 +66,16 @@ macro_rules! impl_val {
             Returns the name of this value's primitive type, prefixed with the indefinite article,
             such as `"an arr"` or `"a fn"`.
 
-                match val {
-                    Val::Int(_) => (),
-                    _ => bail!("expected an int, received {}", val.a_type_name())
-                }
+            ```
+            # use glsp_engine::*;
+            # Engine::new().run(|| {
+            # let val = Val::Int(1);
+            match val {
+                Val::Int(_) => (),
+                _ => bail!("expected an int, received {}", val.a_type_name())
+            }
+            # Ok(()) }).unwrap();
+            ```
             */
             pub fn a_type_name(&self) -> &'static str {
                 match *self {

@@ -651,31 +651,43 @@ The last two steps are necessary to prevent the pointed-to object from being dea
 See also [`GcVal`](struct.GcVal.html) (a `Val` which stores `Gc` pointers rather than `Root`
 pointers), and [`RGc`](struct.RGc.html) (a strongly-typed alternative to `Gc<RData>`).
 
-    struct Collider {
-        bounds: Rect,
-        obj: Gc<Obj>
-    }
+```
+# #![feature(min_specialization)]
+# extern crate glsp_engine as glsp;
+# use glsp::*;
+# 
+# struct Rect;
+# 
+# impl FromVal for Rect {
+#     fn from_val(_val: &Val) -> GResult<Rect> { Ok(Rect) }
+# }
+# 
+struct Collider {
+    bounds: Rect,
+    obj: Gc<Obj>
+}
 
-    impl Collider {
-        fn trace(&self, visitor: &mut GcVisitor) {
-            visitor.visit(&self.obj);
-        }
+impl Collider {
+    fn trace(&self, visitor: &mut GcVisitor) {
+        visitor.visit(&self.obj);
     }
+}
 
-    fn setup() {
-        RClassBuilder::<Collider>::new()
-            .trace(Collider::trace)
-            .build();
-    }
+fn setup() {
+    RClassBuilder::<Collider>::new()
+        .trace(Collider::trace)
+        .build();
+}
 
-    fn new_collider(obj: Root<Obj>) -> GResult<Root<RData>> {
-        let collider = Collider {
-            bounds: obj.get("bounds")?,
-            obj: obj.downgrade()
-        };
+fn new_collider(obj: Root<Obj>) -> GResult<Root<RData>> {
+    let collider = Collider {
+        bounds: obj.get("bounds")?,
+        obj: obj.downgrade()
+    };
 
-        Ok(glsp::rdata(collider))
-    }
+    Ok(glsp::rdata(collider))
+}
+```
 */
 
 //each Gc stores a u32. the upper 8 bits are the engine_id, the lower 23 bits are the root_index

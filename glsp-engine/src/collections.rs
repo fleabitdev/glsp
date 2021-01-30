@@ -3189,18 +3189,27 @@ to a `&Tab` or a `Root<Tab>`.
 
 The return type is [`Root<Tab>`](struct.Tab.html).
 
-    let original = tab! {
-        (glsp::sym("a")?, 0),
-        (glsp::sym("b")?, 1)
-    };
+```
+# extern crate glsp_engine as glsp;
+# use glsp::*;
+# 
+# Engine::new().run(|| {
+# 
+let original = tab! {
+    (glsp::sym("a")?, 0),
+    (glsp::sym("b")?, 1)
+};
 
-    let table = tab! {
-        (glsp::sym("b")?, 1),
-        (glsp::sym("c")?, 2),
-        ..original
-    };
+let table = tab! {
+    (glsp::sym("b")?, 1),
+    (glsp::sym("c")?, 2),
+    ..original
+};
 
-    println!("{}", table.len()); //prints 3
+println!("{}", table.len()); //prints 3
+# 
+# Ok(()) }).unwrap();
+```
 
 In the unlikely event that a key or value fails to be converted to a [`Val`](enum.Val.html), the
 macro will panic. [`try_tab!`](macro.try_tab.html) is the non-panicking alternative.

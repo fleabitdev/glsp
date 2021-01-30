@@ -9,6 +9,7 @@
 ### Fixed
 
 - `cargo clippy` triggered many warnings
+- Most doctests failed when running `cargo test`
 
 ## Version 0.2 (2nd January 2021)
 
