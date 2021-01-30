@@ -4188,8 +4188,9 @@ pub mod glsp {
     Invokes a callable value: an [`RFn`](struct.RFn.html), [`GFn`](struct.GFn.html) or
     [`Class`](struct.Class.html).
 
-    Note that both the `receiver` and the `args` are passed by reference. The `args` should be
-    a reference to `()`, a tuple, a slice, or a fixed-size array.
+    Note that the `receiver` is passed by reference.
+
+    For information about the `args` parameter, see [`IntoCallArgs`](trait.IntoCallArgs.html).
 
     ```
     # extern crate glsp_engine as glsp;

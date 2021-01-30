@@ -225,7 +225,12 @@ text = ""
     text = """
         Parses exactly one value from a string.
 
-        Equivalent to `[(parse-all st filename) 0]`.
+        Equivalent to:
+
+            (match (parse-all st filename)
+              ((val) val)
+              (() (bail "parse-1 did not produce a form"))
+              (_ (bail "parse-1 produced multiple forms")))
     """
 
 [[apis]]
