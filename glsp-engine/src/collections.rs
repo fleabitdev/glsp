@@ -1502,6 +1502,8 @@ impl_splay_tuple!(12: A 0, B 1, C 2, D 3, E 4, F 5, G 6, H 7, I 8, J 9, K 10, L 
 macro_rules! try_arr_capacity {
     (.. $splayed:expr) => (1);
     ($item:expr) => (1);
+    (.. $splayed:expr,) => (1);
+    ($item:expr,) => (1);
     (.. $splayed:expr, $($token:tt)*) => (
         1 + $crate::try_arr_capacity!($($token)*)
     );
@@ -1513,6 +1515,7 @@ macro_rules! try_arr_capacity {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! try_arr_clauses {
+    ($arr:ident,) => ({});
     ($arr:ident, .. $splayed:expr) => ({
         use $crate::Splay;
         match (&$splayed).splay(&$arr) {
