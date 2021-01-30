@@ -53,15 +53,21 @@ impl Default for GError {
 }
 
 impl GError {
+    #[cold]
+    #[inline(never)]
     pub fn new() -> GError {
         GError::from_str("explicit call to bail!, error!, or GError::new")
     }
 
+    #[cold]
+    #[inline(never)]
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(st: &str) -> GError {
         GError::from_val(st)
     }
 
+    #[cold]
+    #[inline(never)]
     pub fn from_val<T: IntoVal>(t: T) -> GError {
         let val = t.into_val().unwrap_or(Val::Nil);
         let file_location = glsp::file_location();
@@ -82,6 +88,8 @@ impl GError {
         }
     }
 
+    #[cold]
+    #[inline(never)]
     pub fn macro_no_op() -> GError {
         with_vm(|vm| {
             if vm.in_expander() {
@@ -137,6 +145,8 @@ impl GError {
         }
     }
 
+    #[cold]
+    #[inline(never)]
     pub(crate) fn chain_defer_error(&mut self, defer_error: GError) {
         if self.is_macro_no_op() {
             *self = defer_error;
@@ -177,6 +187,9 @@ impl GError {
     # Ok(()) }).unwrap();
     ```
     */
+
+    #[cold]
+    #[inline(never)]
     pub fn with_source(mut self, source_to_add: impl Error + 'static) -> GError {
         match &mut *self.payload {
             Payload::MacroNoOp => panic!(),
@@ -186,6 +199,8 @@ impl GError {
         self
     }
 
+    #[cold]
+    #[inline(never)]
     #[doc(hidden)]
     pub fn new_at(span: Span) -> GError {
         glsp::push_frame(Frame::ErrorAt(span));
@@ -194,6 +209,8 @@ impl GError {
         GError::new()
     }
 
+    #[cold]
+    #[inline(never)]
     #[doc(hidden)]
     pub fn from_str_at(span: Span, st: &str) -> GError {
         glsp::push_frame(Frame::ErrorAt(span));
@@ -202,6 +219,8 @@ impl GError {
         GError::from_str(st)
     }
 
+    #[cold]
+    #[inline(never)]
     #[doc(hidden)]
     pub fn from_val_at<T: IntoVal>(span: Span, t: T) -> GError {
         glsp::push_frame(Frame::ErrorAt(span));
@@ -376,7 +395,7 @@ those arguments aren't evaluated at all.
 macro_rules! ensure {
     ($condition:expr) => (
         if !($condition) {
-            bail!("ensure!({}) failed", stringify!($condition))
+            bail!(concat!("ensure!(", stringify!($condition), ") failed"))
         }
     );
     ($condition:expr, $($arg:tt)*) => (
@@ -391,7 +410,7 @@ macro_rules! ensure {
 macro_rules! ensure_at {
     ($span:expr, $condition:expr) => (
         if !($condition) {
-            bail_at!($span, "ensure!({}) failed", stringify!($condition))
+            bail_at!($span, concat!("ensure!(", stringify!($condition), ") failed"))
         }
     );
     ($span:expr, $condition:expr, $($arg:tt)*) => (
