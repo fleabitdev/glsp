@@ -13,6 +13,8 @@
 - `cargo clippy` triggered many warnings
 - Most doctests failed when running `cargo test`
 - The `arr!` macro did not support trailing commas
+- Calling `glsp::add_rglobal` or `glsp::take_rglobal` in an `RGlobal`'s destructor would cause a
+  panic in `Runtime`'s destructor
 
 ## Version 0.2 (2nd January 2021)
 

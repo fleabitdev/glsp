@@ -336,10 +336,21 @@ impl Drop for Engine {
                     }
                 }
 
-                //drop rglobals
-                while let Some(type_id) = engine.rglobals_ordering.borrow_mut().pop() {
-                    let rglobal = engine.rglobals.borrow_mut().remove(&type_id).unwrap();
-                    drop(rglobal);
+                //drop rglobals. (a more conventional `while let` loop wouldn't work,
+                //because it would cause RefMuts to live for longer than intended)
+                loop {
+                    let type_id = engine.rglobals_ordering.borrow_mut().pop();
+                    match type_id {
+                        Some(type_id) => {
+                            let rglobal = engine.rglobals.borrow_mut().remove(&type_id).unwrap();
+
+                            debug_assert!(engine.rglobals.try_borrow_mut().is_ok());
+                            debug_assert!(engine.rglobals_ordering.try_borrow_mut().is_ok());
+
+                            drop(rglobal);
+                        }
+                        None => break,
+                    }
                 }
 
                 //todo: we need to handle the case where an rglobal's destructor allocates
