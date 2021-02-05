@@ -2657,13 +2657,22 @@ pub mod glsp {
     }
 
     /**
+    Tests whether global data of a particular type has been registered using
+    [`glsp::add_rglobal`](fn.add_rglobal.html).
+    */
+    pub fn has_rglobal<T: RGlobal>() -> bool {
+        with_engine(|engine| {
+            engine.rglobals.borrow().contains_key(&TypeId::of::<T>())
+        })
+    }
+
+    /**
     Unregisters and returns global data which was previously registered using
     [`glsp::add_rglobal`](fn.add_rglobal.html).
 
     Returns `Err` if no global is registered for the type `T`, or if a global exists but
     it's currently borrowed.
     */
-
     pub fn take_rglobal<T: RGlobal>() -> GResult<T> {
         with_engine(|engine| {
             let rc = match engine.rglobals.borrow_mut().remove(&TypeId::of::<T>()) {

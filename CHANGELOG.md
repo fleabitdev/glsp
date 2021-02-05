@@ -4,6 +4,8 @@
 
 ### Added
 
+- Added `glsp::has_rglobal`
+
 ### Changed
 
 ### Fixed
