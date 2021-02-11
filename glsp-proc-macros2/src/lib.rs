@@ -304,7 +304,7 @@ pub fn eval(input: TokenStream) -> TokenStream {
                     |__glsp_eval_val| {
                         let __glsp_eval_args = ::glsp::try_arr![#(&#vars_to_read),*]?;
                         let __glsp_eval_result: ::glsp::Val = match __glsp_eval_val {
-                            ::glsp::Val::GFn(gfn) => ::glsp::call(gfn, &[&__glsp_eval_args])?,
+                            ::glsp::Val::GFn(gfn) => ::glsp::call(gfn, &[__glsp_eval_args])?,
                             _ => ::std::panic!()
                         };
                         #(
