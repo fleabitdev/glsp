@@ -71,7 +71,7 @@
             }
         },
         {
-            "match": "(\\()(let|let-tab|let-fn|let-macro|let-class|let-mixin|fn0|fn1|fn|field|const|prop|wrap-prop)\\b(?!-)",
+            "match": "(\\()(let|let-fn|let-macro|let-class|let-mixin|fn0|fn1|fn|field|const|prop|wrap-prop|met|wrap|init-state|init-mixin|init|fini-state|fini-mixin|fini|mixin)\\b(?!-)",
             "captures": {
                 "2": { "name": "storage.type.glsp keyword.declaration.other.glsp" }
             }
@@ -80,12 +80,6 @@
             "match": "(\\()(if|when|unless|while|until|cond==|cond-eq\\?|cond-same\\?|cond|return|yield|else|any-of|forni|forn|for|block|restart-block|finish-block|in|do|break|continue|\\@base|\\@enab!|\\@enab\\?|\\@disab!|enab!|enab\\?|disab!|match|matches\\?|when-let)\\b(?!-)",
             "captures": {
                 "2": { "name": "keyword.control.glsp" }
-            }
-        },
-        {
-            "match": "(\\()(met|wrap|init-state|init-mixin|init|fini-state|fini-mixin|fini|mixin)\\b(?!-)",
-            "captures": {
-                "2": { "name": "keyword.other.glsp" }
             }
         },
 
