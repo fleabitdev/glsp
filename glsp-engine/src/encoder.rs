@@ -127,11 +127,13 @@ impl Encoder {
             "unable to bind {} as a local",
             src.name
         );
+        
+        //this method is only called to bind parameters, which should never be aliases
+        assert!(src.alias_of.is_none());
 
         let loc = if src.requires_stay {
             BindingLoc::Stay(self.frame_mut().add_stay(maybe_stay_source, span)?)
         } else {
-            assert!(src.alias_of.is_none());
             BindingLoc::Local(self.frame_mut().alloc_local(Val::Nil, span)?)
         };
 
@@ -195,7 +197,7 @@ impl Encoder {
             match src.alias_of {
                 Some(Alias::Literal(ref literal_val)) => BindingLoc::Literal(literal_val.clone()),
                 Some(Alias::Var(name)) => self.name_binding(name).unwrap().loc,
-                _ => {
+                None => {
                     let init_val = if skipping_init {
                         literal_init.unwrap()
                     } else {
@@ -215,6 +217,9 @@ impl Encoder {
                     encode_node(self, ast, init_node, Reg::Local(local_id))?;
                 }
                 BindingLoc::Stay(stay_id) => {
+                    assert!(src.alias_of.is_none());
+                    assert!(src.requires_stay);
+
                     let src_reg = encode_node(self, ast, init_node, Reg::Unspecified)?;
                     emit!(self.frame_mut(), MakeStay(src_reg; stay_id), span);
                     maybe_free_scratch(self, src_reg);

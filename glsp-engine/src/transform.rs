@@ -50,12 +50,14 @@ where
 
         if let Expr::Let { binding } = ast[node].1 {
             //we presumptively mark any new `let` binding as an alias if it refers to either a
-            //literal, or the simple name of another local variable.
+            //literal, or the simple name of another local variable where requires_stay is false
             let alias_of = ast[binding]
                 .init
                 .map(|init| match ast[init].1 {
                     Expr::Var(var_name) => match bindings.lookup(var_name) {
-                        Some(_) => Some(Alias::Var(var_name)),
+                        Some(binding_info) if !binding_info.requires_stay => {
+                            Some(Alias::Var(var_name))
+                        }
                         _ => None,
                     },
                     Expr::Literal(ref val) => Some(Alias::Literal(val.clone())),
@@ -263,35 +265,39 @@ impl Bindings {
     }
 }
 
-//the "unalias" transform pass. when a local variable is mutated, mark it as non-aliasing, and
-//do the same for any bindings which are currently aliasing the mutated variable.
+//the "unalias" transform pass. when a local variable is mutated, marks it as non-aliasing, and
+//does the same for any bindings which are currently aliasing the mutated variable.
 
 fn unalias_node(ast: &mut Ast, node: Id<Node>, bindings: &mut Bindings) {
     if let Expr::Set { target: name, .. } = ast[node].1 {
-        let bindings = &mut bindings.bindings;
+        unalias_name(bindings, name);
+    }
+}
 
-        let mut search_i = bindings.len();
-        while search_i > 0 {
-            search_i -= 1;
+fn unalias_name(bindings: &mut Bindings, name: Sym) {
+    let bindings = &mut bindings.bindings;
 
-            if bindings[search_i].name == name {
-                bindings[search_i].alias_of = None;
+    let mut search_i = bindings.len();
+    while search_i > 0 {
+        search_i -= 1;
 
-                for to_wipe in bindings.iter_mut().skip(search_i + 1) {
-                    if to_wipe.alias_of == Some(Alias::Var(name)) {
-                        to_wipe.alias_of = None
-                    }
+        if bindings[search_i].name == name {
+            bindings[search_i].alias_of = None;
+
+            for to_wipe in bindings.iter_mut().skip(search_i + 1) {
+                if to_wipe.alias_of == Some(Alias::Var(name)) {
+                    to_wipe.alias_of = None
                 }
-
-                break;
             }
+
+            break;
         }
     }
 }
 
-//the "stays" transform pass. for each new binding introduced by a Expr::Let or Expr::Fn,
-//determines whether it's accessed from within an enclosed Expr::Fn, in which case that binding's
-//requires_stay field is set to `true`.
+//the "stays" transform pass. for each local variable binding, determines whether it's ever 
+//accessed or mutated from within an enclosed Expr::Fn, in which case that binding's requires_stay 
+//field is set to `true` and it's unaliased.
 
 fn stays_node(ast: &mut Ast, node: Id<Node>, bindings: &mut Bindings) {
     match ast[node].1 {
@@ -300,6 +306,8 @@ fn stays_node(ast: &mut Ast, node: Id<Node>, bindings: &mut Bindings) {
             if let Some(binding_info) = bindings.lookup(name) {
                 if binding_info.fn_depth < fn_depth {
                     binding_info.requires_stay = true;
+
+                    unalias_name(bindings, name);
                 }
             }
         }
