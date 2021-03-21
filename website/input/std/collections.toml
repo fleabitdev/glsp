@@ -109,7 +109,7 @@ text = """
         Returns `#t` if a collection contains a particular item.
 
         `coll` may belong to any type, but if it's something other than an array, string, table,
-        object or class, this function always returns `#f`.
+        object, class or rdata, this function always returns `#f`.
 
             (prn (has? '(a b c) -1)) ; prints #t
             (prn (has? '(a b c) 4)) ; prints #f

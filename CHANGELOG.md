@@ -5,6 +5,7 @@
 ### Added
 
 - Added `glsp::has_rglobal`
+- The `has?` function can now be used to test whether a property is present in an `rdata`
 
 ### Changed
 
@@ -16,6 +17,8 @@
 - Calling `glsp::add_rglobal` or `glsp::take_rglobal` in an `RGlobal`'s destructor would cause a
   panic in `Runtime`'s destructor
 - Bindings like `(let a b)`, where `b` is a captured local, were encoded incorrectly
+- The `has?` function would fail, rather than returning `#f`, when receiving a non-collection as
+  the `coll` parameter
 
 ## Version 0.2 (2nd January 2021)
 

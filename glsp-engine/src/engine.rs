@@ -1760,6 +1760,25 @@ impl RData {
     }
 
     /**
+    Returns `true` if the given name is bound to a property which has a getter. Properties which
+    only have a setter will return `false`.
+
+    Equivalent to [`(has? rdata key)`](https://gamelisp.rs/std/has-p).
+    */
+    pub fn has<S: ToSym>(&self, key: S) -> GResult<bool> {
+        let sym = key.to_sym()?;
+
+        match self
+            .rclass
+            .as_ref()
+            .and_then(|rclass| rclass.bindings.get(&sym))
+        {
+            Some(RBinding::Prop(Some(_), _)) => Ok(true),
+            _ => Ok(false),
+        }
+    }
+
+    /**
     Invokes a method.
 
     Note that the `args` are passed by reference. They should be a reference to `()`, a tuple,

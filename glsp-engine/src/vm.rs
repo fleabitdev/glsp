@@ -1536,13 +1536,14 @@ fn interpret(
                             false
                         }
                     }
-                    ref slot => {
-                        bail_op!(
-                            HASP_SYM,
-                            "expected an arr, tab, obj or class, but received {}",
-                            slot.a_type_name()
-                        )
+                    Slot::RData(ref rdata) => {
+                        if let Slot::Sym(key_name) = key {
+                            rdata.has(key_name).unwrap()
+                        } else {
+                            false
+                        }
                     }
+                    _ => false
                 };
 
                 reg!(dst_reg) = Slot::Bool(result);

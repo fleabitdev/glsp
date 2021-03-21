@@ -152,6 +152,10 @@ fn hasp(arg: Val, key: Val) -> GResult<bool> {
             Val::Sym(key_name) => Ok(class.has(key_name)?),
             _ => Ok(false),
         },
+        Val::RData(rdata) => match key {
+            Val::Sym(key_name) => Ok(rdata.has(key_name)?),
+            _ => Ok(false),
+        },
         _ => Ok(false),
     }
 }
