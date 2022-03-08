@@ -6,8 +6,8 @@ To get started, take a look at the [homepage](https://gamelisp.rs). Please note 
 currently requires the latest version of **nightly** Rust.
 
 _**Update, March 2022**: My game project is on hold, meaning that GameLisp is not currently under 
-active maintenance. Due to issue #36, the `glsp` crate will fail to compile when using nightly
-Rust toolchains newer than 30th September 2021._
+active maintenance. Due to [issue #36](https://github.com/fleabitdev/glsp/issues/36), the `glsp`
+crate will fail to compile when using nightly Rust toolchains newer than 30th September 2021._
 
 ## Contributing
 
@@ -18,7 +18,7 @@ will be dual-licensed as described below, with no additional terms or conditions
 
 Short-term goals for the language, in descending order of priority:
 
-- Fix #36
+- Fix [issue #36](https://github.com/fleabitdev/glsp/issues/36)
 - Add test suite
 - Add syntax-highlighting for more text editors
 - Report the location of mismatched parentheses when parsing
