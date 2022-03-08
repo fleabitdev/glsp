@@ -2064,6 +2064,21 @@ fn main() -> Result<(), Box<dyn Error>> {
         "output/playground/spritesheet.json",
     )?;
 
+    const FONTS: &[&str] = &[
+        "SourceSansPro-Latin-Regular.woff2",
+        "SourceSansPro-Latin-RegularItalic.woff2",
+        "SourceSansPro-Latin-SemiBold.woff2",
+        "SourceSansPro-Latin-SemiBoldItalic.woff2",
+        "SourceCodePro-Latin-Regular.woff2",
+        "SourceCodePro-Latin-SemiBold.woff2",
+    ];
+    for font in FONTS {
+        fs::copy(
+            format!("input/{}", font),
+            format!("output/{}", font),
+        )?;
+    }
+
     //generate the images
     let images_start = Instant::now();
     if maybe_transform_images() {
