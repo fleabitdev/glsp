@@ -5,9 +5,10 @@
 To get started, take a look at the [homepage](https://gamelisp.rs). Please note that GameLisp
 currently requires the latest version of **nightly** Rust.
 
-_**Update, March 2022**: My game project is on hold, meaning that GameLisp is not currently under 
+*Update, March 2022: My game project is on hold, meaning that GameLisp is not currently under 
 active maintenance. Due to [issue #36](https://github.com/fleabitdev/glsp/issues/36), the `glsp`
-crate will fail to compile when using nightly Rust toolchains newer than 30th September 2021._
+crate will fail to compile when using nightly Rust toolchains newer than 30th September 2021.
+Apologies for any inconvenience!*
 
 ## Contributing
 
