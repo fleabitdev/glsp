@@ -230,10 +230,10 @@ fn render_boilerplate(boilerplate: Boilerplate, title: &str, body: &str) -> Stri
                 };
 
                 link rel="stylesheet" href={(prefix) (STYLESHEET)} type="text/css";
-                link rel="icon" href={(prefix) "favicon-16.png"} sizes="16x16" type="image/x-icon";
-                link rel="icon" href={(prefix) "favicon-24.png"} sizes="24x24" type="image/x-icon";
-                link rel="icon" href={(prefix) "favicon-32.png"} sizes="32x32" type="image/x-icon";
-                link rel="icon" href={(prefix) "favicon-48.png"} sizes="48x48" type="image/x-icon";
+                link rel="icon" href={(prefix) "favicon-16.png"} sizes="16x16" type="image/png";
+                link rel="icon" href={(prefix) "favicon-24.png"} sizes="24x24" type="image/png";
+                link rel="icon" href={(prefix) "favicon-32.png"} sizes="32x32" type="image/png";
+                link rel="icon" href={(prefix) "favicon-48.png"} sizes="48x48" type="image/png";
 
                 meta name="color-scheme" content="light dark";
                 meta name="viewport" content="width=device-width, initial-scale=1";
@@ -980,16 +980,6 @@ fn render_homepage() -> String {
                                 "Develop"
                                 span.link-destination { "(github.com)" }
                             }
-                        }
-                    }
-                }
-
-                a href="https://patreon.com/fleabitdev" {
-                    .panel.patreon-button {
-                        picture {
-                            source srcset="patreon-button-dark.png"
-                                media="(prefers-color-scheme: dark)";
-                            img src="patreon-button-light.png" alt="Become a Patron";
                         }
                     }
                 }

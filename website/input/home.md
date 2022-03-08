@@ -1,5 +1,4 @@
-**GameLisp** is a scripting language for [Rust](https://rust-lang.org) game development. It was 
-created while working on [The&nbsp;Castle&nbsp;on&nbsp;Fire](tcof/).
+**GameLisp** is a scripting language for [Rust](https://rust-lang.org) game development.
 
 - **No garbage collection pauses**. GameLisp has a unique garbage collector designed specifically 
   for game development. It&nbsp;runs once per frame, every frame, without causing any latency 

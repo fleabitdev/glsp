@@ -84,9 +84,6 @@ query to fall back to the default image-rendering in those cases.
     --header-accent: #ede5d3;
     --header-accent-hover: #f5edda;
 
-    --patreon-gradient: linear-gradient(0deg, #99a67e, #b7c78e);
-    --patreon-border-color: #788066;
-
     --text-color: black;
     --faded-text-color: #aba08e;
     --text-link-color: #736550;
@@ -113,9 +110,6 @@ query to fall back to the default image-rendering in those cases.
         --panel-border-color: #592727;
         --header-accent: #3e2521;
         --header-accent-hover: #6a3434;
-
-        --patreon-gradient: linear-gradient(0deg, #781616, #8c6734);
-        --patreon-border-color: #bab179;
 
         --text-color: #cec6b0;
         --faded-text-color: #806460;
@@ -168,11 +162,6 @@ pre .emphasised {
 .panel {
     background-color: var(--panel-color);
     border: 1px solid var(--panel-border-color);
-}
-
-.patreon-button {
-    background: var(--patreon-gradient);
-    border: 1px solid var(--patreon-border-color);
 }
 
 .button {
@@ -356,11 +345,6 @@ a.panel-header:hover {
 
 .horz-center > * {
     grid-column: 2;
-}
-
-.patreon-button img {
-    display: block;
-    width: 100%;
 }
 
 .button {
